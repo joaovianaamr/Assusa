@@ -1,7 +1,6 @@
-import { RequestLog } from '../entities/request.js';
-
-export interface SheetsPort {
-  logRequest(request: RequestLog, requestId: string): Promise<void>;
-  findRequestsByCpfHash(cpfHash: string, requestId: string): Promise<RequestLog[]>;
-  deleteRequestsByCpfHash(cpfHash: string, requestId: string): Promise<void>;
-}
+/**
+ * Ponte temporária durante migração
+ * Reexporta o port do novo caminho
+ * TODO: Migrar imports e remover este arquivo
+ */
+export * from '../../application/ports/driven/sheets-port.js';

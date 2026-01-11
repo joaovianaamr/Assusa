@@ -1,5 +1,6 @@
-export interface DrivePort {
-  uploadFile(fileName: string, fileContent: Buffer, mimeType: string, requestId: string): Promise<string>;
-  deleteFile(fileId: string, requestId: string): Promise<void>;
-  getFileUrl(fileId: string): string;
-}
+/**
+ * Ponte temporária durante migração
+ * Reexporta o port do novo caminho
+ * TODO: Migrar imports e remover este arquivo
+ */
+export * from '../../application/ports/driven/drive-port.js';

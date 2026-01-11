@@ -1,7 +1,6 @@
-export interface StoragePort {
-  get(key: string, requestId: string): Promise<string | null>;
-  set(key: string, value: string, ttlSeconds?: number, requestId?: string): Promise<void>;
-  delete(key: string, requestId: string): Promise<void>;
-  increment(key: string, requestId: string): Promise<number>;
-  expire(key: string, ttlSeconds: number, requestId: string): Promise<void>;
-}
+/**
+ * Ponte temporária durante migração
+ * Reexporta o port do novo caminho
+ * TODO: Migrar imports e remover este arquivo
+ */
+export * from '../../application/ports/driven/storage-port.js';

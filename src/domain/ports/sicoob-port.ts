@@ -1,6 +1,6 @@
-import { BoletoSicoob } from '../entities/boleto.js';
-
-export interface SicoobPort {
-  buscarBoletosPorCPF(cpfHash: string, requestId: string): Promise<BoletoSicoob[]>;
-  gerarSegundaVia(nossoNumero: string, cpfHash: string, requestId: string): Promise<Buffer>;
-}
+/**
+ * Ponte temporária durante migração
+ * Reexporta o port do novo caminho
+ * TODO: Migrar imports e remover este arquivo
+ */
+export * from '../../application/ports/driven/sicoob-port.js';
