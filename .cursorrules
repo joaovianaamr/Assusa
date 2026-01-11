@@ -1,0 +1,127 @@
+# Regras Globais do Projeto Assusa
+
+## 📝 Padrão de Commits (CRÍTICO)
+
+**NUNCA acumule commits grandes. Sempre divida em fases e partes.**
+
+- Cada commit deve representar uma **funcionalidade específica** e ser **compreensível por si só**
+- Commits devem ser **pequenos e focados** para facilitar manutenção e revisão
+- Respeite o padrão **Conventional Commits** já existente no projeto:
+  - Formato: `tipo(escopo?): descrição em português`
+  - Tipos: `feat`, `test`, `docs`, `chore`, `fix`, `refactor`
+  - Escopo é **opcional** e deve refletir a camada/módulo afetado:
+    - `adapters` - para adapters (whatsapp, sicoob, google, redis, http)
+    - `domain` - para entidades, ports, use cases, value objects
+    - `application` - para serviços de aplicação
+    - `infra` - para infrastructure (config, logging, security)
+    - `docker` - para Dockerfile e configurações de container
+  - Descrição deve ser **específica e clara** sobre o que foi implementado/alterado
+
+### Exemplos de Commits Válidos (baseados no histórico do projeto):
+- ✅ `feat(adapters): implementa adapter WhatsApp Cloud API`
+- ✅ `feat(adapters): implementa RateLimiter com Redis`
+- ✅ `feat(domain): implementa use case GerarSegundaVia`
+- ✅ `test: adiciona testes para CPF Handler`
+- ✅ `docs: adiciona documentação completa do projeto`
+- ✅ `chore: remove arquivos .gitkeep desnecessários`
+
+### Exemplos de Commits INVÁLIDOS:
+- ❌ `feat: implementa sistema completo` (muito genérico, várias funcionalidades)
+- ❌ `fix: corrige bugs e adiciona features` (múltiplas mudanças)
+- ❌ `chore: atualiza código` (pouco descritivo)
+
+**Regra de Ouro**: Se você precisar usar "e" ou "também" na mensagem do commit, provavelmente precisa dividir em múltiplos commits.
+
+## 🌐 Idioma e Comunicação
+
+- Sempre responder em **português**
+- Documentação e comentários em código devem estar em **português**
+- Mensagens de commit em **português**
+
+## 🏗️ Arquitetura
+
+O projeto segue **Clean Architecture (Ports & Adapters)**. Respeite a separação de camadas:
+
+- **Domain** (`src/domain/`): Regras de negócio puras, sem dependências externas
+  - Entities: Entidades de domínio
+  - Use Cases: Casos de uso
+  - Value Objects: Objetos de valor
+  - **Apenas ports puramente de domínio** (genéricos e abstratos, raros)
+
+- **Application** (`src/application/`): Serviços que orquestram casos de uso
+  - Services: Serviços de aplicação
+  - **Ports de integrações externas** (`src/application/ports/driven/`): Interfaces de integrações externas
+    - WhatsApp, Sicoob, Google Drive, Google Sheets, Redis, HTTP, etc.
+  - **Ports de entrada** (`src/application/ports/driving/`): Interfaces de controllers/handlers (se existirem)
+
+- **Adapters** (`src/adapters/`): Implementações concretas das portas
+  - http: Servidor Fastify
+  - whatsapp: Adapter WhatsApp Cloud API
+  - sicoob: Adapter Sicoob API
+  - google: Adapters Google Drive/Sheets
+  - redis: Adapter Redis (com fallback em memória)
+  - in-memory: Implementações em memória para desenvolvimento/testes
+
+- **Infrastructure** (`src/infrastructure/`): Configuração, logging, segurança
+
+### 📍 Regra Arquitetural: Localização de Ports
+
+**CRÍTICO**: Ports de integrações externas **NUNCA** devem ficar em `src/domain/ports/`.
+
+- ✅ **Ports de integrações externas** → `src/application/ports/driven/`
+  - Exemplos: `WhatsAppPort`, `SicoobPort`, `DrivePort`, `SheetsPort`, `StoragePort`, `RateLimiter`, `Logger`, etc.
+  - **Critério**: Se o nome do port "parece integração", ele NÃO é domínio.
+
+- ✅ **Ports puramente de domínio** (raros) → `src/domain/ports/`
+  - Exemplos: `Clock`, `IdGenerator`, `Hasher`, `RandomProvider`, abstrações de políticas de domínio
+  - **Critério**: Genéricos, abstratos, não são integrações específicas.
+
+**Migração gradual**: Ports legados em `src/domain/ports/` possuem arquivos ponte (reexports) durante a migração incremental.
+
+**Referência**: Ver ADR-0001 em `docs/adr/ADR-0001-ports-na-application.md`
+
+## 💻 Padrões de Código TypeScript
+
+- Use **TypeScript** com tipos explícitos (evitar `any`)
+- Nomes de variáveis e funções em **camelCase**
+- Nomes de classes e interfaces em **PascalCase**
+- Use **async/await** ao invés de `Promise.then()`
+- Sempre tratar erros adequadamente com **try/catch**
+- Use **interfaces** para definir contratos (Ports)
+- Prefira **injeção de dependências** via construtor
+
+## 🔒 LGPD e Segurança
+
+- **CPFs sempre devem ser hasheados** antes de armazenar (usar `CpfHandler.hashCpf()`)
+- **CPFs nunca devem aparecer em logs** - sempre usar mascaramento (`CpfHandler.maskCpf()`)
+- Validar todos os inputs do usuário
+- Nunca commitar dados sensíveis ou secrets
+- Usar variáveis de ambiente para configurações sensíveis
+
+## 🧪 Testes
+
+- Adicionar **testes unitários** para novas funcionalidades
+- Testes devem ser isolados e independentes
+- Usar mocks para dependências externas
+- Manter cobertura de testes adequada
+- Testes em português (describe/it em português)
+
+## 📦 Estrutura de Arquivos
+
+- Um arquivo por classe/função principal
+- Agrupar arquivos relacionados em diretórios
+- Usar exports nomeados ao invés de default exports
+- Seguir a estrutura de pastas já estabelecida
+
+## 🔧 Desenvolvimento
+
+- Usar `npm run dev` para desenvolvimento com hot-reload
+- Executar `npm test` antes de commitar
+- Verificar lint com `npm run lint`
+- Type-check com `npm run type-check`
+
+## 📚 Documentação
+
+- Atualizar README.md quando adicionar funcionalidades significativas
+- Documentar funções complexas com JSDoc
+- Manter comentários explicativos apenas quando necessário (código deve ser auto-explicativo)
