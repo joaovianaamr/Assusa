@@ -3,7 +3,7 @@ import fastifyRequestContext from '@fastify/request-context';
 import { WhatsappRouter } from '../../application/services/whatsapp-router.js';
 import { WhatsAppCloudApiAdapter } from '../whatsapp/whatsapp-cloud-api-adapter.js';
 import { Config } from '../../infrastructure/config/config.js';
-import { Logger } from '../../domain/ports/logger-port.js';
+import { Logger } from '../../application/ports/driven/logger-port.js';
 import { PinoLogger } from '../../infrastructure/logging/pino-logger.js';
 
 export interface AppDependencies {

@@ -1,9 +1,9 @@
 import axios, { AxiosInstance } from 'axios';
 import https from 'https';
 import fs from 'fs/promises';
-import { SicoobPort } from '../../domain/ports/sicoob-port.js';
+import { SicoobPort } from '../../application/ports/driven/sicoob-port.js';
 import { BoletoSicoob } from '../../domain/entities/boleto.js';
-import { Logger } from '../../domain/ports/logger-port.js';
+import { Logger } from '../../application/ports/driven/logger-port.js';
 import { Config } from '../../infrastructure/config/config.js';
 
 interface SicoobAuthResponse {

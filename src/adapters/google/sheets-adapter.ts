@@ -1,7 +1,7 @@
 import { google } from 'googleapis';
-import { SheetsPort } from '../../domain/ports/sheets-port.js';
+import { SheetsPort } from '../../application/ports/driven/sheets-port.js';
 import { RequestLog } from '../../domain/entities/request.js';
-import { Logger } from '../../domain/ports/logger-port.js';
+import { Logger } from '../../application/ports/driven/logger-port.js';
 import { Config } from '../../infrastructure/config/config.js';
 
 export class GoogleSheetsAdapter implements SheetsPort {
