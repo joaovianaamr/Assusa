@@ -86,23 +86,36 @@ describe('CpfHandler', () => {
     });
   });
 
-  describe('sanitizeForLog (deprecated)', () => {
-    it('deve mascarar CPFs válidos em strings (formatados ou não)', () => {
+  describe('sanitizeForLogs (padrão recomendado)', () => {
+    it('deve mascarar CPFs válidos em strings usando sanitizeForLogs', () => {
       // CPF formatado válido deve ser mascarado
-      expect(CpfHandler.sanitizeForLog('CPF: 111.444.777-35')).toBe('CPF: ***.***.***-35');
-      // CPF sem formatação válido também deve ser mascarado (alinhado com sanitizeForLogs)
-      expect(CpfHandler.sanitizeForLog('CPF: 11144477735')).toBe('CPF: ***.***.***-35');
+      const result1 = sanitizeForLogs({ message: 'CPF: 111.444.777-35' });
+      expect(result1.message).toBe('CPF: ***.***.***-35');
+      
+      // CPF sem formatação válido também deve ser mascarado
+      const result2 = sanitizeForLogs({ message: 'CPF: 11144477735' });
+      expect(result2.message).toBe('CPF: ***.***.***-35');
+      
       // CPF inválido não deve ser mascarado
-      expect(CpfHandler.sanitizeForLog('CPF: 12345678900')).toBe('CPF: 12345678900');
+      const result3 = sanitizeForLogs({ message: 'CPF: 12345678900' });
+      expect(result3.message).toBe('CPF: 12345678900');
     });
 
-    it('deve usar sanitizeForLogs internamente (compatibilidade)', () => {
-      // Verificar que o método deprecated usa sanitizeForLogs internamente
-      const text = 'CPF: 111.444.777-35';
-      const deprecatedResult = CpfHandler.sanitizeForLog(text);
-      const directResult = sanitizeForLogs({ message: text });
+    it('deve sanitizar objetos com múltiplos campos', () => {
+      const obj = {
+        message: 'CPF: 111.444.777-35',
+        cpf: '11144477735',
+        otherField: 'valor seguro',
+      };
       
-      expect(deprecatedResult).toBe((directResult.message as string) || text);
+      const sanitized = sanitizeForLogs(obj);
+      
+      // CPF no campo 'cpf' deve ser removido (campo sensível)
+      expect(sanitized.cpf).toBeUndefined();
+      // CPF na string 'message' deve ser mascarado
+      expect(sanitized.message).toBe('CPF: ***.***.***-35');
+      // Outros campos devem ser preservados
+      expect(sanitized.otherField).toBe('valor seguro');
     });
   });
 
