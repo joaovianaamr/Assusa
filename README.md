@@ -152,7 +152,10 @@ cd assusa
 npm install
 ```
 
-3. Configure as variáveis de ambiente (veja seção [Configuração](#configuração)). Crie um arquivo `.env` na raiz do projeto com as variáveis necessárias.
+3. Configure as variáveis de ambiente:
+   - Copie o template de `docs/ENV_TEMPLATE.md` para um novo arquivo `.env` na raiz
+   - Preencha todas as variáveis obrigatórias com seus valores reais
+   - Valide a configuração: `npm run validate-config`
 
 4. Compile o projeto:
 ```bash
@@ -539,7 +542,21 @@ npm test -- tests/unit
 
 # Apenas testes de integração
 npm test -- tests/integration
+
+# Validar configuração de variáveis de ambiente
+npm run validate-config
 ```
+
+### Scripts Disponíveis
+
+- `npm run dev` - Desenvolvimento com hot-reload
+- `npm run build` - Compilar TypeScript
+- `npm start` - Executar versão compilada
+- `npm test` - Executar testes
+- `npm run test:coverage` - Testes com cobertura
+- `npm run validate-config` - Validar variáveis de ambiente
+- `npm run lint` - Verificar lint
+- `npm run type-check` - Verificar tipos TypeScript
 
 ### Exemplos de Testes
 
