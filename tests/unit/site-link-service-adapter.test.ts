@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { SiteLinkServiceAdapter } from '../../src/adapters/infrastructure/site-link-service-adapter.js';
+import { SiteLinkServiceAdapter } from '../../src/adapters/services/site-link-service-adapter.js';
 import { Config } from '../../src/infrastructure/config/config.js';
 import { Logger } from '../../src/application/ports/driven/logger-port.js';
 

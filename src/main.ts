@@ -7,10 +7,10 @@ import { InMemoryConversationStateStore } from './adapters/in-memory/in-memory-c
 import { RedisConversationStateStore } from './adapters/redis/redis-conversation-state-store.js';
 import { SicoobTitleRepositoryAdapter } from './adapters/sicoob/sicoob-title-repository-adapter.js';
 import { SicoobBankProviderAdapter } from './adapters/sicoob/sicoob-bank-provider-adapter.js';
-import { SimplePdfServiceAdapter } from './adapters/infrastructure/simple-pdf-service-adapter.js';
+import { SimplePdfServiceAdapter } from './adapters/services/simple-pdf-service-adapter.js';
 import { GoogleDriveStorageAdapter } from './adapters/google/google-drive-storage-adapter.js';
 import { GoogleSheetLoggerAdapter } from './adapters/google/google-sheet-logger-adapter.js';
-import { SiteLinkServiceAdapter } from './adapters/infrastructure/site-link-service-adapter.js';
+import { SiteLinkServiceAdapter } from './adapters/services/site-link-service-adapter.js';
 
 // Use Cases da camada de aplicação
 import { ShowMenuUseCase } from './application/use-cases/show-menu.use-case.js';
