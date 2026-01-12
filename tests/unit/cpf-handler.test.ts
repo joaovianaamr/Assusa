@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { CpfHandler } from '../../src/infrastructure/security/cpf-handler.js';
+import { sanitizeForLogs } from '../../src/domain/helpers/lgpd-helpers.js';
 
 describe('CpfHandler', () => {
   const originalPepper = process.env.CPF_PEPPER;
@@ -85,7 +86,7 @@ describe('CpfHandler', () => {
     });
   });
 
-  describe('sanitizeForLog', () => {
+  describe('sanitizeForLog (deprecated)', () => {
     it('deve mascarar CPFs válidos em strings (formatados ou não)', () => {
       // CPF formatado válido deve ser mascarado
       expect(CpfHandler.sanitizeForLog('CPF: 111.444.777-35')).toBe('CPF: ***.***.***-35');
@@ -93,6 +94,15 @@ describe('CpfHandler', () => {
       expect(CpfHandler.sanitizeForLog('CPF: 11144477735')).toBe('CPF: ***.***.***-35');
       // CPF inválido não deve ser mascarado
       expect(CpfHandler.sanitizeForLog('CPF: 12345678900')).toBe('CPF: 12345678900');
+    });
+
+    it('deve usar sanitizeForLogs internamente (compatibilidade)', () => {
+      // Verificar que o método deprecated usa sanitizeForLogs internamente
+      const text = 'CPF: 111.444.777-35';
+      const deprecatedResult = CpfHandler.sanitizeForLog(text);
+      const directResult = sanitizeForLogs({ message: text });
+      
+      expect(deprecatedResult).toBe((directResult.message as string) || text);
     });
   });
 

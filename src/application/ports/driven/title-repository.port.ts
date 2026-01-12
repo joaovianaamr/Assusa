@@ -12,7 +12,4 @@ export interface TitleRepository {
    * @returns Lista de títulos em aberto
    */
   findOpenTitlesByCpfHash(cpfHash: string): Promise<Title[]>;
-  
-  // Método futuro - comentado para referência
-  // findByReference(...params: unknown[]): Promise<Title[]>;
 }
