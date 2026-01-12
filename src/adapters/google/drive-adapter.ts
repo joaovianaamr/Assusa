@@ -1,27 +1,27 @@
 import { google } from 'googleapis';
 import { DrivePort } from '../../domain/ports/drive-port.js';
-import { Logger } from '../../domain/ports/logger-port.js';
+import { Logger } from '../../application/ports/driven/logger-port.js';
 import { Config } from '../../infrastructure/config/config.js';
+import { GoogleAuth } from '../../infrastructure/utils/google-auth.js';
 
 export class GoogleDriveAdapter implements DrivePort {
   private drive: ReturnType<typeof google.drive>;
   private folderId: string;
 
-  constructor(private config: Config, private logger: Logger) {
+  constructor(config: Config, private logger: Logger) {
     this.folderId = config.googleDriveFolderId;
 
-    const auth = new google.auth.JWT({
-      email: config.googleClientEmail,
-      key: config.googlePrivateKey.replace(/\\n/g, '\n'),
-      scopes: [
-        'https://www.googleapis.com/auth/drive.file',
-        'https://www.googleapis.com/auth/drive',
-      ],
-    });
+    // Inicializar GoogleAuth com Service Account JSON base64
+    const googleAuth = GoogleAuth.getInstance();
+    googleAuth.initialize(config.googleServiceAccountJsonBase64, [
+      'https://www.googleapis.com/auth/drive.file',
+      'https://www.googleapis.com/auth/drive',
+    ]);
 
+    // Criar cliente Drive usando o auth do GoogleAuth
     this.drive = google.drive({
       version: 'v3',
-      auth,
+      auth: googleAuth.getAuthClient(),
     });
   }
 
@@ -55,15 +55,8 @@ export class GoogleDriveAdapter implements DrivePort {
         throw new Error('ID do arquivo não retornado');
       }
 
-      // Definir permissões (apenas o serviço pode acessar)
-      await this.drive.permissions.create({
-        fileId,
-        requestBody: {
-          role: 'reader',
-          type: 'user',
-          emailAddress: this.config.googleClientEmail,
-        },
-      });
+      // Arquivo é criado na pasta privada, sem permissões públicas
+      // A pasta já deve estar compartilhada apenas com service account e equipe
 
       this.logger.info({ requestId, fileId, fileName }, 'Arquivo enviado para o Drive');
 
