@@ -9,6 +9,7 @@ export class GoogleSheetsAdapter implements SheetsPort {
   private sheets: ReturnType<typeof google.sheets>;
   private spreadsheetId: string;
   private worksheetName: string;
+  private sheetIdCache?: number;
 
   constructor(config: Config, private logger: Logger) {
     this.spreadsheetId = config.googleSheetsSpreadsheetId;
@@ -30,6 +31,53 @@ export class GoogleSheetsAdapter implements SheetsPort {
     this.ensureHeaders().catch(err => {
       this.logger.error({ error: err }, 'Erro ao garantir cabeçalhos do Sheets');
     });
+  }
+
+  /**
+   * Obtém o ID da planilha (sheet) pelo nome da aba
+   * Usa cache para evitar múltiplas chamadas à API
+   */
+  private async getSheetId(): Promise<number> {
+    if (this.sheetIdCache !== undefined) {
+      return this.sheetIdCache;
+    }
+
+    try {
+      const response = await this.sheets.spreadsheets.get({
+        spreadsheetId: this.spreadsheetId,
+      });
+
+      const sheet = response.data.sheets?.find(
+        s => s.properties?.title === this.worksheetName
+      );
+
+      const sheetId = sheet?.properties?.sheetId;
+      if (sheetId === undefined || sheetId === null) {
+        // Fallback: usar primeira aba se não encontrar pelo nome
+        const firstSheet = response.data.sheets?.[0];
+        const firstSheetId = firstSheet?.properties?.sheetId;
+        if (firstSheetId !== undefined && firstSheetId !== null) {
+          this.sheetIdCache = firstSheetId;
+          this.logger.warn(
+            { worksheetName: this.worksheetName, sheetId: this.sheetIdCache },
+            'Aba não encontrada pelo nome, usando primeira aba'
+          );
+          return this.sheetIdCache;
+        }
+        throw new Error(`Aba "${this.worksheetName}" não encontrada na planilha`);
+      }
+
+      this.sheetIdCache = sheetId;
+      this.logger.debug(
+        { worksheetName: this.worksheetName, sheetId: this.sheetIdCache },
+        'Sheet ID obtido dinamicamente'
+      );
+      return this.sheetIdCache;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao obter Sheet ID';
+      this.logger.error({ error: errorMessage, worksheetName: this.worksheetName }, 'Erro ao obter Sheet ID');
+      throw new Error(`Falha ao obter Sheet ID: ${errorMessage}`);
+    }
   }
 
   private async ensureHeaders(): Promise<void> {
@@ -168,6 +216,9 @@ export class GoogleSheetsAdapter implements SheetsPort {
         return;
       }
 
+      // Obter Sheet ID dinamicamente
+      const sheetId = await this.getSheetId();
+
       // Deletar linhas de trás para frente para não alterar índices
       for (let i = rowsToDelete.length - 1; i >= 0; i--) {
         await this.sheets.spreadsheets.batchUpdate({
@@ -177,7 +228,7 @@ export class GoogleSheetsAdapter implements SheetsPort {
               {
                 deleteDimension: {
                   range: {
-                    sheetId: 0, // Assumindo primeira aba - pode precisar ajustar
+                    sheetId, // Usar Sheet ID obtido dinamicamente
                     dimension: 'ROWS',
                     startIndex: rowsToDelete[i] - 1,
                     endIndex: rowsToDelete[i],
