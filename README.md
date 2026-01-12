@@ -48,12 +48,11 @@ src/
 1. **Domain** (`domain/`): 
    - Entidades de domínio
    - Value Objects (CPF, etc.)
-   - Use Cases de domínio (GerarSegundaVia, ExcluirDados)
    - Ports puramente de domínio (raros, durante migração gradual)
 
 2. **Application** (`application/`): 
-   - Serviços que orquestram os casos de uso (WhatsAppService, ApplicationService)
-   - Use Cases da camada de aplicação (ShowMenu, StartSecondCopyFlow, etc.)
+   - Serviços que orquestram os casos de uso (ApplicationService, WhatsappRouter)
+   - Use Cases da camada de aplicação (ShowMenu, StartSecondCopyFlow, GenerateSecondCopy, DeleteData, etc.)
    - **Ports de integrações externas** (`application/ports/driven/`): Interfaces de integrações (WhatsApp, Sicoob, Google Drive, Google Sheets, Redis, Logger, etc.)
    - DTOs
 
@@ -296,6 +295,113 @@ GOOGLE_SHEETS_WORKSHEET_NAME=Requests
 1. Obtenha credenciais da API do Sicoob
 2. Se necessário, configure certificados SSL (PEM format)
 
+### TitleRepository - Repositório de Títulos
+
+O sistema suporta diferentes implementações do `TitleRepository` para buscar títulos:
+
+#### 1. SicoobTitleRepositoryAdapter (Produção)
+
+Implementação que busca títulos diretamente da API do Sicoob. Esta é a implementação padrão usada em produção.
+
+#### 2. InMemoryTitleRepository (Desenvolvimento)
+
+Implementação em memória para desenvolvimento e testes. Mantém um mapa `cpfHash -> Title[]` com dados de exemplo.
+
+**Como usar:**
+
+1. No arquivo `src/main.ts`, substitua a inicialização do `titleRepository`:
+
+```typescript
+// Em vez de:
+const titleRepository = new SicoobTitleRepositoryAdapter(sicoobAdapter, logger);
+
+// Use:
+import { InMemoryTitleRepository } from './adapters/in-memory/in-memory-title-repository.js';
+const titleRepository = new InMemoryTitleRepository(logger);
+```
+
+2. **Seed de Exemplo:**
+
+O `InMemoryTitleRepository` já vem com dados de exemplo pré-configurados. Para obter os hashes reais dos CPFs de teste, use:
+
+```typescript
+import { CpfHandler } from './infrastructure/security/cpf-handler.js';
+
+// Obter hash do CPF
+const cpfHash = CpfHandler.hashCpf('12345678900');
+console.log('Hash do CPF:', cpfHash);
+```
+
+3. **Adicionar Títulos Manualmente:**
+
+Durante desenvolvimento, você pode adicionar títulos manualmente:
+
+```typescript
+const titleRepository = new InMemoryTitleRepository(logger);
+
+// Adicionar títulos para um CPF
+const cpfHash = CpfHandler.hashCpf('12345678900');
+titleRepository.addTitles(cpfHash, [
+  {
+    id: crypto.randomUUID(),
+    nossoNumero: '12345678901234567',
+    contrato: 'CTR-2024-001',
+    codigoBeneficiario: '123456',
+    valor: 150.50,
+    vencimento: new Date('2024-12-31'),
+    status: 'OPEN',
+  },
+]);
+```
+
+**Estrutura dos Dados de Exemplo:**
+
+- **CPF 1**: 1 título em aberto
+- **CPF 2**: 3 títulos em aberto (para testar seleção múltipla)
+- **CPF 3**: 0 títulos (para testar caso sem títulos)
+
+**Importante**: Os hashes de exemplo no código são placeholders. Substitua pelos hashes reais usando `CpfHandler.hashCpf()`.
+
+#### 3. GoogleSheetsTitleRepository (Opcional)
+
+Implementação que lê títulos de uma planilha do Google Sheets. Útil para desenvolvimento ou quando não há integração com ERP.
+
+**Configuração:**
+
+1. Crie uma aba chamada "titles" na planilha configurada em `GOOGLE_SHEETS_SPREADSHEET_ID`
+2. Configure a variável de ambiente (opcional):
+   ```env
+   GOOGLE_SHEETS_TITLES_WORKSHEET_NAME=titles
+   ```
+
+3. Estrutura da planilha (colunas A-G):
+   - **A**: `cpf_hash` - Hash do CPF (SHA256 + pepper)
+   - **B**: `nosso_numero` - Número do título
+   - **C**: `contrato` - Número do contrato (opcional)
+   - **D**: `codigo_beneficiario` - Código do beneficiário (opcional)
+   - **E**: `valor` - Valor do título (opcional)
+   - **F**: `vencimento` - Data de vencimento no formato ISO (opcional)
+   - **G**: `status` - Status do título (OPEN, CLOSED, etc.)
+
+4. O repositório filtra automaticamente apenas títulos com `status=OPEN`
+
+5. **Cache**: O repositório usa cache de 5 minutos para reduzir custos de API do Google Sheets
+
+**Exemplo de dados na planilha:**
+
+| cpf_hash | nosso_numero | contrato | codigo_beneficiario | valor | vencimento | status |
+|----------|--------------|----------|---------------------|-------|------------|--------|
+| abc123... | 12345678901234567 | CTR-2024-001 | 123456 | 150.50 | 2024-12-31 | OPEN |
+| abc123... | 12345678901234568 | CTR-2024-002 | 123456 | 250.75 | 2024-11-30 | OPEN |
+| def456... | 98765432109876543 | CTR-2024-003 | 123456 | 350.00 | 2024-12-15 | CLOSED |
+
+**Como usar:**
+
+```typescript
+import { GoogleSheetsTitleRepository } from './adapters/google/google-sheets-title-repository.js';
+const titleRepository = new GoogleSheetsTitleRepository(config, logger);
+```
+
 ## 💻 Uso
 
 ### Desenvolvimento Local
@@ -429,7 +535,7 @@ assusa/
 │   │   ├── dtos/              # Data Transfer Objects
 │   │   ├── ports/
 │   │   │   └── driven/        # Ports de integrações externas (WhatsApp, Sicoob, Google, Redis, Logger, etc.)
-│   │   ├── services/          # Serviços de aplicação (WhatsAppService, ApplicationService)
+│   │   ├── services/          # Serviços de aplicação (ApplicationService, WhatsappRouter)
 │   │   └── use-cases/         # Use Cases da camada de aplicação (ShowMenu, StartSecondCopyFlow, etc.)
 │   ├── adapters/
 │   │   ├── http/              # Servidor Fastify
