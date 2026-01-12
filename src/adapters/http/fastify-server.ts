@@ -90,7 +90,11 @@ export class FastifyServer {
         const message = await this.dependencies.whatsappAdapter.handleWebhook(payload, requestId);
 
         if (message) {
-          await this.dependencies.whatsappService.handleMessage(message, requestId);
+          await this.dependencies.whatsappRouter.handleIncomingMessage(
+            message.from,
+            message.message,
+            requestId
+          );
         }
 
         return reply.send({ success: true });
