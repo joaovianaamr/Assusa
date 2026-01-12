@@ -60,11 +60,11 @@ export class FastifyServer {
     });
 
     // Webhook do WhatsApp
-    this.app.get('/webhook', async (request: FastifyRequest, reply: FastifyReply) => {
-      const { mode, token, challenge } = request.query as {
-        mode?: string;
-        token?: string;
-        challenge?: string;
+    this.app.get('/webhooks/whatsapp', async (request: FastifyRequest, reply: FastifyReply) => {
+      const { 'hub.mode': mode, 'hub.verify_token': token, 'hub.challenge': challenge } = request.query as {
+        'hub.mode'?: string;
+        'hub.verify_token'?: string;
+        'hub.challenge'?: string;
       };
 
       const requestId = request.id as string;
