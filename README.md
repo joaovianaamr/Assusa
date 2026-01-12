@@ -192,12 +192,12 @@ Crie um arquivo `.env` na raiz do projeto e configure as variáveis de ambiente 
 - `SICOOB_KEY_PATH`: Caminho da chave privada SSL (opcional)
 
 #### Google APIs
-- `GOOGLE_CLIENT_EMAIL`: Email da service account do Google
-- `GOOGLE_PRIVATE_KEY`: Chave privada da service account (com \n escapados)
-- `GOOGLE_PROJECT_ID`: ID do projeto no Google Cloud
-- `GOOGLE_DRIVE_FOLDER_ID`: ID da pasta no Google Drive onde os PDFs serão salvos
-- `GOOGLE_SHEETS_SPREADSHEET_ID`: ID da planilha do Google Sheets
+- `GOOGLE_SERVICE_ACCOUNT_JSON_BASE64`: Service Account JSON codificado em base64 (obrigatório)
+- `GOOGLE_DRIVE_FOLDER_ID`: ID da pasta no Google Drive onde os PDFs serão salvos (obrigatório)
+- `GOOGLE_SHEETS_SPREADSHEET_ID`: ID da planilha do Google Sheets (obrigatório)
 - `GOOGLE_SHEETS_WORKSHEET_NAME`: Nome da aba na planilha (padrão: Requests)
+
+**Nota**: Campos legados (`GOOGLE_CLIENT_EMAIL`, `GOOGLE_PRIVATE_KEY`, `GOOGLE_PROJECT_ID`) são opcionais e mantidos apenas para compatibilidade durante migração.
 
 #### Redis
 - `REDIS_URL`: URL de conexão do Redis (ex: redis://localhost:6379)
@@ -228,13 +228,68 @@ Crie um arquivo `.env` na raiz do projeto e configure as variáveis de ambiente 
 
 ### Configuração do Google Cloud
 
-1. Crie uma Service Account no Google Cloud Console
-2. Habilite as APIs necessárias:
-   - Google Drive API
-   - Google Sheets API
-3. Baixe a chave JSON da service account
-4. Extraia o `client_email` e `private_key` para as variáveis de ambiente
-5. Compartilhe a pasta do Drive e a planilha com o email da service account
+#### 1. Criar Service Account
+
+1. Acesse o [Google Cloud Console](https://console.cloud.google.com/)
+2. Crie um projeto ou selecione um existente
+3. Vá em **IAM & Admin** > **Service Accounts**
+4. Clique em **Create Service Account**
+5. Preencha os dados e crie a service account
+6. Clique na service account criada e vá em **Keys** > **Add Key** > **Create new key**
+7. Selecione **JSON** e baixe o arquivo
+
+#### 2. Habilitar APIs
+
+1. No Google Cloud Console, vá em **APIs & Services** > **Library**
+2. Habilite as seguintes APIs:
+   - **Google Drive API**
+   - **Google Sheets API**
+
+#### 3. Codificar Service Account JSON em Base64
+
+1. Abra o arquivo JSON baixado
+2. Codifique o conteúdo completo em base64:
+
+```bash
+# Linux/Mac
+cat service-account.json | base64 -w 0
+
+# Windows (PowerShell)
+[Convert]::ToBase64String([System.IO.File]::ReadAllBytes("service-account.json"))
+```
+
+3. Copie o resultado e configure a variável `GOOGLE_SERVICE_ACCOUNT_JSON_BASE64`
+
+#### 4. Configurar Pasta Privada no Google Drive
+
+1. Acesse o [Google Drive](https://drive.google.com/)
+2. Crie uma nova pasta (ou use uma existente) para armazenar os PDFs
+3. Clique com o botão direito na pasta > **Compartilhar**
+4. Adicione o email da service account (encontrado no campo `client_email` do JSON) com permissão de **Editor**
+5. **Importante**: Não torne a pasta pública. Mantenha apenas a service account e membros da equipe com acesso
+6. Para obter o **Folder ID**:
+   - Abra a pasta no Google Drive
+   - O ID está na URL: `https://drive.google.com/drive/folders/FOLDER_ID_AQUI`
+   - Copie o `FOLDER_ID_AQUI` e configure em `GOOGLE_DRIVE_FOLDER_ID`
+
+#### 5. Configurar Planilha do Google Sheets
+
+1. Crie uma nova planilha no Google Sheets (ou use uma existente)
+2. Compartilhe a planilha com o email da service account com permissão de **Editor**
+3. Para obter o **Spreadsheet ID**:
+   - Abra a planilha
+   - O ID está na URL: `https://docs.google.com/spreadsheets/d/SPREADSHEET_ID_AQUI/edit`
+   - Copie o `SPREADSHEET_ID_AQUI` e configure em `GOOGLE_SHEETS_SPREADSHEET_ID`
+4. Configure o nome da aba em `GOOGLE_SHEETS_WORKSHEET_NAME` (padrão: `Requests`)
+
+#### Resumo das Variáveis
+
+```env
+GOOGLE_SERVICE_ACCOUNT_JSON_BASE64=<JSON codificado em base64>
+GOOGLE_DRIVE_FOLDER_ID=<ID da pasta do Drive>
+GOOGLE_SHEETS_SPREADSHEET_ID=<ID da planilha>
+GOOGLE_SHEETS_WORKSHEET_NAME=Requests
+```
 
 ### Configuração do Sicoob
 
