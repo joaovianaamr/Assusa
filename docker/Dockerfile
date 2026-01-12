@@ -36,12 +36,13 @@ COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 # Switch to non-root user
 USER nodejs
 
-# Expose port
-EXPOSE 3000
+# Expose port (Cloud Run usa PORT variável, mas EXPOSE documenta a porta)
+# A aplicação lê PORT de process.env, então funciona com qualquer porta
+EXPOSE 8080
 
-# Health check
+# Health check (usa PORT variável do Cloud Run, padrão 8080)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+  CMD node -e "const port = process.env.PORT || 8080; require('http').get('http://localhost:' + port + '/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Run
 CMD ["node", "dist/index.js"]

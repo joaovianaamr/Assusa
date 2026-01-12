@@ -3,6 +3,7 @@ import { z } from 'zod';
 const configSchema = z.object({
   // Server
   nodeEnv: z.enum(['development', 'production', 'test']).default('development'),
+  // Cloud Run usa PORT (padrão 8080), mas desenvolvimento local usa 3000
   port: z.coerce.number().default(3000),
   host: z.string().default('0.0.0.0'),
 
