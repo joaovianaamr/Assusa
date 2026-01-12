@@ -42,6 +42,46 @@ export function maskCpf(cpfLimpo: string): string {
 }
 
 /**
+ * Mascara número do WhatsApp no formato XX*********XXXX
+ * Mostra os primeiros 2 dígitos e os últimos 4 dígitos
+ * Exemplo: 5511999999999 -> 55*********9999
+ */
+export function maskWhatsAppNumber(whatsappId: string): string {
+  if (!whatsappId || typeof whatsappId !== 'string') {
+    return whatsappId || '';
+  }
+
+  // Remove caracteres não numéricos
+  const digitsOnly = whatsappId.replace(/\D/g, '');
+
+  if (digitsOnly.length < 6) {
+    // Se tiver menos de 6 dígitos, mascara tudo exceto os últimos 2
+    if (digitsOnly.length <= 2) {
+      return '*'.repeat(digitsOnly.length);
+    }
+    const lastTwo = digitsOnly.substring(digitsOnly.length - 2);
+    return '*'.repeat(digitsOnly.length - 2) + lastTwo;
+  }
+
+  // Mostra primeiros 2 dígitos
+  const firstTwo = digitsOnly.substring(0, 2);
+  
+  // Para números com exatamente 6 dígitos, mostra últimos 2
+  // Para números com mais de 6 dígitos, mostra últimos 4
+  const lastDigits = digitsOnly.length === 6 
+    ? digitsOnly.substring(digitsOnly.length - 2)
+    : digitsOnly.substring(digitsOnly.length - 4);
+  
+  // Calcula quantos dígitos devem ser mascarados
+  // Se tiver exatamente 6 dígitos: 2 primeiros + 2 mascarados + 2 últimos = 6
+  // Se tiver mais de 6: 2 primeiros + N mascarados + 4 últimos = total
+  const maskedCount = digitsOnly.length === 6 ? 2 : digitsOnly.length - 6;
+  const maskedMiddle = '*'.repeat(maskedCount);
+
+  return `${firstTwo}${maskedMiddle}${lastDigits}`;
+}
+
+/**
  * Sanitiza objeto removendo/mascarando campos sensíveis para logs
  * Remove/mascara: cpf, tokens, secrets, passwords, etc.
  * 
