@@ -27,67 +27,261 @@ npm run build
 
 ### 2. Configurar Variáveis de Ambiente no Cloud Run
 
-No Google Cloud Console, configure as variáveis de ambiente:
+#### Opção A: Via Console do Google Cloud
 
-**Obrigatórias:**
-- `CPF_PEPPER`
-- `WHATSAPP_API_TOKEN`
+1. Acesse o [Google Cloud Console](https://console.cloud.google.com/)
+2. Vá em **Cloud Run** > Selecione o serviço `assusa`
+3. Clique em **EDITAR E IMPLANTAR NOVA REVISÃO**
+4. Vá na aba **Variáveis e segredos**
+5. Adicione cada variável manualmente
+
+#### Opção B: Via gcloud CLI (Recomendado)
+
+```bash
+# Atualizar variáveis individuais
+gcloud run services update assusa \
+  --update-env-vars NODE_ENV=production,PORT=8080 \
+  --region us-central1
+
+# Ou usar arquivo .env (não commitar!)
+gcloud run services update assusa \
+  --update-env-vars-file .env.production \
+  --region us-central1
+```
+
+**Variáveis Obrigatórias:**
+- `CPF_PEPPER` ⚠️ **USE SECRET MANAGER!**
+- `WHATSAPP_API_TOKEN` ⚠️ **USE SECRET MANAGER!**
 - `WHATSAPP_PHONE_NUMBER_ID`
-- `WHATSAPP_VERIFY_TOKEN`
-- `WHATSAPP_APP_SECRET`
-- `SICOOB_CLIENT_ID`
-- `SICOOB_CLIENT_SECRET`
+- `WHATSAPP_VERIFY_TOKEN` ⚠️ **USE SECRET MANAGER!**
+- `WHATSAPP_APP_SECRET` ⚠️ **USE SECRET MANAGER!**
+- `SICOOB_CLIENT_ID` ⚠️ **USE SECRET MANAGER!**
+- `SICOOB_CLIENT_SECRET` ⚠️ **USE SECRET MANAGER!**
 - `SICOOB_NUMERO_CLIENTE`
 - `SICOOB_CODIGO_MODALIDADE`
-- `GOOGLE_SERVICE_ACCOUNT_JSON_BASE64`
+- `GOOGLE_SERVICE_ACCOUNT_JSON_BASE64` ⚠️ **USE SECRET MANAGER!**
 - `GOOGLE_DRIVE_FOLDER_ID`
 - `GOOGLE_SHEETS_SPREADSHEET_ID`
 
-**Opcionais (com defaults):**
+**Variáveis Opcionais (com defaults):**
 - `NODE_ENV=production`
-- `PORT=8080` (Cloud Run usa 8080)
+- `PORT=8080` (já configurado pelo Cloud Run automaticamente)
 - `SICOOB_BASE_URL` (ou usar default)
 - `SICOOB_AUTH_TOKEN_URL` (ou usar default)
 - `REDIS_URL` (se usar Redis)
 - `REDIS_ENABLED=true`
 
-### 3. Build e Push da Imagem Docker
+#### Opção C: Via Secret Manager (Recomendado para Produção)
+
+O Secret Manager é a forma mais segura de gerenciar dados sensíveis.
+
+##### Criar Secrets
+
+```bash
+# CPF_PEPPER
+echo -n "seu-pepper-aqui-minimo-32-caracteres" | gcloud secrets create cpf-pepper --data-file=-
+
+# WhatsApp
+echo -n "seu-token-aqui" | gcloud secrets create whatsapp-api-token --data-file=-
+echo -n "seu-verify-token-aqui" | gcloud secrets create whatsapp-verify-token --data-file=-
+echo -n "seu-app-secret-aqui" | gcloud secrets create whatsapp-app-secret --data-file=-
+
+# Sicoob
+echo -n "seu-client-id-aqui" | gcloud secrets create sicoob-client-id --data-file=-
+echo -n "seu-client-secret-aqui" | gcloud secrets create sicoob-client-secret --data-file=-
+
+# Google
+echo -n "seu-service-account-json-base64-aqui" | gcloud secrets create google-service-account-json --data-file=-
+```
+
+##### Dar Permissões ao Cloud Run
+
+Primeiro, obtenha o número do projeto e a service account do Cloud Run:
+
+```bash
+# Obter project number
+PROJECT_NUMBER=$(gcloud projects describe $(gcloud config get-value project) --format='value(projectNumber)')
+
+# Dar permissão de acesso aos secrets
+gcloud secrets add-iam-policy-binding cpf-pepper \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
+
+gcloud secrets add-iam-policy-binding whatsapp-api-token \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
+
+# Repetir para todos os outros secrets...
+```
+
+##### Configurar Secrets no Cloud Run
+
+```bash
+gcloud run services update assusa \
+  --update-secrets CPF_PEPPER=cpf-pepper:latest,WHATSAPP_API_TOKEN=whatsapp-api-token:latest,WHATSAPP_VERIFY_TOKEN=whatsapp-verify-token:latest,WHATSAPP_APP_SECRET=whatsapp-app-secret:latest,SICOOB_CLIENT_ID=sicoob-client-id:latest,SICOOB_CLIENT_SECRET=sicoob-client-secret:latest,GOOGLE_SERVICE_ACCOUNT_JSON_BASE64=google-service-account-json:latest \
+  --region us-central1
+```
+
+**Nota**: Combine secrets do Secret Manager com variáveis de ambiente normais:
+
+```bash
+gcloud run services update assusa \
+  --update-secrets CPF_PEPPER=cpf-pepper:latest,WHATSAPP_API_TOKEN=whatsapp-api-token:latest \
+  --update-env-vars WHATSAPP_PHONE_NUMBER_ID=seu-phone-number-id,WHATSAPP_WEBHOOK_URL=https://seu-servico.run.app/webhooks/whatsapp \
+  --region us-central1
+```
+
+##### Atualizar um Secret
+
+```bash
+# Atualizar versão do secret
+echo -n "novo-valor" | gcloud secrets versions add cpf-pepper --data-file=-
+
+# Cloud Run usará automaticamente a versão "latest"
+# Para usar versão específica, especifique no --update-secrets:
+# CPF_PEPPER=cpf-pepper:1 (usa versão 1)
+```
+
+### 3. Preparar Artifact Registry (Opcional, mas Recomendado)
+
+O Artifact Registry é o serviço moderno do GCP. Alternativamente, use Container Registry (GCR).
+
+```bash
+# Criar repositório no Artifact Registry
+gcloud artifacts repositories create assusa-repo \
+  --repository-format=docker \
+  --location=us-central1 \
+  --description="Repositório de imagens Docker do Assusa"
+
+# Configurar autenticação Docker
+gcloud auth configure-docker us-central1-docker.pkg.dev
+```
+
+### 4. Build e Push da Imagem Docker
+
+**Opção A: Usando Cloud Build (Recomendado)**
+
+```bash
+# Build e push em um único comando (usa Artifact Registry)
+gcloud builds submit --tag us-central1-docker.pkg.dev/SEU_PROJECT_ID/assusa-repo/assusa:latest
+
+# Ou, se usar Container Registry:
+# gcloud builds submit --tag gcr.io/SEU_PROJECT_ID/assusa:latest
+```
+
+**Opção B: Build Local e Push Manual**
 
 ```bash
 # Build da imagem
-docker build -t gcr.io/SEU_PROJECT_ID/assusa:latest .
+docker build -t us-central1-docker.pkg.dev/SEU_PROJECT_ID/assusa-repo/assusa:latest .
 
-# Push para Google Container Registry
-docker push gcr.io/SEU_PROJECT_ID/assusa:latest
+# Push para Artifact Registry
+docker push us-central1-docker.pkg.dev/SEU_PROJECT_ID/assusa-repo/assusa:latest
+
+# Ou, se usar Container Registry:
+# docker tag us-central1-docker.pkg.dev/SEU_PROJECT_ID/assusa-repo/assusa:latest gcr.io/SEU_PROJECT_ID/assusa:latest
+# docker push gcr.io/SEU_PROJECT_ID/assusa:latest
 ```
 
-### 4. Deploy no Cloud Run
+### 5. Deploy no Cloud Run
 
 ```bash
 gcloud run deploy assusa \
-  --image gcr.io/SEU_PROJECT_ID/assusa:latest \
+  --image us-central1-docker.pkg.dev/SEU_PROJECT_ID/assusa-repo/assusa:latest \
   --platform managed \
   --region us-central1 \
   --allow-unauthenticated \
-  --set-env-vars NODE_ENV=production \
-  --set-env-vars PORT=8080
+  --port 8080 \
+  --memory 512Mi \
+  --cpu 1 \
+  --min-instances 0 \
+  --max-instances 10 \
+  --timeout 300 \
+  --concurrency 80 \
+  --set-env-vars NODE_ENV=production
 ```
 
-Ou configure as variáveis via Console do Google Cloud.
+**Parâmetros importantes:**
+- `--allow-unauthenticated`: Permite acesso público (necessário para webhook do WhatsApp)
+- `--port 8080`: Porta padrão do Cloud Run (aplicação lê PORT automaticamente via `process.env.PORT`)
+- `--memory 512Mi`: Memória alocada (ajuste conforme necessário, mínimo 128Mi)
+- `--cpu 1`: CPUs alocadas (ajuste conforme necessário)
+- `--min-instances 0`: Escala para zero quando não há tráfego (reduz custos)
+- `--max-instances 10`: Máximo de instâncias (ajuste conforme necessário)
+- `--timeout 300`: Timeout de 5 minutos (útil para gerar PDFs grandes)
+- `--concurrency 80`: Requisições simultâneas por instância
+
+**Nota**: O Cloud Run define automaticamente `PORT=8080` como variável de ambiente. A aplicação já lê essa variável, então não é necessário definir manualmente.
 
 ### 5. Configurar Webhook do WhatsApp
 
-Após o deploy, configure o webhook do WhatsApp para apontar para:
+Após o deploy, obtenha a URL do serviço:
 
-```
-https://SEU_SERVICO.run.app/webhooks/whatsapp
+```bash
+# Obter URL do serviço
+gcloud run services describe assusa \
+  --region us-central1 \
+  --format 'value(status.url)'
 ```
 
-**Token de verificação:** Use o valor de `WHATSAPP_VERIFY_TOKEN`
+A URL será algo como: `https://assusa-xxxxx-uc.a.run.app`
+
+#### Configurar no Meta for Developers
+
+1. **Acesse o Meta for Developers:**
+   - Vá em [developers.facebook.com](https://developers.facebook.com/)
+   - Faça login com sua conta
+
+2. **Navegue até sua App do WhatsApp:**
+   - No menu, vá em **WhatsApp** > **API Setup** ou **Configuração**
+
+3. **Configure o Webhook:**
+   - Clique em **Configurar Webhooks** ou **Edit**
+   - **URL de retorno de chamada (Callback URL):**
+     ```
+     https://SEU_SERVICO.run.app/webhooks/whatsapp
+     ```
+   - **Token de verificação:**
+     - Use o valor de `WHATSAPP_VERIFY_TOKEN` (o mesmo configurado nas variáveis de ambiente)
+     - Este token deve ser único e seguro (ex: `openssl rand -hex 32`)
+   - **Campos de assinatura (Webhook fields):**
+     - Marque pelo menos: `messages`
+     - Opcionalmente: `message_status` (para receber status de entrega)
+
+4. **Salvar e Verificar:**
+   - Clique em **Verificar e salvar**
+   - O WhatsApp fará uma requisição GET para verificar o webhook
+   - Se configurado corretamente, verá uma mensagem de sucesso
+
+5. **Testar Recebimento de Mensagens:**
+   - Envie uma mensagem de teste para o número do WhatsApp Business
+   - Verifique os logs do Cloud Run:
+     ```bash
+     gcloud run services logs read assusa --region us-central1 --limit 20
+     ```
+   - Você deve ver logs de webhook recebido
+
+#### Troubleshooting do Webhook
+
+**Problema: Verificação falha**
+- Verifique se `WHATSAPP_VERIFY_TOKEN` no Cloud Run é igual ao configurado no Meta
+- Verifique se o endpoint GET `/webhooks/whatsapp` está acessível publicamente
+- Verifique logs do Cloud Run para ver a requisição de verificação
+
+**Problema: Mensagens não chegam**
+- Verifique se os campos de assinatura estão marcados (`messages`)
+- Verifique se a URL do webhook está correta e acessível via HTTPS
+- Verifique logs do Cloud Run
+- Verifique se o serviço está rodando (`gcloud run services describe assusa`)
+
+**Problema: Erro 403 Forbidden**
+- Verifique se a assinatura do webhook está sendo validada corretamente
+- Verifique se `WHATSAPP_APP_SECRET` está configurado corretamente
+- Verifique se o header `x-hub-signature-256` está sendo enviado pelo WhatsApp
 
 ## 🔍 Validação Pós-Deploy
 
-### 1. Health Check
+### 6. Health Check
 
 ```bash
 curl https://SEU_SERVICO.run.app/health
@@ -101,7 +295,7 @@ curl https://SEU_SERVICO.run.app/health
 }
 ```
 
-### 2. Verificar Logs
+### 7. Verificar Logs
 
 ```bash
 gcloud run services logs read assusa --limit 50
@@ -109,7 +303,7 @@ gcloud run services logs read assusa --limit 50
 
 Ou via Console do Google Cloud: **Cloud Run > assusa > Logs**
 
-### 3. Testar Fluxo Completo
+### 8. Testar Fluxo Completo
 
 Siga o guia em `docs/VALIDACAO_MANUAL.md` para testar o fluxo completo.
 

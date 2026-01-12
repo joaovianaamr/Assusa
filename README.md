@@ -570,25 +570,209 @@ npm run validate-config
 
 ### Google Cloud Run
 
-1. Configure o gcloud CLI:
+Este guia descreve o processo completo de deploy no Google Cloud Run.
+
+#### 1. Pré-requisitos
+
+- Conta no Google Cloud Platform (GCP)
+- `gcloud` CLI instalado e configurado
+- Projeto criado no GCP
+- APIs habilitadas: Cloud Run API, Cloud Build API, Artifact Registry API (se usar Artifact Registry)
+
+#### 2. Configurar gcloud CLI
+
 ```bash
+# Autenticar
 gcloud auth login
+
+# Configurar projeto
 gcloud config set project SEU_PROJECT_ID
+
+# Verificar configuração
+gcloud config list
 ```
 
-2. Build e deploy (o Dockerfile já existe na raiz do projeto):
+#### 3. Habilitar APIs Necessárias
+
 ```bash
-gcloud builds submit --tag gcr.io/SEU_PROJECT_ID/assusa
+gcloud services enable \
+  run.googleapis.com \
+  cloudbuild.googleapis.com \
+  artifactregistry.googleapis.com
+```
+
+#### 4. Criar Artifact Registry (Opcional, mas Recomendado)
+
+O Artifact Registry é o serviço moderno do GCP para armazenar imagens Docker. Alternativamente, você pode usar o Container Registry (GCR).
+
+```bash
+# Criar repositório no Artifact Registry
+gcloud artifacts repositories create assusa-repo \
+  --repository-format=docker \
+  --location=us-central1 \
+  --description="Repositório de imagens Docker do Assusa"
+
+# Configurar autenticação Docker
+gcloud auth configure-docker us-central1-docker.pkg.dev
+```
+
+**Nota**: Se preferir usar Container Registry (legacy), substitua `us-central1-docker.pkg.dev/SEU_PROJECT_ID/assusa-repo` por `gcr.io/SEU_PROJECT_ID/assusa` nos comandos abaixo.
+
+#### 5. Build e Push da Imagem Docker
+
+O projeto possui um Dockerfile multi-stage na raiz que:
+- Faz build do TypeScript
+- Instala apenas dependências de produção
+- Configura usuário não-root para segurança
+- Suporta PORT do Cloud Run (padrão 8080)
+
+```bash
+# Build e push usando Cloud Build
+gcloud builds submit --tag us-central1-docker.pkg.dev/SEU_PROJECT_ID/assusa-repo/assusa:latest
+
+# Ou, se usar Container Registry:
+# gcloud builds submit --tag gcr.io/SEU_PROJECT_ID/assusa:latest
+```
+
+**Alternativa**: Build local e push manual:
+
+```bash
+# Build local
+docker build -t us-central1-docker.pkg.dev/SEU_PROJECT_ID/assusa-repo/assusa:latest .
+
+# Push
+docker push us-central1-docker.pkg.dev/SEU_PROJECT_ID/assusa-repo/assusa:latest
+```
+
+#### 6. Deploy no Cloud Run
+
+```bash
 gcloud run deploy assusa \
-  --image gcr.io/SEU_PROJECT_ID/assusa \
+  --image us-central1-docker.pkg.dev/SEU_PROJECT_ID/assusa-repo/assusa:latest \
   --platform managed \
   --region us-central1 \
-  --allow-unauthenticated
+  --allow-unauthenticated \
+  --port 8080 \
+  --memory 512Mi \
+  --cpu 1 \
+  --min-instances 0 \
+  --max-instances 10 \
+  --timeout 300 \
+  --concurrency 80
 ```
 
-3. Configure as variáveis de ambiente no Cloud Run
+**Parâmetros importantes**:
+- `--allow-unauthenticated`: Permite acesso público (necessário para webhook do WhatsApp)
+- `--port 8080`: Porta padrão do Cloud Run (aplicação lê PORT automaticamente)
+- `--memory 512Mi`: Memória alocada (ajuste conforme necessário)
+- `--min-instances 0`: Escala para zero quando não há tráfego (reduz custos)
+- `--timeout 300`: Timeout de 5 minutos (útil para gerar PDFs grandes)
 
-**Nota**: O projeto já possui um Dockerfile na raiz com multi-stage build e healthcheck configurado.
+#### 7. Configurar Variáveis de Ambiente
+
+Você pode configurar as variáveis de ambiente de duas formas:
+
+##### Opção A: Via gcloud CLI (Recomendado para desenvolvimento)
+
+```bash
+gcloud run services update assusa \
+  --update-env-vars NODE_ENV=production,PORT=8080 \
+  --region us-central1
+```
+
+Para múltiplas variáveis, crie um arquivo `.env` e use:
+
+```bash
+# Criar arquivo com variáveis (NÃO commitar este arquivo!)
+gcloud run services update assusa \
+  --update-env-vars-file .env.production \
+  --region us-central1
+```
+
+##### Opção B: Via Secret Manager (Recomendado para produção)
+
+O Secret Manager é mais seguro para dados sensíveis como tokens e chaves:
+
+```bash
+# Criar secret
+echo -n "seu-valor-aqui" | gcloud secrets create whatsapp-api-token --data-file=-
+
+# Dar permissão ao Cloud Run para acessar o secret
+gcloud secrets add-iam-policy-binding whatsapp-api-token \
+  --member="serviceAccount:SEU_PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
+
+# Configurar variável de ambiente que referencia o secret
+gcloud run services update assusa \
+  --update-secrets WHATSAPP_API_TOKEN=whatsapp-api-token:latest \
+  --region us-central1
+```
+
+**Variáveis obrigatórias**:
+
+- `CPF_PEPPER` (use Secret Manager!)
+- `WHATSAPP_API_TOKEN`
+- `WHATSAPP_PHONE_NUMBER_ID`
+- `WHATSAPP_VERIFY_TOKEN`
+- `WHATSAPP_APP_SECRET`
+- `SICOOB_CLIENT_ID`
+- `SICOOB_CLIENT_SECRET`
+- `SICOOB_NUMERO_CLIENTE`
+- `SICOOB_CODIGO_MODALIDADE`
+- `GOOGLE_SERVICE_ACCOUNT_JSON_BASE64`
+- `GOOGLE_DRIVE_FOLDER_ID`
+- `GOOGLE_SHEETS_SPREADSHEET_ID`
+
+**Variáveis opcionais** (com defaults):
+
+- `NODE_ENV=production`
+- `PORT=8080` (já configurado pelo Cloud Run)
+- `REDIS_URL` (se usar Redis)
+- `REDIS_ENABLED=true`
+
+#### 8. Configurar Webhook do WhatsApp
+
+Após o deploy, obtenha a URL do serviço:
+
+```bash
+gcloud run services describe assusa \
+  --region us-central1 \
+  --format 'value(status.url)'
+```
+
+**Configurar no Meta for Developers**:
+
+1. Acesse [Meta for Developers](https://developers.facebook.com/)
+2. Vá em **WhatsApp** > **Configuração** > **Webhooks**
+3. Clique em **Configurar Webhooks**
+4. Configure:
+   - **URL de retorno de chamada**: `https://SEU_SERVICO.run.app/webhooks/whatsapp`
+   - **Token de verificação**: Use o valor de `WHATSAPP_VERIFY_TOKEN`
+   - **Campos de assinatura**: Marque `messages`
+5. Salve e teste a verificação
+
+**Importante**: Certifique-se de que a URL seja **pública** e **HTTPS**. O Cloud Run já fornece HTTPS automaticamente.
+
+#### 9. Verificar Deploy
+
+```bash
+# Health check
+curl https://SEU_SERVICO.run.app/health
+
+# Resultado esperado:
+# {"status":"ok","timestamp":"2024-01-12T18:00:00.000Z"}
+
+# Ver logs
+gcloud run services logs read assusa --region us-central1 --limit 50
+```
+
+#### 10. Monitoramento e Logs
+
+- **Logs**: `gcloud run services logs read assusa --region us-central1`
+- **Métricas**: Google Cloud Console > Cloud Run > assusa > Métricas
+- **Alertas**: Configure alertas para taxa de erro e latência
+
+**Nota**: O projeto já possui um Dockerfile multi-stage na raiz com healthcheck configurado e suporte a PORT do Cloud Run.
 
 ## 📁 Estrutura do Projeto
 
