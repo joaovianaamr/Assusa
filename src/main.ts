@@ -1,7 +1,6 @@
 import { loadConfig } from './infrastructure/config/config.js';
 import { PinoLogger } from './infrastructure/logging/pino-logger.js';
 import { WhatsAppCloudApiAdapter } from './adapters/whatsapp/whatsapp-cloud-api-adapter.js';
-import { SicoobApiAdapter } from './adapters/sicoob/sicoob-api-adapter.js';
 import { GoogleDriveAdapter } from './adapters/google/drive-adapter.js';
 import { RedisAdapter } from './adapters/redis/redis-adapter.js';
 import { InMemoryConversationStateStore } from './adapters/in-memory/in-memory-conversation-state-store.js';
@@ -40,7 +39,6 @@ async function bootstrap() {
   try {
     // Inicializar adapters base
     const whatsappAdapter = new WhatsAppCloudApiAdapter(config, logger);
-    const sicoobAdapter = new SicoobApiAdapter(config, logger);
     const driveAdapter = new GoogleDriveAdapter(config, logger);
     const storageAdapter = new RedisAdapter(config, logger);
 
@@ -49,9 +47,12 @@ async function bootstrap() {
       ? new RedisConversationStateStore(config, logger)
       : new InMemoryConversationStateStore(logger);
 
+    // Inicializar adapter Sicoob (consolida BankProvider e SicoobPort)
+    const sicoobAdapter = new SicoobBankProviderAdapter(config, logger);
+    
     // Inicializar adapters wrappers
     const titleRepository = new SicoobTitleRepositoryAdapter(sicoobAdapter, logger);
-    const bankProvider = new SicoobBankProviderAdapter(config, logger);
+    const bankProvider = sicoobAdapter; // Mesma instância, implementa BankProvider
     const pdfService = new SimplePdfServiceAdapter(logger);
     const driveStorage = new GoogleDriveStorageAdapter(driveAdapter, logger);
     const sheetLogger = new GoogleSheetLoggerAdapter(config, logger);
