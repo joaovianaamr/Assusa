@@ -2,7 +2,11 @@ import { SiteLinkService } from '../../application/ports/driven/site-link-servic
 import { SiteLinkResult } from '../../application/dtos/site-link-result.dto.js';
 import { Config } from '../../infrastructure/config/config.js';
 import { Logger } from '../../application/ports/driven/logger-port.js';
+import { StoragePort } from '../../application/ports/driven/storage-port.js';
 import crypto from 'crypto';
+
+const TOKEN_PREFIX = 'site_token:';
+const DEFAULT_TTL_MINUTES = 15;
 
 /**
  * Adapter: Serviço de Link do Site
@@ -13,9 +17,9 @@ export class SiteLinkServiceAdapter implements SiteLinkService {
 
   constructor(
     _config: Config,
-    private logger: Logger
+    private logger: Logger,
+    private storage?: StoragePort
   ) {
-    // Por enquanto, usar URL hardcoded - pode ser configurado via env no futuro
     this.baseUrl = process.env.SITE_URL || 'https://www.assusa.com.br';
   }
 
@@ -24,7 +28,7 @@ export class SiteLinkServiceAdapter implements SiteLinkService {
       // Se não houver configuração para token, retornar URL simples
       const enableToken = process.env.ENABLE_SITE_TOKEN === 'true';
 
-      if (!enableToken || !existingCpfHash) {
+      if (!enableToken || !existingCpfHash || !this.storage) {
         return {
           url: this.baseUrl,
           tokenUsed: false,
@@ -33,13 +37,24 @@ export class SiteLinkServiceAdapter implements SiteLinkService {
 
       // Gerar token temporário
       const token = crypto.randomBytes(32).toString('hex');
-      const ttlMinutes = parseInt(process.env.SITE_TOKEN_TTL_MINUTES || '15', 10);
+      const ttlMinutes = parseInt(process.env.SITE_TOKEN_TTL_MINUTES || String(DEFAULT_TTL_MINUTES), 10);
+      const ttlSeconds = ttlMinutes * 60;
       
-      // Por enquanto, retornar URL com token como query param
-      // Em produção, o token seria armazenado no Redis com TTL
-      const url = `${this.baseUrl}?token=${token}&cpfHash=${existingCpfHash}`;
+      // Armazenar token no Redis com TTL
+      const tokenKey = `${TOKEN_PREFIX}${token}`;
+      const tokenData = JSON.stringify({
+        cpfHash: existingCpfHash,
+        from,
+        createdAt: new Date().toISOString(),
+      });
+      
+      const requestId = crypto.randomUUID();
+      await this.storage.set(tokenKey, tokenData, ttlSeconds, requestId);
 
-      this.logger.debug({ from, tokenUsed: true, ttlMinutes }, 'Link gerado com token');
+      // Retornar URL com token como query param
+      const url = `${this.baseUrl}?token=${token}`;
+
+      this.logger.debug({ from, tokenUsed: true, ttlMinutes }, 'Link gerado com token armazenado no Redis');
 
       return {
         url,
