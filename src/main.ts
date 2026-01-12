@@ -5,9 +5,30 @@ import { SicoobApiAdapter } from './adapters/sicoob/sicoob-api-adapter.js';
 import { GoogleDriveAdapter } from './adapters/google/drive-adapter.js';
 import { GoogleSheetsAdapter } from './adapters/google/sheets-adapter.js';
 import { RedisAdapter } from './adapters/redis/redis-adapter.js';
-import { GerarSegundaViaUseCase } from './domain/use-cases/gerar-segunda-via-use-case.js';
-import { ExcluirDadosUseCase } from './domain/use-cases/excluir-dados-use-case.js';
-import { WhatsAppService } from './application/services/whatsapp-service.js';
+import { InMemoryConversationStateStore } from './adapters/in-memory/in-memory-conversation-state-store.js';
+import { RedisConversationStateStore } from './adapters/redis/redis-conversation-state-store.js';
+import { SicoobTitleRepositoryAdapter } from './adapters/sicoob/sicoob-title-repository-adapter.js';
+import { SicoobBankProviderAdapter } from './adapters/sicoob/sicoob-bank-provider-adapter.js';
+import { SimplePdfServiceAdapter } from './adapters/infrastructure/simple-pdf-service-adapter.js';
+import { GoogleDriveStorageAdapter } from './adapters/google/google-drive-storage-adapter.js';
+import { GoogleSheetLoggerAdapter } from './adapters/google/google-sheet-logger-adapter.js';
+import { SiteLinkServiceAdapter } from './adapters/infrastructure/site-link-service-adapter.js';
+
+// Use Cases da camada de aplicação
+import { ShowMenuUseCase } from './application/use-cases/show-menu.use-case.js';
+import { StartSecondCopyFlowUseCase } from './application/use-cases/start-second-copy-flow.use-case.js';
+import { ReceiveCpfAndProcessUseCase } from './application/use-cases/receive-cpf-and-process.use-case.js';
+import { SelectTitleAndProcessUseCase } from './application/use-cases/select-title-and-process.use-case.js';
+import { GenerateSecondCopyUseCase } from './application/use-cases/generate-second-copy.use-case.js';
+import { StartTalkToUsUseCase } from './application/use-cases/start-talk-to-us.use-case.js';
+import { ReceiveTalkToUsMessageUseCase } from './application/use-cases/receive-talk-to-us-message.use-case.js';
+import { OpenSiteUseCase } from './application/use-cases/open-site.use-case.js';
+import { DeleteDataUseCase } from './application/use-cases/delete-data.use-case.js';
+
+// Services
+import { ApplicationService } from './application/services/application-service.js';
+import { WhatsappRouter } from './application/services/whatsapp-router.js';
+
 import { FastifyServer, AppDependencies } from './adapters/http/fastify-server.js';
 
 async function bootstrap() {
@@ -18,42 +39,105 @@ async function bootstrap() {
   logger.info({ nodeEnv: config.nodeEnv }, 'Inicializando aplicação');
 
   try {
-    // Inicializar adapters
+    // Inicializar adapters base
     const whatsappAdapter = new WhatsAppCloudApiAdapter(config, logger);
     const sicoobAdapter = new SicoobApiAdapter(config, logger);
     const driveAdapter = new GoogleDriveAdapter(config, logger);
     const sheetsAdapter = new GoogleSheetsAdapter(config, logger);
     const storageAdapter = new RedisAdapter(config, logger);
 
-    // Inicializar use cases
-    const gerarSegundaViaUseCase = new GerarSegundaViaUseCase(
+    // Inicializar adapters de conversação
+    const conversationStateStore = config.redisEnabled && config.redisUrl
+      ? new RedisConversationStateStore(config, logger)
+      : new InMemoryConversationStateStore(logger);
+
+    // Inicializar adapters wrappers
+    const titleRepository = new SicoobTitleRepositoryAdapter(sicoobAdapter, logger);
+    const bankProvider = new SicoobBankProviderAdapter(sicoobAdapter, logger);
+    const pdfService = new SimplePdfServiceAdapter(logger);
+    const driveStorage = new GoogleDriveStorageAdapter(driveAdapter, logger);
+    const sheetLogger = new GoogleSheetLoggerAdapter(sheetsAdapter, logger);
+    const siteLinkService = new SiteLinkServiceAdapter(config, logger);
+
+    // Inicializar rate limiter
+    const { InMemoryRateLimiter } = await import('./adapters/in-memory/in-memory-rate-limiter.js');
+    const rateLimiter = new InMemoryRateLimiter(logger);
+
+    // Inicializar use cases da camada de aplicação
+    const showMenuUseCase = new ShowMenuUseCase(whatsappAdapter, logger);
+    const startSecondCopyFlowUseCase = new StartSecondCopyFlowUseCase(
+      conversationStateStore,
       whatsappAdapter,
-      sicoobAdapter,
-      driveAdapter,
-      sheetsAdapter,
+      logger
+    );
+    const generateSecondCopyUseCase = new GenerateSecondCopyUseCase(
+      bankProvider,
+      pdfService,
+      driveStorage,
+      sheetLogger,
+      logger
+    );
+    const receiveCpfAndProcessUseCase = new ReceiveCpfAndProcessUseCase(
+      conversationStateStore,
+      whatsappAdapter,
+      titleRepository,
+      rateLimiter,
+      generateSecondCopyUseCase,
+      logger,
+      config
+    );
+    const selectTitleAndProcessUseCase = new SelectTitleAndProcessUseCase(
+      conversationStateStore,
+      whatsappAdapter,
+      generateSecondCopyUseCase,
+      logger
+    );
+    const startTalkToUsUseCase = new StartTalkToUsUseCase(
+      conversationStateStore,
+      whatsappAdapter,
+      logger
+    );
+    const receiveTalkToUsMessageUseCase = new ReceiveTalkToUsMessageUseCase(
+      conversationStateStore,
+      whatsappAdapter,
+      sheetLogger,
+      logger
+    );
+    const openSiteUseCase = new OpenSiteUseCase(
+      conversationStateStore,
+      whatsappAdapter,
+      siteLinkService,
+      sheetLogger,
+      logger
+    );
+    const deleteDataUseCase = new DeleteDataUseCase(
+      conversationStateStore,
+      whatsappAdapter,
+      driveStorage,
+      sheetLogger,
       logger
     );
 
-    const excluirDadosUseCase = new ExcluirDadosUseCase(
-      whatsappAdapter,
-      sheetsAdapter,
-      driveAdapter,
-      storageAdapter,
-      logger
+    // Inicializar ApplicationService
+    const applicationService = new ApplicationService(
+      showMenuUseCase,
+      startSecondCopyFlowUseCase,
+      receiveCpfAndProcessUseCase,
+      selectTitleAndProcessUseCase,
+      generateSecondCopyUseCase,
+      startTalkToUsUseCase,
+      receiveTalkToUsMessageUseCase,
+      openSiteUseCase,
+      deleteDataUseCase,
+      conversationStateStore
     );
 
-    // Inicializar serviços
-    const whatsappService = new WhatsAppService(
-      whatsappAdapter,
-      storageAdapter,
-      gerarSegundaViaUseCase,
-      excluirDadosUseCase,
-      logger
-    );
+    // Inicializar WhatsappRouter
+    const whatsappRouter = new WhatsappRouter(applicationService, conversationStateStore);
 
     // Inicializar servidor HTTP
     const dependencies: AppDependencies = {
-      whatsappService,
+      whatsappRouter,
       whatsappAdapter,
       config,
       logger,
@@ -67,6 +151,9 @@ async function bootstrap() {
       await server.close();
       if (storageAdapter instanceof RedisAdapter) {
         await storageAdapter.disconnect();
+      }
+      if (conversationStateStore instanceof RedisConversationStateStore) {
+        await conversationStateStore.disconnect();
       }
       process.exit(0);
     };
