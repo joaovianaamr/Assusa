@@ -51,7 +51,7 @@ async function bootstrap() {
 
     // Inicializar adapters wrappers
     const titleRepository = new SicoobTitleRepositoryAdapter(sicoobAdapter, logger);
-    const bankProvider = new SicoobBankProviderAdapter(sicoobAdapter, logger);
+    const bankProvider = new SicoobBankProviderAdapter(config, logger);
     const pdfService = new SimplePdfServiceAdapter(logger);
     const driveStorage = new GoogleDriveStorageAdapter(driveAdapter, logger);
     const sheetLogger = new GoogleSheetLoggerAdapter(config, logger);
