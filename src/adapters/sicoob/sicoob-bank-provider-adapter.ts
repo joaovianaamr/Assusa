@@ -266,6 +266,48 @@ export class SicoobBankProviderAdapter implements BankProvider, SicoobPort {
   }
 
   /**
+   * Constrói headers padronizados para requisições à API Sicoob
+   * 
+   * Baseado na documentação oficial publicada (Postman Collection),
+   * os endpoints de 2ª via requerem apenas:
+   * - Authorization: Bearer token
+   * - client_id: ID do cliente
+   * - Accept: application/json
+   * - Content-Type: application/json (para requisições com body)
+   * 
+   * NOTA: A documentação oficial NÃO lista headers X-Cooperativa, X-Contrato
+   * ou X-Beneficiario como obrigatórios para os endpoints de 2ª via.
+   * A 2ª via usa o "beneficiário logado" (identidade do beneficiário no contexto
+   * do token/credencial), não requer headers adicionais.
+   * 
+   * @param token Token de autenticação OAuth2
+   * @param requestId ID da requisição para rastreamento (opcional)
+   * @param includeContentType Se true, inclui Content-Type header (padrão: true)
+   * @returns Objeto com headers padronizados
+   */
+  private buildSicoobHeaders(
+    token: string,
+    requestId?: string,
+    includeContentType: boolean = true
+  ): Record<string, string> {
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${token}`,
+      'client_id': this.config.sicoobClientId,
+      'Accept': 'application/json',
+    };
+
+    if (includeContentType) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    if (requestId) {
+      headers['X-Request-ID'] = requestId;
+    }
+
+    return headers;
+  }
+
+  /**
    * Mapeia erros HTTP para códigos internos do Sicoob
    */
   private mapErrorToCode(error: unknown): SicoobErrorCode {
@@ -330,13 +372,7 @@ export class SicoobBankProviderAdapter implements BankProvider, SicoobPort {
       const response = await this.api.get<SicoobSegundaViaResponse>(
         '/boletos/segunda-via',
         {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'client_id': this.config.sicoobClientId,
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'X-Request-ID': requestId,
-          },
+          headers: this.buildSicoobHeaders(token, requestId),
           params: queryParams,
           httpsAgent: this.httpsAgent, // Usar mTLS se configurado
         }
@@ -435,13 +471,7 @@ export class SicoobBankProviderAdapter implements BankProvider, SicoobPort {
       const response = await this.api.get<SicoobSegundaViaResponse>(
         '/boletos/segunda-via',
         {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'client_id': this.config.sicoobClientId,
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'X-Request-ID': requestId,
-          },
+          headers: this.buildSicoobHeaders(token, requestId),
           params: queryParams,
           httpsAgent: this.httpsAgent, // Usar mTLS se configurado
         }
@@ -644,13 +674,7 @@ export class SicoobBankProviderAdapter implements BankProvider, SicoobPort {
       const response = await this.api.get<SicoobSegundaViaResponse>(
         '/boletos/segunda-via',
         {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'client_id': this.config.sicoobClientId,
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'X-Request-ID': requestId,
-          },
+          headers: this.buildSicoobHeaders(token, requestId),
           params: queryParams,
           httpsAgent: this.httpsAgent, // Usar mTLS se configurado
         }
