@@ -175,48 +175,6 @@ export class WhatsAppCloudApiAdapter implements WhatsAppPort {
     }
   }
 
-  // Métodos legados mantidos para compatibilidade
-  async sendTextMessage(to: string, text: string, requestId: string): Promise<WhatsAppResponse> {
-    return this.sendText(to, text, requestId);
-  }
-
-  async sendDocumentMessage(
-    to: string,
-    documentUrl: string,
-    filename: string,
-    requestId: string
-  ): Promise<WhatsAppResponse> {
-    try {
-      const response = await this.api.post(`/${this.phoneNumberId}/messages`, {
-        messaging_product: 'whatsapp',
-        recipient_type: 'individual',
-        to,
-        type: 'document',
-        document: {
-          link: documentUrl,
-          filename,
-        },
-      }, {
-        headers: {
-          'X-Request-ID': requestId,
-        },
-      });
-
-      this.logger.debug({ requestId, to, messageId: response.data.messages?.[0]?.id }, 'Documento enviado');
-
-      return {
-        success: true,
-        messageId: response.data.messages?.[0]?.id,
-      };
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro ao enviar documento';
-      this.logger.error({ requestId, to, error: errorMessage }, 'Erro ao enviar documento WhatsApp');
-      return {
-        success: false,
-        error: errorMessage,
-      };
-    }
-  }
 
   async handleWebhook(payload: unknown, requestId: string): Promise<WhatsAppMessage | null> {
     try {
