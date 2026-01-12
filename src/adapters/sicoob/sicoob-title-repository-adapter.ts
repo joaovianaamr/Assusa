@@ -14,10 +14,11 @@ export class SicoobTitleRepositoryAdapter implements TitleRepository {
     private logger: Logger
   ) {}
 
-  async findOpenTitlesByCpfHash(cpfHash: string): Promise<Title[]> {
+  async findOpenTitlesByCpfHash(cpf: string, cpfHash: string): Promise<Title[]> {
     try {
-      // Buscar boletos do Sicoob
-      const boletos = await this.sicoobPort.buscarBoletosPorCPF(cpfHash, crypto.randomUUID());
+      const requestId = crypto.randomUUID();
+      // Buscar boletos do Sicoob usando CPF original
+      const boletos = await this.sicoobPort.buscarBoletosPorCPF(cpf, requestId);
 
       // Filtrar apenas boletos em aberto (situacao === 'Aberto' ou similar)
       const boletosAbertos = boletos.filter(
@@ -33,12 +34,12 @@ export class SicoobTitleRepositoryAdapter implements TitleRepository {
         status: boleto.situacao,
       }));
 
-      this.logger.debug({ cpfHash, count: titles.length }, 'Títulos encontrados no Sicoob');
+      this.logger.debug({ cpfHash: cpfHash.slice(0, 8) + '...', count: titles.length }, 'Títulos encontrados no Sicoob');
 
       return titles;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro ao buscar títulos';
-      this.logger.error({ cpfHash, error: errorMessage }, 'Erro ao buscar títulos no Sicoob');
+      this.logger.error({ cpfHash: cpfHash.slice(0, 8) + '...', error: errorMessage }, 'Erro ao buscar títulos no Sicoob');
       throw new Error(`Falha ao buscar títulos: ${errorMessage}`);
     }
   }

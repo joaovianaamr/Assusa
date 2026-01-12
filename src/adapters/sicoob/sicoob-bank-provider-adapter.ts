@@ -54,6 +54,19 @@ interface SicoobSegundaViaResponse {
 }
 
 /**
+ * Resposta de busca de boletos por CPF do Sicoob (GET /pagadores/{cpf}/boletos)
+ */
+interface SicoobBoletoResponse {
+  nossoNumero?: string;
+  numeroDocumento?: string;
+  valor?: number;
+  dataVencimento?: string;
+  situacao?: string;
+  resultado?: SicoobBoletoResponse; // Pode estar aninhado
+  [key: string]: unknown;
+}
+
+/**
  * Adapter: Provedor de Banco usando Sicoob
  * 
  * Implementa BankProvider e SicoobPort usando a API do Sicoob com:
@@ -559,49 +572,34 @@ export class SicoobBankProviderAdapter implements BankProvider, SicoobPort {
   }
 
   /**
-   * Busca boletos por CPF hash (implementação de SicoobPort)
+   * Busca boletos por CPF (implementação de SicoobPort)
    * 
-   * Usa GET /pagadores/{numeroCpfCnpj}/boletos
-   * 
-   * NOTA IMPORTANTE: A API do Sicoob requer CPF/CNPJ real, não hash.
-   * Este método recebe cpfHash, mas a API precisa do CPF original.
-   * Em produção, seria necessário ter um sistema intermediário que mapeie
-   * hash -> CPF (sem armazenar o CPF) ou usar outra estratégia.
-   * Por enquanto, este método está implementado conforme a rota correta,
-   * mas requer adaptação para funcionar com hash.
+   * Usa GET /pagadores/{cpf}/boletos
+   * O CPF é recebido como parâmetro (original, não hash)
    */
-  async buscarBoletosPorCPF(_cpfHash: string, requestId: string): Promise<BoletoSicoob[]> {
+  async buscarBoletosPorCPF(cpf: string, requestId: string): Promise<BoletoSicoob[]> {
     try {
-      // NOTA: A API do Sicoob requer CPF/CNPJ real (11 ou 14 dígitos)
-      // Como recebemos hash, precisaríamos de um mapeamento reverso
-      // Por enquanto, vamos assumir que o sistema tem uma forma de obter o CPF original
-      // sem armazená-lo permanentemente (ex: cache temporário durante o fluxo)
-      
-      // TODO: Implementar estratégia para obter CPF original a partir do hash
-      // Por enquanto, lançar erro informativo
-      throw new Error(
-        'buscarBoletosPorCPF requer CPF original, não hash. ' +
-        'Implementar estratégia de mapeamento hash->CPF temporário ou usar outra abordagem.'
-      );
+      // Validar CPF (deve ter 11 dígitos)
+      const cpfNormalized = cpf.replace(/\D/g, '');
+      if (cpfNormalized.length !== 11) {
+        throw new Error('CPF deve ter 11 dígitos');
+      }
 
-      // Código comentado para referência da rota correta:
-      /*
-      const cpfOriginal = await this.getCpfFromHash(cpfHash); // Método a ser implementado
-      
-      const response = await this.api.get<SicoobBoletoResponse[]>(
-        `/pagadores/${cpfOriginal}/boletos`,
+      const token = await this.getAuthToken();
+
+      // Montar query params
+      const queryParams: Record<string, string> = {};
+
+      // Adicionar contrato se configurado
+      if (this.config.sicoobNumeroContratoCobranca) {
+        queryParams.numeroContratoCobranca = this.config.sicoobNumeroContratoCobranca;
+      }
+
+      const response = await this.api.get<SicoobBoletoResponse[] | { resultado?: SicoobBoletoResponse[] }>(
+        `/pagadores/${cpfNormalized}/boletos`,
         {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'client_id': this.config.sicoobClientId,
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'X-Request-ID': requestId,
-          },
-          params: {
-            // Adicionar query params se necessário (contrato, modalidade, etc.)
-            numeroContratoCobranca: this.config.sicoobNumeroContratoCobranca,
-          },
+          headers: this.buildSicoobHeaders(token, requestId, false), // GET não precisa Content-Type
+          params: queryParams,
           httpsAgent: this.httpsAgent,
         }
       );
@@ -612,7 +610,8 @@ export class SicoobBankProviderAdapter implements BankProvider, SicoobPort {
         : (response.data as { resultado?: SicoobBoletoResponse[] }).resultado || [];
 
       const boletos: BoletoSicoob[] = boletosArray.map(boleto => {
-        const resultado = boleto.resultado || boleto;
+        // Tratar estrutura aninhada (resultado pode estar dentro de resultado)
+        const resultado = (boleto as SicoobBoletoResponse).resultado || boleto;
         return {
           nossoNumero: resultado.nossoNumero || '',
           numeroDocumento: resultado.numeroDocumento || '',
@@ -622,18 +621,28 @@ export class SicoobBankProviderAdapter implements BankProvider, SicoobPort {
         };
       });
 
-      this.logger.info({ requestId, count: boletos.length }, 'Boletos encontrados no Sicoob');
+      // Não logar CPF completo (conforme regras LGPD)
+      const cpfMasked = `***.***.***-${cpfNormalized.slice(-2)}`;
+      this.logger.info({ 
+        requestId, 
+        count: boletos.length,
+        cpfMasked
+      }, 'Boletos encontrados no Sicoob');
 
       return boletos;
-      */
     } catch (error) {
       const errorCode = this.mapErrorToCode(error);
       const statusCode = this.getStatusCode(error);
       
-      // Não logar payload bruto do banco (conforme regras LGPD)
+      // Não logar CPF completo (conforme regras LGPD)
+      const cpfNormalized = cpf.replace(/\D/g, '');
+      const cpfMasked = cpfNormalized.length === 11 
+        ? `***.***.***-${cpfNormalized.slice(-2)}`
+        : '***';
+      
       this.logger.error({ 
         requestId, 
-        cpfHash: _cpfHash.slice(0, 8) + '...', // Log apenas hash parcial
+        cpfMasked,
         code: errorCode,
         statusCode,
       }, 'Erro ao buscar boletos no Sicoob');
