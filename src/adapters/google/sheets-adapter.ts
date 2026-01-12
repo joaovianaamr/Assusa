@@ -3,6 +3,7 @@ import { SheetsPort } from '../../application/ports/driven/sheets-port.js';
 import { RequestLog } from '../../domain/entities/request.js';
 import { Logger } from '../../application/ports/driven/logger-port.js';
 import { Config } from '../../infrastructure/config/config.js';
+import { GoogleAuth } from '../../infrastructure/utils/google-auth.js';
 
 export class GoogleSheetsAdapter implements SheetsPort {
   private sheets: ReturnType<typeof google.sheets>;
@@ -13,17 +14,16 @@ export class GoogleSheetsAdapter implements SheetsPort {
     this.spreadsheetId = config.googleSheetsSpreadsheetId;
     this.worksheetName = config.googleSheetsWorksheetName;
 
-    const auth = new google.auth.JWT({
-      email: config.googleClientEmail,
-      key: config.googlePrivateKey.replace(/\\n/g, '\n'),
-      scopes: [
-        'https://www.googleapis.com/auth/spreadsheets',
-      ],
-    });
+    // Inicializar GoogleAuth com Service Account JSON base64
+    const googleAuth = GoogleAuth.getInstance();
+    googleAuth.initialize(config.googleServiceAccountJsonBase64, [
+      'https://www.googleapis.com/auth/spreadsheets',
+    ]);
 
+    // Criar cliente Sheets usando o auth do GoogleAuth
     this.sheets = google.sheets({
       version: 'v4',
-      auth,
+      auth: googleAuth.getAuthClient(),
     });
 
     // Garantir que o cabeçalho existe
