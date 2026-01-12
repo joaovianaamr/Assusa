@@ -1,5 +1,4 @@
-import crypto from 'crypto';
-import { sanitizeForLogs } from '../../domain/helpers/lgpd-helpers.js';
+import { sanitizeForLogs, hashCpf as lgpdHashCpf } from '../../domain/helpers/lgpd-helpers.js';
 
 export class CpfHandler {
   /**
@@ -12,6 +11,7 @@ export class CpfHandler {
 
   /**
    * Hash SHA256 do CPF com pepper
+   * Usa lgpd-helpers.hashCpf internamente para evitar duplicação
    */
   static hashCpf(cpf: string): string {
     const pepper = this.getPepper();
@@ -19,10 +19,7 @@ export class CpfHandler {
       throw new Error('CPF_PEPPER não configurado');
     }
     const normalized = this.normalizeCpf(cpf);
-    return crypto
-      .createHash('sha256')
-      .update(normalized + pepper)
-      .digest('hex');
+    return lgpdHashCpf(normalized, pepper);
   }
 
   /**
