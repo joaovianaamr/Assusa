@@ -111,10 +111,15 @@ Ver mais detalhes em `docs/adr/ADR-0001-ports-na-application.md`.
 4. Sistema exibe aviso LGPD
 5. Cliente informa CPF
 6. Sistema busca boletos no Sicoob
-7. Sistema gera PDF da 2ª via
-8. PDF é salvo no Google Drive (pasta privada)
-9. Solicitação é registrada no Google Sheets
-10. PDF é enviado ao cliente via WhatsApp
+7. Se houver múltiplos boletos, cliente escolhe qual deseja
+8. Cliente escolhe o formato da 2ª via:
+   - **PDF**: Gera e envia PDF completo
+   - **Código de barras**: Envia apenas o código de barras
+   - **Linha digitável**: Envia apenas a linha digitável
+9. Sistema processa a solicitação:
+   - Para PDF: gera PDF, salva no Google Drive (pasta privada), registra no Sheets e envia via WhatsApp
+   - Para código de barras/linha digitável: obtém dados do boleto, registra no Sheets e envia via WhatsApp
+10. Solicitação é registrada no Google Sheets com o tipo apropriado
 
 ### Outras Funcionalidades
 
@@ -183,12 +188,19 @@ Crie um arquivo `.env` na raiz do projeto e configure as variáveis de ambiente 
 - `WHATSAPP_VERIFY_TOKEN`: Token de verificação do webhook
 - `WHATSAPP_WEBHOOK_URL`: URL pública do webhook (opcional)
 
-#### Sicoob API
-- `SICOOB_CLIENT_ID`: Client ID da aplicação Sicoob
-- `SICOOB_CLIENT_SECRET`: Client Secret da aplicação Sicoob
-- `SICOOB_BASE_URL`: URL base da API Sicoob (padrão: https://api.sicoob.com.br)
-- `SICOOB_CERTIFICATE_PATH`: Caminho do certificado SSL (opcional)
-- `SICOOB_KEY_PATH`: Caminho da chave privada SSL (opcional)
+#### Sicoob API (Cobrança Bancária v3)
+- `SICOOB_CLIENT_ID`: Client ID da aplicação Sicoob (obrigatório)
+- `SICOOB_CLIENT_SECRET`: Client Secret da aplicação Sicoob (obrigatório)
+- `SICOOB_NUMERO_CLIENTE`: Número do cliente no Sicoob (obrigatório)
+- `SICOOB_CODIGO_MODALIDADE`: Código da modalidade de cobrança (obrigatório)
+- `SICOOB_BASE_URL`: URL base da API (padrão: `https://api.sicoob.com.br/cobranca-bancaria/v3`)
+  - Para sandbox: `https://sandbox.sicoob.com.br/sicoob/sandbox/cobranca-bancaria/v3`
+- `SICOOB_AUTH_TOKEN_URL`: URL de autenticação OAuth (padrão: `https://auth.sicoob.com.br/auth/realms/cooperado/protocol/openid-connect/token`)
+- `SICOOB_NUMERO_CONTRATO_COBRANCA`: Número do contrato de cobrança (opcional)
+- `SICOOB_CERTIFICATE_PATH`: Caminho do certificado SSL PEM (opcional, para mTLS)
+- `SICOOB_KEY_PATH`: Caminho da chave privada SSL PEM (opcional, para mTLS)
+- `SICOOB_CERT_PFX_BASE64`: Certificado PFX codificado em base64 (opcional, para mTLS)
+- `SICOOB_CERT_PFX_PASSWORD`: Senha do certificado PFX (opcional, para mTLS)
 
 #### Google APIs
 - `GOOGLE_SERVICE_ACCOUNT_JSON_BASE64`: Service Account JSON codificado em base64 (obrigatório)
@@ -292,8 +304,50 @@ GOOGLE_SHEETS_WORKSHEET_NAME=Requests
 
 ### Configuração do Sicoob
 
-1. Obtenha credenciais da API do Sicoob
-2. Se necessário, configure certificados SSL (PEM format)
+O sistema usa a **API Cobrança Bancária v3** do Sicoob. Configure as seguintes variáveis:
+
+#### Variáveis Obrigatórias
+
+- `SICOOB_CLIENT_ID`: Client ID da API Sicoob
+- `SICOOB_CLIENT_SECRET`: Client Secret da API Sicoob
+- `SICOOB_NUMERO_CLIENTE`: Número do cliente no Sicoob
+- `SICOOB_CODIGO_MODALIDADE`: Código da modalidade de cobrança
+
+#### Variáveis Opcionais
+
+- `SICOOB_BASE_URL`: URL base da API (padrão: `https://api.sicoob.com.br/cobranca-bancaria/v3`)
+  - Para sandbox: `https://sandbox.sicoob.com.br/sicoob/sandbox/cobranca-bancaria/v3`
+- `SICOOB_AUTH_TOKEN_URL`: URL de autenticação OAuth (padrão: `https://auth.sicoob.com.br/auth/realms/cooperado/protocol/openid-connect/token`)
+- `SICOOB_NUMERO_CONTRATO_COBRANCA`: Número do contrato de cobrança (se aplicável)
+
+#### Certificados SSL (mTLS)
+
+Se a API do Sicoob exigir certificados SSL para autenticação mútua (mTLS), configure uma das opções:
+
+**Opção 1: Certificado PFX em Base64 (recomendado)**
+```env
+SICOOB_CERT_PFX_BASE64=<certificado PFX codificado em base64>
+SICOOB_CERT_PFX_PASSWORD=<senha do certificado PFX>
+```
+
+**Opção 2: Certificado PEM separado**
+```env
+SICOOB_CERTIFICATE_PATH=/caminho/para/cert.pem
+SICOOB_KEY_PATH=/caminho/para/key.pem
+```
+
+#### Endpoints Utilizados
+
+- **Autenticação**: `POST {SICOOB_AUTH_TOKEN_URL}` (OAuth Client Credentials)
+- **Segunda via com PDF**: `GET {SICOOB_BASE_URL}/boletos/segunda-via?gerarPdf=true&...`
+- **Dados do boleto**: `GET {SICOOB_BASE_URL}/boletos/segunda-via?gerarPdf=false&...`
+- **Buscar boletos por CPF**: `GET {SICOOB_BASE_URL}/pagadores/{cpfCnpj}/boletos`
+
+#### Notas Importantes
+
+- A API retorna PDF em Base64 no campo `pdfBoleto` da resposta JSON
+- Todos os endpoints requerem o header `client_id` com o valor de `SICOOB_CLIENT_ID`
+- O sistema converte automaticamente Base64 para Buffer quando necessário
 
 ### TitleRepository - Repositório de Títulos
 

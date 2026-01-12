@@ -48,6 +48,11 @@ Abra o arquivo `.env` e preencha todas as variáveis necessárias.
 - `WHATSAPP_VERIFY_TOKEN`: Token de verificação do webhook (pode ser qualquer string)
 - `SICOOB_CLIENT_ID`: Client ID da API Sicoob
 - `SICOOB_CLIENT_SECRET`: Client Secret da API Sicoob
+- `SICOOB_BASE_URL`: URL base da API Sicoob (padrão: `https://api.sicoob.com.br/cobranca-bancaria/v3`)
+- `SICOOB_AUTH_TOKEN_URL`: URL de autenticação OAuth (padrão: `https://auth.sicoob.com.br/auth/realms/cooperado/protocol/openid-connect/token`)
+- `SICOOB_NUMERO_CLIENTE`: Número do cliente no Sicoob (obrigatório)
+- `SICOOB_CODIGO_MODALIDADE`: Código da modalidade de cobrança (obrigatório)
+- `SICOOB_NUMERO_CONTRATO_COBRANCA`: Número do contrato de cobrança (opcional)
 - `GOOGLE_CLIENT_EMAIL`: Email da service account do Google
 - `GOOGLE_PRIVATE_KEY`: Chave privada da service account (substitua `\n` reais por `\n` na string)
 - `GOOGLE_PROJECT_ID`: ID do projeto no Google Cloud
@@ -132,8 +137,10 @@ Se você não tiver Redis configurado, o sistema usará fallback em memória aut
 ### Erro de autenticação do Sicoob
 
 - Verifique se `SICOOB_CLIENT_ID` e `SICOOB_CLIENT_SECRET` estão corretos
-- Se usar certificados SSL, verifique os caminhos
-- Confirme que as credenciais têm as permissões necessárias
+- Verifique se `SICOOB_NUMERO_CLIENTE` e `SICOOB_CODIGO_MODALIDADE` estão configurados
+- Se usar certificados SSL, verifique os caminhos (`SICOOB_CERTIFICATE_PATH` e `SICOOB_KEY_PATH`, ou `SICOOB_CERT_PFX_BASE64` e `SICOOB_CERT_PFX_PASSWORD`)
+- Confirme que as credenciais têm as permissões necessárias na API Cobrança Bancária v3
+- Para sandbox, ajuste `SICOOB_BASE_URL` para `https://sandbox.sicoob.com.br/sicoob/sandbox/cobranca-bancaria/v3`
 
 ## Testes
 
