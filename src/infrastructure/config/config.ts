@@ -10,6 +10,7 @@ const configSchema = z.object({
   whatsappApiToken: z.string().min(1),
   whatsappPhoneNumberId: z.string().min(1),
   whatsappVerifyToken: z.string().min(1),
+  whatsappAppSecret: z.string().min(1),
   whatsappWebhookUrl: z.string().url().optional(),
 
   // Sicoob
@@ -59,6 +60,7 @@ export function loadConfig(): Config {
       whatsappApiToken: process.env.WHATSAPP_API_TOKEN,
       whatsappPhoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID,
       whatsappVerifyToken: process.env.WHATSAPP_VERIFY_TOKEN,
+      whatsappAppSecret: process.env.WHATSAPP_APP_SECRET,
       whatsappWebhookUrl: process.env.WHATSAPP_WEBHOOK_URL,
       sicoobClientId: process.env.SICOOB_CLIENT_ID,
       sicoobClientSecret: process.env.SICOOB_CLIENT_SECRET,
