@@ -34,10 +34,8 @@ describe('ProcessFormatSelectionUseCase', () => {
 
     mockWhatsapp = {
       sendText: vi.fn(),
-      sendTextMessage: vi.fn(),
       uploadMedia: vi.fn(),
       sendDocument: vi.fn(),
-      sendDocumentMessage: vi.fn(),
       handleWebhook: vi.fn(),
       validateWebhook: vi.fn(),
       validateSignature: vi.fn(),
@@ -112,7 +110,7 @@ describe('ProcessFormatSelectionUseCase', () => {
       vi.mocked(mockDriveStorage.savePrivatePdf).mockResolvedValue(mockDriveResult);
       vi.mocked(mockWhatsapp.uploadMedia).mockResolvedValue('media-id-123');
       vi.mocked(mockWhatsapp.sendDocument).mockResolvedValue({ success: true });
-      vi.mocked(mockWhatsapp.sendTextMessage).mockResolvedValue({ success: true });
+      vi.mocked(mockWhatsapp.sendText).mockResolvedValue({ success: true });
       vi.mocked(mockSheetLogger.appendEvent).mockResolvedValue();
 
       await useCase.execute(from, '1', requestId);
@@ -158,11 +156,11 @@ describe('ProcessFormatSelectionUseCase', () => {
       vi.mocked(mockConversationState.get).mockResolvedValue(mockState);
       vi.mocked(mockBankProvider.getSecondCopyPdf).mockResolvedValue(null);
       vi.mocked(mockBankProvider.getSecondCopyData).mockResolvedValue(null);
-      vi.mocked(mockWhatsapp.sendTextMessage).mockResolvedValue({ success: true });
+      vi.mocked(mockWhatsapp.sendText).mockResolvedValue({ success: true });
 
       await useCase.execute(from, '1', requestId);
 
-      expect(mockWhatsapp.sendTextMessage).toHaveBeenCalledWith(
+      expect(mockWhatsapp.sendText).toHaveBeenCalledWith(
         from,
         expect.stringContaining('Não foi possível gerar o PDF'),
         requestId
@@ -202,13 +200,13 @@ describe('ProcessFormatSelectionUseCase', () => {
 
       vi.mocked(mockConversationState.get).mockResolvedValue(mockState);
       vi.mocked(mockBankProvider.getSecondCopyData).mockResolvedValue(mockDataResult);
-      vi.mocked(mockWhatsapp.sendTextMessage).mockResolvedValue({ success: true });
+      vi.mocked(mockWhatsapp.sendText).mockResolvedValue({ success: true });
       vi.mocked(mockSheetLogger.appendEvent).mockResolvedValue();
 
       await useCase.execute(from, '2', requestId);
 
       expect(mockBankProvider.getSecondCopyData).toHaveBeenCalledWith(mockTitle);
-      expect(mockWhatsapp.sendTextMessage).toHaveBeenCalledWith(
+      expect(mockWhatsapp.sendText).toHaveBeenCalledWith(
         from,
         expect.stringContaining('Código de barras'),
         requestId
@@ -252,11 +250,11 @@ describe('ProcessFormatSelectionUseCase', () => {
 
       vi.mocked(mockConversationState.get).mockResolvedValue(mockState);
       vi.mocked(mockBankProvider.getSecondCopyData).mockResolvedValue(mockDataResult);
-      vi.mocked(mockWhatsapp.sendTextMessage).mockResolvedValue({ success: true });
+      vi.mocked(mockWhatsapp.sendText).mockResolvedValue({ success: true });
 
       await useCase.execute(from, '2', requestId);
 
-      expect(mockWhatsapp.sendTextMessage).toHaveBeenCalledWith(
+      expect(mockWhatsapp.sendText).toHaveBeenCalledWith(
         from,
         expect.stringContaining('Código de barras não disponível'),
         requestId
@@ -294,13 +292,13 @@ describe('ProcessFormatSelectionUseCase', () => {
 
       vi.mocked(mockConversationState.get).mockResolvedValue(mockState);
       vi.mocked(mockBankProvider.getSecondCopyData).mockResolvedValue(mockDataResult);
-      vi.mocked(mockWhatsapp.sendTextMessage).mockResolvedValue({ success: true });
+      vi.mocked(mockWhatsapp.sendText).mockResolvedValue({ success: true });
       vi.mocked(mockSheetLogger.appendEvent).mockResolvedValue();
 
       await useCase.execute(from, '3', requestId);
 
       expect(mockBankProvider.getSecondCopyData).toHaveBeenCalledWith(mockTitle);
-      expect(mockWhatsapp.sendTextMessage).toHaveBeenCalledWith(
+      expect(mockWhatsapp.sendText).toHaveBeenCalledWith(
         from,
         expect.stringContaining('Linha digitável'),
         requestId
@@ -353,12 +351,12 @@ describe('ProcessFormatSelectionUseCase', () => {
       };
 
       vi.mocked(mockConversationState.get).mockResolvedValue(mockState);
-      vi.mocked(mockWhatsapp.sendTextMessage).mockResolvedValue({ success: true });
+      vi.mocked(mockWhatsapp.sendText).mockResolvedValue({ success: true });
       vi.mocked(mockConversationState.set).mockResolvedValue();
 
       await useCase.execute(from, '0', requestId);
 
-      expect(mockWhatsapp.sendTextMessage).toHaveBeenCalledWith(
+      expect(mockWhatsapp.sendText).toHaveBeenCalledWith(
         from,
         expect.stringContaining('Encontrei 2 boletos'),
         requestId
@@ -385,11 +383,11 @@ describe('ProcessFormatSelectionUseCase', () => {
       const requestId = 'req-123';
 
       vi.mocked(mockConversationState.get).mockResolvedValue(null);
-      vi.mocked(mockWhatsapp.sendTextMessage).mockResolvedValue({ success: true });
+      vi.mocked(mockWhatsapp.sendText).mockResolvedValue({ success: true });
 
       await useCase.execute(from, '1', requestId);
 
-      expect(mockWhatsapp.sendTextMessage).toHaveBeenCalledWith(
+      expect(mockWhatsapp.sendText).toHaveBeenCalledWith(
         from,
         expect.stringContaining('Estado da conversa inválido'),
         requestId
@@ -417,11 +415,11 @@ describe('ProcessFormatSelectionUseCase', () => {
       };
 
       vi.mocked(mockConversationState.get).mockResolvedValue(mockState);
-      vi.mocked(mockWhatsapp.sendTextMessage).mockResolvedValue({ success: true });
+      vi.mocked(mockWhatsapp.sendText).mockResolvedValue({ success: true });
 
       await useCase.execute(from, '99', requestId);
 
-      expect(mockWhatsapp.sendTextMessage).toHaveBeenCalledWith(
+      expect(mockWhatsapp.sendText).toHaveBeenCalledWith(
         from,
         expect.stringContaining('Opção inválida'),
         requestId
