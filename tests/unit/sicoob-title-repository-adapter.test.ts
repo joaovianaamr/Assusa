@@ -26,6 +26,7 @@ describe('SicoobTitleRepositoryAdapter', () => {
   });
 
   it('deve converter BoletoSicoob[] em Title[] filtrando apenas boletos abertos', async () => {
+    const cpf = '12345678900';
     const cpfHash = 'abc123hash';
     const boletos: BoletoSicoob[] = [
       {
@@ -53,7 +54,7 @@ describe('SicoobTitleRepositoryAdapter', () => {
 
     vi.mocked(mockSicoobPort.buscarBoletosPorCPF).mockResolvedValue(boletos);
 
-    const titles = await adapter.findOpenTitlesByCpfHash(cpfHash);
+    const titles = await adapter.findOpenTitlesByCpfHash(cpf, cpfHash);
 
     expect(titles).toHaveLength(2);
     expect(titles[0].nossoNumero).toBe('12345');
@@ -61,10 +62,11 @@ describe('SicoobTitleRepositoryAdapter', () => {
     expect(titles[0].status).toBe('Aberto');
     expect(titles[1].nossoNumero).toBe('12347');
     expect(titles[1].status).toBe('ABERTO');
-    expect(mockSicoobPort.buscarBoletosPorCPF).toHaveBeenCalledWith(cpfHash, expect.any(String));
+    expect(mockSicoobPort.buscarBoletosPorCPF).toHaveBeenCalledWith(cpf, expect.any(String));
   });
 
   it('deve retornar array vazio quando não há boletos abertos', async () => {
+    const cpf = '12345678900';
     const cpfHash = 'abc123hash';
     const boletos: BoletoSicoob[] = [
       {
@@ -78,25 +80,27 @@ describe('SicoobTitleRepositoryAdapter', () => {
 
     vi.mocked(mockSicoobPort.buscarBoletosPorCPF).mockResolvedValue(boletos);
 
-    const titles = await adapter.findOpenTitlesByCpfHash(cpfHash);
+    const titles = await adapter.findOpenTitlesByCpfHash(cpf, cpfHash);
 
     expect(titles).toHaveLength(0);
   });
 
   it('deve lançar erro quando SicoobPort falha', async () => {
+    const cpf = '12345678900';
     const cpfHash = 'abc123hash';
     const error = new Error('Erro ao buscar boletos');
 
     vi.mocked(mockSicoobPort.buscarBoletosPorCPF).mockRejectedValue(error);
 
-    await expect(adapter.findOpenTitlesByCpfHash(cpfHash)).rejects.toThrow('Falha ao buscar títulos');
+    await expect(adapter.findOpenTitlesByCpfHash(cpf, cpfHash)).rejects.toThrow('Falha ao buscar títulos');
     expect(mockLogger.error).toHaveBeenCalledWith(
-      expect.objectContaining({ cpfHash, error: 'Erro ao buscar boletos' }),
+      expect.objectContaining({ error: 'Erro ao buscar boletos' }),
       'Erro ao buscar títulos no Sicoob'
     );
   });
 
   it('deve converter vencimento string para Date', async () => {
+    const cpf = '12345678900';
     const cpfHash = 'abc123hash';
     const boletos: BoletoSicoob[] = [
       {
@@ -110,7 +114,7 @@ describe('SicoobTitleRepositoryAdapter', () => {
 
     vi.mocked(mockSicoobPort.buscarBoletosPorCPF).mockResolvedValue(boletos);
 
-    const titles = await adapter.findOpenTitlesByCpfHash(cpfHash);
+    const titles = await adapter.findOpenTitlesByCpfHash(cpf, cpfHash);
 
     expect(titles[0].vencimento).toBeInstanceOf(Date);
     expect(titles[0].vencimento?.getFullYear()).toBe(2024);
