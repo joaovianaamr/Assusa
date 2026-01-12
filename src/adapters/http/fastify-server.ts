@@ -83,9 +83,24 @@ export class FastifyServer {
     this.app.post('/webhooks/whatsapp', async (request: FastifyRequest, reply: FastifyReply) => {
       const requestId = request.id as string;
       const payload = request.body;
+      const rawBody = JSON.stringify(payload);
+      const signature = request.headers['x-hub-signature-256'] as string | undefined;
 
       try {
         this.dependencies.logger.debug({ requestId }, 'Webhook recebido');
+
+        // Validar assinatura quando aplicável
+        if (signature) {
+          const isValid = this.dependencies.whatsappAdapter.validateSignature(
+            rawBody,
+            signature,
+            requestId
+          );
+          if (!isValid) {
+            this.dependencies.logger.warn({ requestId }, 'Assinatura de webhook inválida');
+            return reply.code(403).send({ error: 'Forbidden' });
+          }
+        }
 
         const message = await this.dependencies.whatsappAdapter.handleWebhook(payload, requestId);
 
