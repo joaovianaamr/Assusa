@@ -1,0 +1,125 @@
+import { FlowType } from '../../domain/enums/flow-type.js';
+import { ConversationStateStore } from '../../application/ports/driven/conversation-state-store.js';
+import { WhatsAppPort } from '../../application/ports/driven/whatsapp-port.js';
+import { TitleRepository } from '../../application/ports/driven/title-repository.port.js';
+import { RateLimiter } from '../../application/ports/driven/rate-limiter.js';
+import { Logger } from '../../application/ports/driven/logger-port.js';
+import { CpfHandler } from '../../infrastructure/security/cpf-handler.js';
+import { GenerateSecondCopyUseCase } from './generate-second-copy.use-case.js';
+import { Config } from '../../infrastructure/config/config.js';
+
+/**
+ * Use Case: Receber CPF e processar
+ * - Valida CPF
+ * - Aplica rate-limit
+ * - Calcula cpfHash + cpfMasked
+ * - Busca títulos (TitleRepository.findOpenTitlesByCpfHash)
+ * - Se 0: log NO_TITLES e retorna mensagem
+ * - Se 1: processa GenerateSecondCopy(title)
+ * - Se >1: muda step=WAITING_SELECTION e lista opções com índice (sem vazar dados)
+ */
+export class ReceiveCpfAndProcessUseCase {
+  constructor(
+    private conversationState: ConversationStateStore,
+    private whatsapp: WhatsAppPort,
+    private titleRepository: TitleRepository,
+    private rateLimiter: RateLimiter,
+    private generateSecondCopy: GenerateSecondCopyUseCase,
+    private logger: Logger,
+    private config: Config
+  ) {}
+
+  async execute(from: string, cpfInput: string, requestId: string): Promise<void> {
+    // Validar CPF
+    if (!CpfHandler.isValidCpf(cpfInput)) {
+      await this.whatsapp.sendTextMessage(
+        from,
+        '❌ CPF inválido. Por favor, digite um CPF válido (apenas números ou com formatação):',
+        requestId
+      );
+      return;
+    }
+
+    // Normalizar e processar CPF
+    const cpfNormalized = CpfHandler.normalizeCpf(cpfInput);
+    const cpfHash = CpfHandler.hashCpf(cpfNormalized);
+    const cpfMasked = CpfHandler.maskCpf(cpfNormalized);
+
+    this.logger.info({ requestId, from, cpfMasked }, 'CPF recebido e processado');
+
+    // Aplicar rate-limit
+    const rateLimitResult = await this.rateLimiter.hit(
+      from,
+      this.config.rateLimitMaxRequests,
+      this.config.rateLimitWindowMs / 1000
+    );
+
+    if (!rateLimitResult.allowed) {
+      await this.whatsapp.sendTextMessage(
+        from,
+        '⏱️ Você excedeu o limite de requisições. Por favor, tente novamente mais tarde.',
+        requestId
+      );
+      this.logger.warn({ requestId, from, cpfMasked }, 'Rate limit excedido');
+      return;
+    }
+
+    // Buscar títulos
+    const titles = await this.titleRepository.findOpenTitlesByCpfHash(cpfHash);
+
+    if (titles.length === 0) {
+      this.logger.info({ requestId, from, cpfMasked }, 'NO_TITLES: Nenhum título encontrado');
+      await this.whatsapp.sendTextMessage(
+        from,
+        '❌ Nenhum boleto em aberto encontrado para este CPF. Verifique o CPF informado e tente novamente.',
+        requestId
+      );
+      // Limpar estado
+      await this.conversationState.clear(from);
+      return;
+    }
+
+    if (titles.length === 1) {
+      // Processar diretamente
+      const title = titles[0];
+      await this.generateSecondCopy.execute(from, cpfHash, cpfMasked, title, requestId);
+      // Limpar estado após processamento
+      await this.conversationState.clear(from);
+      return;
+    }
+
+    // Se >1: mudar step=WAITING_SELECTION e listar opções
+    const optionsText = `📋 Encontrei ${titles.length} boletos em aberto. Por favor, escolha qual deseja gerar a 2ª via:\n\n` +
+      titles.map((title, index) => {
+        // Não vazar dados sensíveis - apenas índice e informações básicas
+        const displayIndex = index + 1;
+        const valor = title.valor ? `R$ ${title.valor.toFixed(2)}` : 'Valor não informado';
+        const vencimento = title.vencimento 
+          ? title.vencimento.toLocaleDateString('pt-BR') 
+          : 'Vencimento não informado';
+        return `${displayIndex} - Valor: ${valor} | Vencimento: ${vencimento}`;
+      }).join('\n') +
+      `\n\nDigite o número da opção desejada:`;
+
+    await this.whatsapp.sendTextMessage(from, optionsText, requestId);
+
+    // Atualizar estado: step=WAITING_SELECTION, salvar títulos no estado
+    await this.conversationState.set(from, {
+      activeFlow: FlowType.SECOND_COPY,
+      step: 'WAITING_SELECTION',
+      data: {
+        cpfHash,
+        cpfMasked,
+        titles: titles.map(t => ({
+          id: t.id,
+          nossoNumero: t.nossoNumero,
+          valor: t.valor,
+          vencimento: t.vencimento?.toISOString(),
+        })),
+      },
+      updatedAt: new Date(),
+    });
+
+    this.logger.info({ requestId, from, cpfMasked, titlesCount: titles.length }, 'Aguardando seleção de título');
+  }
+}
