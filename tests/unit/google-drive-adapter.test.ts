@@ -109,25 +109,44 @@ describe('GoogleDriveAdapter', () => {
       const result = await adapter.uploadFile(fileName, fileContent, mimeType, requestId);
 
       expect(result).toBe(fileId);
-      expect(mockDriveFilesCreate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          requestBody: expect.objectContaining({
-            name: fileName,
-            parents: [folderId], // Validar que parents contém folderId
-            mimeType: undefined, // mimeType vai no media, não no requestBody
-          }),
-          media: expect.objectContaining({
-            mimeType,
-            body: fileContent,
-          }),
-          fields: 'id, webViewLink',
-        }),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            'X-Request-ID': requestId,
-          }),
-        })
-      );
+      
+      // Verificar que foi chamado com os parâmetros corretos
+      expect(mockDriveFilesCreate).toHaveBeenCalledTimes(1);
+      const callArgs = mockDriveFilesCreate.mock.calls[0];
+      
+      // Verificar primeiro argumento (opções do create)
+      expect(callArgs[0]).toMatchObject({
+        requestBody: {
+          name: fileName,
+          parents: [folderId], // Validar que parents contém folderId
+        },
+        media: {
+          mimeType,
+        },
+        fields: 'id, webViewLink',
+      });
+      
+      // Verificar que mimeType não está no requestBody (vai no media)
+      expect(callArgs[0].requestBody).not.toHaveProperty('mimeType');
+      
+      // Verificar que body é um Buffer (pode estar serializado no mock)
+      const mediaBody = callArgs[0].media.body;
+      if (Buffer.isBuffer(mediaBody)) {
+        expect(mediaBody).toEqual(fileContent);
+      } else {
+        // Se foi serializado, verificar que tem os dados corretos
+        expect(mediaBody).toHaveProperty('data');
+        expect(mediaBody).toHaveProperty('type', 'Buffer');
+        const bufferFromData = Buffer.from(mediaBody.data);
+        expect(bufferFromData).toEqual(fileContent);
+      }
+      
+      // Verificar segundo argumento (headers)
+      expect(callArgs[1]).toMatchObject({
+        headers: {
+          'X-Request-ID': requestId,
+        },
+      });
       expect(mockLogger.info).toHaveBeenCalledWith(
         expect.objectContaining({ requestId, fileId, fileName }),
         'Arquivo enviado para o Drive'
