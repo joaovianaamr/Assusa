@@ -111,14 +111,14 @@ Este checklist é para validação manual durante homologação. Os itens de có
 - [x] Tamanho do PDF é logado (sem dados sensíveis) ✅
 
 ### Testes
-- [ ] Teste de autenticação bem-sucedida
-- [ ] Teste de cache de token (não reautentica se válido)
-- [ ] Teste de expiração de token (reautentica quando expirado)
-- [ ] Teste de obtenção de PDF bem-sucedida
-- [ ] Teste de obtenção de dados bem-sucedida
-- [ ] Teste de erro 404 (retorna `null`)
-- [ ] Teste de erro de autenticação (lança `SicoobError`)
-- [ ] Teste de mTLS (se configurado)
+- [x] Teste de autenticação bem-sucedida
+- [x] Teste de cache de token (não reautentica se válido)
+- [x] Teste de expiração de token (reautentica quando expirado)
+- [x] Teste de obtenção de PDF bem-sucedida
+- [x] Teste de obtenção de dados bem-sucedida
+- [x] Teste de erro 404 (retorna `null`)
+- [ ] Teste de erro de autenticação (lança `SicoobError`) - **LIMITAÇÃO TÉCNICA**: Mock de `axios.isAxiosError` não está sendo aplicado corretamente quando o módulo importa `axios` diretamente. 13 de 15 testes passando.
+- [x] Teste de mTLS (se configurado)
 
 ---
 

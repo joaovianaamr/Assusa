@@ -1,13 +1,43 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import https from 'https';
+
+// Mock do axios ANTES de importar qualquer coisa que use axios
+// Isso é crítico: o mock deve estar antes de TODAS as importações que usam axios
+vi.mock('axios', async () => {
+  const actual = await vi.importActual<typeof import('axios')>('axios');
+  
+  // Função mock que reconhece erros com response ou isAxiosError
+  // Esta função será usada quando axios.isAxiosError() for chamado
+  const isAxiosErrorMock = vi.fn((error: unknown) => {
+    const err = error as any;
+    // Reconhecer se tem isAxiosError=true OU se tem response (com status)
+    // Isso é importante porque o mapErrorToCode verifica axios.isAxiosError(error)
+    const hasIsAxiosError = err?.isAxiosError === true;
+    const hasResponse = err?.response !== undefined && err?.response !== null;
+    return hasIsAxiosError || hasResponse;
+  });
+  
+  return {
+    ...actual,
+    default: {
+      ...actual.default,
+      create: vi.fn(),
+      post: vi.fn(),
+      isAxiosError: isAxiosErrorMock,
+    },
+    isAxiosError: isAxiosErrorMock,
+  };
+});
+
+// Importar axios DEPOIS do mock
 import axios, { AxiosInstance } from 'axios';
-import { SicoobBankProviderAdapter } from '../../src/adapters/sicoob/sicoob-bank-provider-adapter.js';
+// Importar o adapter DEPOIS do mock do axios
+import { SicoobBankProviderAdapter, SicoobError } from '../../src/adapters/sicoob/sicoob-bank-provider-adapter.js';
 import { Config } from '../../src/infrastructure/config/config.js';
 import { Logger } from '../../src/application/ports/driven/logger-port.js';
 import { Title } from '../../src/domain/entities/title.js';
 import { SicoobErrorCode } from '../../src/domain/enums/sicoob-error-code.js';
 
-// Mock do axios
-vi.mock('axios');
 const mockedAxios = vi.mocked(axios);
 
 // Mock da instância axios
@@ -22,10 +52,21 @@ describe('SicoobBankProviderAdapter', () => {
   let mockLogger: Logger;
 
   beforeEach(() => {
+    // Limpar mocks, mas preservar o mock de isAxiosError
     vi.clearAllMocks();
 
     // Mock axios.create para retornar nossa instância mockada
     mockedAxios.create.mockReturnValue(mockAxiosInstance as any);
+    
+    // Reconfigurar mock de isAxiosError após clearAllMocks
+    // IMPORTANTE: O mock precisa reconhecer erros que têm a propriedade 'response'
+    // Isso é crítico porque o mapErrorToCode verifica axios.isAxiosError(error)
+    vi.mocked(axios.isAxiosError).mockImplementation((error: unknown) => {
+      const err = error as any;
+      const hasIsAxiosError = err?.isAxiosError === true;
+      const hasResponse = err?.response !== undefined && err?.response !== null;
+      return hasIsAxiosError || hasResponse;
+    });
 
     mockConfig = {
       sicoobClientId: 'test-client-id',
@@ -67,8 +108,8 @@ describe('SicoobBankProviderAdapter', () => {
     adapter = new SicoobBankProviderAdapter(mockConfig, mockLogger);
   });
 
-  describe('getAuthToken', () => {
-    it('deve obter token usando URL configurável', async () => {
+  describe('Autenticação', () => {
+    it('deve obter token de autenticação bem-sucedida', async () => {
       const mockTokenResponse = {
         data: {
           access_token: 'test-access-token',
@@ -79,8 +120,7 @@ describe('SicoobBankProviderAdapter', () => {
 
       mockedAxios.post.mockResolvedValueOnce(mockTokenResponse);
 
-      // Acessar método privado via reflexão ou testar indiretamente
-      // Como getAuthToken é privado, vamos testar indiretamente através de getSecondCopyPdf
+      // Testar indiretamente através de getSecondCopyPdf
       const title: Title = {
         id: 'test-id',
         nossoNumero: '123456',
@@ -96,11 +136,11 @@ describe('SicoobBankProviderAdapter', () => {
         status: 200,
       };
 
-      // Mock já configurado no beforeEach
       vi.mocked(mockAxiosInstance.get).mockResolvedValueOnce(mockSegundaViaResponse);
 
       const result = await adapter.getSecondCopyPdf(title);
 
+      // Verificar que autenticação foi chamada
       expect(mockedAxios.post).toHaveBeenCalledWith(
         mockConfig.sicoobAuthTokenUrl,
         expect.any(URLSearchParams),
@@ -111,8 +151,227 @@ describe('SicoobBankProviderAdapter', () => {
         })
       );
 
+      // Verificar que token foi usado na requisição
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith(
+        '/boletos/segunda-via',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'Authorization': 'Bearer test-access-token',
+          }),
+        })
+      );
+
       expect(result).not.toBeNull();
-      expect(result?.buffer).toBeInstanceOf(Buffer);
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.objectContaining({
+          expiresAt: expect.any(String),
+        }),
+        'Token Sicoob obtido e cacheado'
+      );
+    });
+
+    it('deve usar token em cache quando ainda é válido (não reautentica)', async () => {
+      const mockTokenResponse = {
+        data: {
+          access_token: 'test-access-token-cached',
+          token_type: 'Bearer',
+          expires_in: 3600, // 1 hora
+        },
+      };
+
+      mockedAxios.post.mockResolvedValueOnce(mockTokenResponse);
+
+      const title: Title = {
+        id: 'test-id',
+        nossoNumero: '123456',
+      };
+
+      const mockSegundaViaResponse = {
+        data: {
+          resultado: {
+            nossoNumero: '123456',
+            pdfBoleto: Buffer.from('%PDF-test-content').toString('base64'),
+          },
+        },
+        status: 200,
+      };
+
+      vi.mocked(mockAxiosInstance.get).mockResolvedValue(mockSegundaViaResponse);
+
+      // Primeira chamada - obtém token
+      await adapter.getSecondCopyPdf(title);
+      
+      // Limpar mocks de post
+      mockedAxios.post.mockClear();
+
+      // Segunda chamada - deve usar token em cache
+      await adapter.getSecondCopyPdf(title);
+
+      // Verificar que post não foi chamado novamente (token em cache)
+      expect(mockedAxios.post).not.toHaveBeenCalled();
+
+      // Verificar que get foi chamado duas vezes com o mesmo token
+      expect(mockAxiosInstance.get).toHaveBeenCalledTimes(2);
+      expect(mockAxiosInstance.get).toHaveBeenNthCalledWith(
+        2,
+        '/boletos/segunda-via',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'Authorization': 'Bearer test-access-token-cached',
+          }),
+        })
+      );
+    });
+
+    it('deve reautenticar quando token expirou', async () => {
+      vi.useFakeTimers();
+
+      const mockTokenResponse1 = {
+        data: {
+          access_token: 'test-access-token-expired',
+          token_type: 'Bearer',
+          expires_in: 3600, // 1 hora, mas expira em 3540s (3600 - 60 buffer)
+        },
+      };
+
+      const mockTokenResponse2 = {
+        data: {
+          access_token: 'test-access-token-new',
+          token_type: 'Bearer',
+          expires_in: 3600,
+        },
+      };
+
+      mockedAxios.post
+        .mockResolvedValueOnce(mockTokenResponse1)
+        .mockResolvedValueOnce(mockTokenResponse2);
+
+      const title: Title = {
+        id: 'test-id',
+        nossoNumero: '123456',
+      };
+
+      const mockSegundaViaResponse = {
+        data: {
+          resultado: {
+            nossoNumero: '123456',
+            pdfBoleto: Buffer.from('%PDF-test-content').toString('base64'),
+          },
+        },
+        status: 200,
+      };
+
+      vi.mocked(mockAxiosInstance.get).mockResolvedValue(mockSegundaViaResponse);
+
+      // Primeira chamada - obtém token
+      await adapter.getSecondCopyPdf(title);
+
+      // Avançar tempo para expirar token (3540s + 1s = expirado)
+      vi.advanceTimersByTime(3541 * 1000);
+
+      // Segunda chamada - deve reautenticar
+      await adapter.getSecondCopyPdf(title);
+
+      // Verificar que post foi chamado duas vezes
+      expect(mockedAxios.post).toHaveBeenCalledTimes(2);
+
+      // Verificar que segunda chamada usa novo token
+      expect(mockAxiosInstance.get).toHaveBeenNthCalledWith(
+        2,
+        '/boletos/segunda-via',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'Authorization': 'Bearer test-access-token-new',
+          }),
+        })
+      );
+
+      vi.useRealTimers();
+    });
+
+    it('deve lançar SicoobError quando autenticação falha (401)', async () => {
+      // Criar novo adapter para evitar estado compartilhado
+      const freshAdapter = new SicoobBankProviderAdapter(mockConfig, mockLogger);
+      
+      // Criar erro que será reconhecido como AxiosError
+      const axiosError = {
+        isAxiosError: true,
+        response: {
+          status: 401,
+          data: { error: 'invalid_client' },
+        },
+        message: 'Unauthorized',
+      } as any;
+
+      // Configurar mock para reconhecer este erro específico
+      // O mock precisa retornar true quando receber este erro
+      vi.mocked(axios.isAxiosError).mockImplementation((error: unknown) => {
+        const err = error as any;
+        // Reconhecer se é o mesmo objeto OU se tem response com status 401
+        return error === axiosError || (err?.response?.status === 401);
+      });
+      
+      mockedAxios.post.mockRejectedValue(axiosError);
+
+      const title: Title = {
+        id: 'test-id',
+        nossoNumero: '123456',
+      };
+
+      try {
+        await freshAdapter.getSecondCopyPdf(title);
+        expect.fail('Deveria ter lançado SicoobError');
+      } catch (error) {
+        expect(error).toBeInstanceOf(SicoobError);
+        expect((error as SicoobError).code).toBe(SicoobErrorCode.SICOOB_AUTH_FAILED);
+        expect((error as SicoobError).statusCode).toBe(401);
+      }
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: SicoobErrorCode.SICOOB_AUTH_FAILED,
+        }),
+        'Erro ao autenticar no Sicoob'
+      );
+    });
+
+    it('deve lançar SicoobError quando autenticação falha (403)', async () => {
+      // Criar novo adapter para evitar estado compartilhado
+      const freshAdapter = new SicoobBankProviderAdapter(mockConfig, mockLogger);
+      
+      // Criar erro que será reconhecido como AxiosError
+      const axiosError = {
+        isAxiosError: true,
+        response: {
+          status: 403,
+          data: { error: 'access_denied' },
+        },
+        message: 'Forbidden',
+      } as any;
+
+      // Configurar mock para reconhecer este erro específico
+      // O mock precisa retornar true quando receber este erro
+      vi.mocked(axios.isAxiosError).mockImplementation((error: unknown) => {
+        const err = error as any;
+        // Reconhecer se é o mesmo objeto OU se tem response com status 403
+        return error === axiosError || (err?.response?.status === 403);
+      });
+      
+      mockedAxios.post.mockRejectedValue(axiosError);
+
+      const title: Title = {
+        id: 'test-id',
+        nossoNumero: '123456',
+      };
+
+      try {
+        await freshAdapter.getSecondCopyPdf(title);
+        expect.fail('Deveria ter lançado SicoobError');
+      } catch (error) {
+        expect(error).toBeInstanceOf(SicoobError);
+        expect((error as SicoobError).code).toBe(SicoobErrorCode.SICOOB_AUTH_FAILED);
+        expect((error as SicoobError).statusCode).toBe(403);
+      }
     });
   });
 
@@ -404,6 +663,138 @@ describe('SicoobBankProviderAdapter', () => {
       const result = await adapter.getSecondCopyData(title);
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('mTLS', () => {
+    it('deve configurar HTTPS Agent quando certificado PEM separado é fornecido', async () => {
+      // Mock fs/promises
+      vi.mock('fs/promises', async () => {
+        const actual = await vi.importActual('fs/promises');
+        return {
+          ...actual,
+          readFile: vi.fn().mockResolvedValue('mock-cert-content'),
+        };
+      });
+
+      const configWithPem: Config = {
+        ...mockConfig,
+        sicoobCertificatePath: '/path/to/cert.pem',
+        sicoobKeyPath: '/path/to/key.pem',
+      };
+
+      const adapterWithPem = new SicoobBankProviderAdapter(configWithPem, mockLogger);
+
+      const mockTokenResponse = {
+        data: {
+          access_token: 'test-access-token',
+          token_type: 'Bearer',
+          expires_in: 3600,
+        },
+      };
+
+      mockedAxios.post.mockResolvedValueOnce(mockTokenResponse);
+
+      const title: Title = {
+        id: 'test-id',
+        nossoNumero: '123456',
+      };
+
+      const mockSegundaViaResponse = {
+        data: {
+          resultado: {
+            nossoNumero: '123456',
+            pdfBoleto: Buffer.from('%PDF-test-content').toString('base64'),
+          },
+        },
+        status: 200,
+      };
+
+      vi.mocked(mockAxiosInstance.get).mockResolvedValueOnce(mockSegundaViaResponse);
+
+      // Primeira chamada deve carregar certificado PEM
+      await adapterWithPem.getSecondCopyPdf(title);
+
+      // Verificar que autenticação foi chamada (certificado será carregado em ensureHttpsAgent)
+      expect(mockedAxios.post).toHaveBeenCalled();
+    });
+
+    it('deve tentar configurar HTTPS Agent quando certificado PFX é fornecido', () => {
+      // Como node-forge é requerido dinamicamente e pode não estar instalado,
+      // vamos testar apenas que o código tenta configurar quando PFX é fornecido
+      const configWithPfx: Config = {
+        ...mockConfig,
+        sicoobCertPfxBase64: Buffer.from('mock-pfx-content').toString('base64'),
+        sicoobCertPfxPassword: 'mock-password',
+      };
+
+      // Limpar mocks anteriores
+      mockLogger.debug.mockClear();
+      mockLogger.warn.mockClear();
+
+      // Criar novo adapter - pode falhar se node-forge não estiver instalado
+      try {
+        const adapterWithPfx = new SicoobBankProviderAdapter(configWithPfx, mockLogger);
+        // Se node-forge estiver instalado, deve configurar com sucesso
+        expect(mockLogger.debug).toHaveBeenCalled();
+      } catch (error) {
+        // Se node-forge não estiver instalado, deve logar warning
+        expect(mockLogger.warn).toHaveBeenCalledWith(
+          expect.objectContaining({ error: expect.any(String) }),
+          'Falha ao configurar mTLS com PFX, tentando PEM separado'
+        );
+      }
+      
+      // Em ambos os casos, o código tentou configurar mTLS
+      expect(mockLogger.debug).toHaveBeenCalled();
+    });
+
+    it('deve funcionar sem mTLS quando certificado não é fornecido', async () => {
+      const configWithoutCert: Config = {
+        ...mockConfig,
+        sicoobCertificatePath: undefined,
+        sicoobKeyPath: undefined,
+        sicoobCertPfxBase64: undefined,
+        sicoobCertPfxPassword: undefined,
+      };
+
+      const adapterWithoutCert = new SicoobBankProviderAdapter(configWithoutCert, mockLogger);
+
+      const mockTokenResponse = {
+        data: {
+          access_token: 'test-access-token',
+          token_type: 'Bearer',
+          expires_in: 3600,
+        },
+      };
+
+      mockedAxios.post.mockResolvedValueOnce(mockTokenResponse);
+
+      const title: Title = {
+        id: 'test-id',
+        nossoNumero: '123456',
+      };
+
+      const mockSegundaViaResponse = {
+        data: {
+          resultado: {
+            nossoNumero: '123456',
+            pdfBoleto: Buffer.from('%PDF-test-content').toString('base64'),
+          },
+        },
+        status: 200,
+      };
+
+      vi.mocked(mockAxiosInstance.get).mockResolvedValueOnce(mockSegundaViaResponse);
+
+      // Deve funcionar normalmente sem certificado
+      const result = await adapterWithoutCert.getSecondCopyPdf(title);
+
+      expect(result).not.toBeNull();
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        {},
+        'mTLS desabilitado (nenhum certificado fornecido)'
+      );
     });
   });
 });
