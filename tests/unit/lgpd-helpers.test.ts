@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hashCpf, maskCpf, sanitizeForLogs } from '../../src/domain/helpers/lgpd-helpers.js';
+import { hashCpf, maskCpf, maskWhatsAppNumber, sanitizeForLogs } from '../../src/domain/helpers/lgpd-helpers.js';
 
 describe('LGPD Helpers', () => {
   const TEST_PEPPER = 'test-pepper-key-for-hashing-cpf-security-min-32-char';
@@ -72,6 +72,55 @@ describe('LGPD Helpers', () => {
     it('deve retornar original se CPF não tiver 11 dígitos', () => {
       expect(maskCpf('123')).toBe('123');
       expect(maskCpf('123456789')).toBe('123456789');
+    });
+  });
+
+  describe('maskWhatsAppNumber', () => {
+    it('deve mascarar número do WhatsApp mostrando primeiros 2 e últimos 4 dígitos', () => {
+      // 5511999999999 = 13 dígitos: 55 (2) + ******* (7) + 9999 (4) = 13
+      expect(maskWhatsAppNumber('5511999999999')).toBe('55*******9999');
+      // 5511987654321 = 13 dígitos: 55 (2) + ******* (7) + 4321 (4) = 13
+      expect(maskWhatsAppNumber('5511987654321')).toBe('55*******4321');
+    });
+
+    it('deve remover caracteres não numéricos antes de mascarar', () => {
+      // 5511999999999 = 13 dígitos após remover não numéricos
+      expect(maskWhatsAppNumber('55 11 99999-9999')).toBe('55*******9999');
+      expect(maskWhatsAppNumber('+55-11-99999-9999')).toBe('55*******9999');
+    });
+
+    it('deve mascarar números com menos de 6 dígitos mostrando apenas últimos 2', () => {
+      // 1234 = 4 dígitos: ** (2) + 34 (2) = 4
+      expect(maskWhatsAppNumber('1234')).toBe('**34');
+      // 12 = 2 dígitos: ** (2) = 2
+      expect(maskWhatsAppNumber('12')).toBe('**');
+    });
+
+    it('deve mascarar números com exatamente 6 dígitos', () => {
+      // 123456 = 6 dígitos: 12 (2) + ** (0) + 3456 (4) = 6
+      // Mas esperamos: 12 (2) + ** (2) + 56 (2) = 6
+      // Na verdade, com 6 dígitos: total - 6 = 0, então não mascara o meio
+      // Mas o teste espera mascarar. Vou verificar: 6 - 6 = 0 asteriscos no meio
+      // Então seria 12 + '' + 3456 = 123456
+      // Mas o teste espera 12**56. Isso significa que queremos mascarar o meio mesmo com 6 dígitos.
+      // Vou ajustar a função para sempre mascarar o meio quando >= 6 dígitos
+      expect(maskWhatsAppNumber('123456')).toBe('12**56');
+    });
+
+    it('deve retornar string vazia se receber string vazia', () => {
+      expect(maskWhatsAppNumber('')).toBe('');
+    });
+
+    it('deve retornar string vazia se receber null ou undefined', () => {
+      expect(maskWhatsAppNumber(null as unknown as string)).toBe('');
+      expect(maskWhatsAppNumber(undefined as unknown as string)).toBe('');
+    });
+
+    it('deve mascarar números longos corretamente', () => {
+      // 55119999999999 = 14 dígitos: 55 (2) + ******** (8) + 9999 (4) = 14
+      expect(maskWhatsAppNumber('55119999999999')).toBe('55********9999');
+      // 55119876543210 = 14 dígitos: 55 (2) + ******** (8) + 3210 (4) = 14
+      expect(maskWhatsAppNumber('55119876543210')).toBe('55********3210');
     });
   });
 
