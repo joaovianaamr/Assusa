@@ -3,7 +3,6 @@ import { PinoLogger } from './infrastructure/logging/pino-logger.js';
 import { WhatsAppCloudApiAdapter } from './adapters/whatsapp/whatsapp-cloud-api-adapter.js';
 import { SicoobApiAdapter } from './adapters/sicoob/sicoob-api-adapter.js';
 import { GoogleDriveAdapter } from './adapters/google/drive-adapter.js';
-import { GoogleSheetsAdapter } from './adapters/google/sheets-adapter.js';
 import { RedisAdapter } from './adapters/redis/redis-adapter.js';
 import { InMemoryConversationStateStore } from './adapters/in-memory/in-memory-conversation-state-store.js';
 import { RedisConversationStateStore } from './adapters/redis/redis-conversation-state-store.js';
@@ -43,7 +42,6 @@ async function bootstrap() {
     const whatsappAdapter = new WhatsAppCloudApiAdapter(config, logger);
     const sicoobAdapter = new SicoobApiAdapter(config, logger);
     const driveAdapter = new GoogleDriveAdapter(config, logger);
-    const sheetsAdapter = new GoogleSheetsAdapter(config, logger);
     const storageAdapter = new RedisAdapter(config, logger);
 
     // Inicializar adapters de conversação
