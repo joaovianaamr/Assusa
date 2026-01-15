@@ -1,0 +1,318 @@
+/* Reset e configurações base */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --color-primary: #0066cc;
+    --color-primary-dark: #0052a3;
+    --color-secondary: #333333;
+    --color-text: #333333;
+    --color-text-light: #666666;
+    --color-background: #ffffff;
+    --color-background-light: #f8f9fa;
+    --color-border: #e0e0e0;
+    --color-link: #0066cc;
+    --color-link-hover: #0052a3;
+    --spacing-unit: 1rem;
+    --max-width: 900px;
+    --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--font-family);
+    line-height: 1.6;
+    color: var(--color-text);
+    background-color: var(--color-background);
+}
+
+/* Container */
+.container {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 0 var(--spacing-unit);
+}
+
+/* Header */
+header {
+    background-color: var(--color-primary);
+    color: white;
+    padding: calc(var(--spacing-unit) * 2) 0;
+    text-align: center;
+}
+
+header h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+header h1 a {
+    color: white;
+    text-decoration: none;
+}
+
+header .tagline {
+    font-size: 1.1rem;
+    opacity: 0.95;
+    font-weight: 300;
+}
+
+/* Main content */
+main {
+    padding: calc(var(--spacing-unit) * 3) 0;
+}
+
+section {
+    margin-bottom: calc(var(--spacing-unit) * 4);
+}
+
+section:last-of-type {
+    margin-bottom: calc(var(--spacing-unit) * 2);
+}
+
+h2 {
+    font-size: 1.75rem;
+    color: var(--color-secondary);
+    margin-bottom: calc(var(--spacing-unit) * 1.5);
+    padding-bottom: calc(var(--spacing-unit) * 0.5);
+    border-bottom: 2px solid var(--color-border);
+}
+
+h3 {
+    font-size: 1.4rem;
+    color: var(--color-secondary);
+    margin-top: calc(var(--spacing-unit) * 1.5);
+    margin-bottom: var(--spacing-unit);
+}
+
+p {
+    margin-bottom: var(--spacing-unit);
+    color: var(--color-text);
+}
+
+.lead {
+    font-size: 1.2rem;
+    color: var(--color-text-light);
+    font-weight: 300;
+}
+
+/* Hero section */
+.hero {
+    background-color: var(--color-background-light);
+    padding: calc(var(--spacing-unit) * 3) 0;
+    text-align: center;
+    border-radius: 8px;
+}
+
+.hero h2 {
+    font-size: 2rem;
+    border: none;
+    margin-bottom: var(--spacing-unit);
+}
+
+/* Lists */
+ul, ol {
+    margin-left: calc(var(--spacing-unit) * 1.5);
+    margin-bottom: var(--spacing-unit);
+}
+
+ul li, ol li {
+    margin-bottom: calc(var(--spacing-unit) * 0.5);
+    line-height: 1.7;
+}
+
+.steps {
+    list-style: none;
+    margin-left: 0;
+    counter-reset: step-counter;
+}
+
+.steps li {
+    counter-increment: step-counter;
+    position: relative;
+    padding-left: calc(var(--spacing-unit) * 3);
+    margin-bottom: calc(var(--spacing-unit) * 1.5);
+    line-height: 1.8;
+}
+
+.steps li::before {
+    content: counter(step-counter);
+    position: absolute;
+    left: 0;
+    top: 0;
+    background-color: var(--color-primary);
+    color: white;
+    width: calc(var(--spacing-unit) * 2);
+    height: calc(var(--spacing-unit) * 2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+/* Links */
+a {
+    color: var(--color-link);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+a:hover {
+    color: var(--color-link-hover);
+    text-decoration: underline;
+}
+
+.privacy-link {
+    display: inline-block;
+    margin-top: calc(var(--spacing-unit) * 0.5);
+    font-weight: 500;
+}
+
+/* Contact section */
+.contato, .quem-somos {
+    background-color: var(--color-background-light);
+    padding: calc(var(--spacing-unit) * 2);
+    border-radius: 8px;
+}
+
+.contact-info {
+    margin-top: var(--spacing-unit);
+}
+
+.contact-info p {
+    margin-bottom: calc(var(--spacing-unit) * 0.75);
+}
+
+/* Privacy page specific */
+.privacy-content {
+    max-width: 800px;
+}
+
+.last-updated {
+    font-style: italic;
+    color: var(--color-text-light);
+    margin-bottom: calc(var(--spacing-unit) * 2);
+    font-size: 0.9rem;
+}
+
+.privacy-content h2 {
+    margin-top: calc(var(--spacing-unit) * 2);
+}
+
+.privacy-content h2:first-of-type {
+    margin-top: 0;
+}
+
+.privacy-content ul ul {
+    margin-top: calc(var(--spacing-unit) * 0.5);
+    margin-left: calc(var(--spacing-unit) * 2);
+}
+
+/* Footer */
+footer {
+    background-color: var(--color-secondary);
+    color: white;
+    padding: calc(var(--spacing-unit) * 2) 0;
+    text-align: center;
+    margin-top: calc(var(--spacing-unit) * 4);
+}
+
+footer p {
+    margin-bottom: calc(var(--spacing-unit) * 0.5);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+footer a {
+    color: rgba(255, 255, 255, 0.9);
+    text-decoration: underline;
+}
+
+footer a:hover {
+    color: white;
+}
+
+/* WhatsApp CTA button (comentado por padrão) */
+.whatsapp-cta {
+    display: inline-block;
+    background-color: #25d366;
+    color: white;
+    padding: calc(var(--spacing-unit) * 0.75) calc(var(--spacing-unit) * 2);
+    border-radius: 25px;
+    font-weight: 500;
+    margin-top: var(--spacing-unit);
+    text-decoration: none;
+    transition: background-color 0.2s ease;
+}
+
+.whatsapp-cta:hover {
+    background-color: #20ba5a;
+    text-decoration: none;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    html {
+        font-size: 14px;
+    }
+
+    header h1 {
+        font-size: 1.75rem;
+    }
+
+    .hero h2 {
+        font-size: 1.5rem;
+    }
+
+    h2 {
+        font-size: 1.5rem;
+    }
+
+    .container {
+        padding: 0 calc(var(--spacing-unit) * 1.5);
+    }
+
+    main {
+        padding: calc(var(--spacing-unit) * 2) 0;
+    }
+
+    section {
+        margin-bottom: calc(var(--spacing-unit) * 3);
+    }
+
+    .steps li {
+        padding-left: calc(var(--spacing-unit) * 2.5);
+    }
+
+    .steps li::before {
+        width: calc(var(--spacing-unit) * 1.75);
+        height: calc(var(--spacing-unit) * 1.75);
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 480px) {
+    html {
+        font-size: 13px;
+    }
+
+    header {
+        padding: calc(var(--spacing-unit) * 1.5) 0;
+    }
+
+    header h1 {
+        font-size: 1.5rem;
+    }
+
+    .hero {
+        padding: calc(var(--spacing-unit) * 2) 0;
+    }
+}
