@@ -2,68 +2,38 @@
 
 Este documento contém instruções rápidas para editar e publicar a landing page no GitHub Pages.
 
-## 📁 Arquivos Criados
+## 📁 Estrutura de Arquivos
 
-- `index.html` - Página inicial (home)
-- `privacy.html` - Política de privacidade
-- `styles.css` - Estilos da página
+Todos os arquivos da landing page estão na pasta `site/`:
+
+- `site/index.html` - Página inicial (home)
+- `site/privacy.html` - Política de privacidade
+- `site/styles.css` - Estilos da página
+- `site/README_SITE.md` - Este arquivo com instruções
 
 ## ✏️ Como Editar os Conteúdos
 
-### 1. Dados da Empresa
+### 1. E-mail de Contato
 
-Edite o arquivo `index.html` na seção "Quem fornece este serviço" (por volta da linha 97):
+Edite o arquivo `site/index.html` na seção "Contato" se precisar alterar o e-mail.
 
-```html
-<p><strong>Empresa:</strong> <!-- ALTERE: Nome da empresa --></p>
-<p><strong>Responsável:</strong> <!-- ALTERE: Nome do responsável --></p>
-<p><strong>Localização:</strong> <!-- ALTERE: Cidade/Estado --></p>
-```
+### 2. Números do WhatsApp
 
-### 2. E-mail de Contato
+Os números já estão configurados, mas você pode editar em `site/index.html` na seção "Contato" se necessário.
 
-Edite o arquivo `index.html` na seção "Contato" (por volta da linha 89):
+### 3. E-mail de Privacidade
 
-```html
-<p><strong>E-mail:</strong> <a href="mailto:contato@seudominio.com.br">contato@seudominio.com.br</a></p>
-```
+Edite o arquivo `site/privacy.html` nas seções relevantes se precisar alterar o e-mail de privacidade.
 
-### 3. Link do WhatsApp (Opcional)
-
-Para adicionar um botão "Falar no WhatsApp", descomente a linha no `index.html` (por volta da linha 90):
-
-```html
-<p><strong>WhatsApp:</strong> <a href="https://wa.me/5500000000000" target="_blank" rel="noopener noreferrer">Falar no WhatsApp</a></p>
-```
-
-Substitua `5500000000000` pelo número do WhatsApp no formato internacional (código do país + DDD + número, sem espaços ou caracteres especiais).
-
-### 4. E-mail de Privacidade
-
-Edite o arquivo `privacy.html` nas seções relevantes:
-
-- Seção "Canal de privacidade" (por volta da linha 85)
-- Seção "Responsável pelo tratamento" (por volta da linha 92)
-
-Substitua `privacidade@seudominio.com.br` pelo e-mail correto.
-
-### 5. Dados da Empresa na Política
-
-Edite o arquivo `privacy.html` na seção "Responsável pelo tratamento" (por volta da linha 92):
-
-```html
-<p><strong>Empresa:</strong> <!-- ALTERE: Nome da empresa --></p>
-<p><strong>Responsável:</strong> <!-- ALTERE: Nome do responsável --></p>
-<p><strong>Localização:</strong> <!-- ALTERE: Cidade/Estado --></p>
-```
+**Nota:** As informações de contato já foram preenchidas com os dados fornecidos.
 
 ## 🚀 Como Publicar no GitHub Pages
 
 ### Passo 1: Fazer Commit dos Arquivos
 
 ```bash
-git add index.html privacy.html styles.css README_SITE.md
-git commit -m "feat: adiciona landing page e política de privacidade para GitHub Pages"
+git add site/
+git commit -m "feat: move landing page para pasta site/"
 git push origin main
 ```
 
@@ -75,8 +45,10 @@ git push origin main
 4. Em **Source** (Fonte):
    - Selecione **Deploy from a branch**
    - Escolha **Branch: main**
-   - Escolha **Folder: / (root)**
+   - **Importante:** Escolha **Folder: /site** (não / (root))
 5. Clique em **Save** (Salvar)
+
+**Nota:** Como os arquivos estão na pasta `site/`, você deve selecionar `/site` como pasta raiz no GitHub Pages, não a raiz do repositório.
 
 ### Passo 3: Aguardar Publicação
 
@@ -120,27 +92,31 @@ https://joaosilva.github.io/assusa/
 
 ## 📝 Notas Importantes
 
+- **Estrutura:** Todos os arquivos da landing page estão na pasta `site/` para manter o projeto organizado
 - O site é totalmente estático (apenas HTML, CSS e JavaScript básico)
 - Não há dependências externas ou frameworks
 - Os estilos são responsivos e funcionam bem em dispositivos móveis
 - A data de "Última atualização" na política de privacidade é preenchida automaticamente, mas você pode editá-la manualmente no HTML se necessário
 - O ano no rodapé é atualizado automaticamente via JavaScript
+- **GitHub Pages:** Configure para usar a pasta `/site` como raiz (não a raiz do repositório)
 
 ## 🆘 Solução de Problemas
 
 ### Site não aparece após habilitar Pages
 
 - Aguarde alguns minutos (pode levar até 10 minutos)
-- Verifique se os arquivos estão na branch `main` e na raiz do repositório
+- Verifique se os arquivos estão na branch `main` e na pasta `site/`
+- **Importante:** Confirme que selecionou `/site` como pasta raiz nas configurações do GitHub Pages (não `/ (root)`)
 - Verifique se o nome do repositório está correto na URL
 
 ### Erro 404 ao acessar o site
 
-- Verifique se os arquivos estão na raiz do repositório
+- Verifique se os arquivos estão na pasta `site/` (não na raiz)
+- Confirme que selecionou `/site` nas configurações do GitHub Pages
 - Confirme que os nomes dos arquivos estão corretos: `index.html` (minúsculo)
 - Verifique se fez push para a branch correta
 
 ### Links não funcionam
 
-- Verifique se os caminhos dos links estão corretos (`privacy.html`, `index.html`)
-- Teste abrindo os arquivos localmente no navegador antes de publicar
+- Verifique se os caminhos dos links estão corretos (`privacy.html`, `index.html`) - devem ser relativos, sem o prefixo `site/`
+- Teste abrindo os arquivos localmente no navegador antes de publicar (abra `site/index.html` diretamente)
