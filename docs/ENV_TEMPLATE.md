@@ -50,6 +50,21 @@ SICOOB_CERTIFICATE_PATH=
 SICOOB_KEY_PATH=
 
 # ============================================
+# BRADESCO API
+# ============================================
+# Opcionais (configurar apenas se usar Bradesco)
+BRADESCO_ENV=prod
+BRADESCO_BASE_URL=https://openapi.bradesco.com.br
+BRADESCO_AUTH_URL=
+BRADESCO_CLIENT_ID=
+BRADESCO_PRIVATE_KEY_PEM=
+BRADESCO_PFX_BASE64=
+BRADESCO_PFX_PASSWORD=
+BRADESCO_BENEFICIARY_CNPJ=
+BRADESCO_API_PREFIX=/v1/boleto
+BRADESCO_EXTRA_HEADERS=
+
+# ============================================
 # GOOGLE CLOUD APIs
 # ============================================
 GOOGLE_SERVICE_ACCOUNT_JSON_BASE64=seu_json_base64_aqui
@@ -119,6 +134,33 @@ Para testar sem afetar produção, use o ambiente sandbox:
 ```env
 SICOOB_BASE_URL=https://sandbox.sicoob.com.br/sicoob/sandbox/cobranca-bancaria/v3
 ```
+
+## Configuração do Bradesco
+
+### Ambiente
+
+- `BRADESCO_ENV=prod` (produção) ou `BRADESCO_ENV=homolog` (homologação)
+- Se não fornecer `BRADESCO_AUTH_URL`, será calculado automaticamente:
+  - Produção: `https://openapi.bradesco.com.br/auth/server/v1.1/token`
+  - Homologação: `https://proxy.api.prebanco.com.br/auth/server/v1.2/token`
+
+### Autenticação
+
+O Bradesco usa OAuth2 com JWT Bearer (RS256). Você precisa de:
+
+1. **Chave privada** (uma das opções):
+   - `BRADESCO_PRIVATE_KEY_PEM`: Chave privada em formato PEM
+   - `BRADESCO_PFX_BASE64` + `BRADESCO_PFX_PASSWORD`: Certificado PFX em base64
+
+2. **Credenciais**:
+   - `BRADESCO_CLIENT_ID`: Client ID usado no JWT (campo `sub`)
+   - `BRADESCO_BENEFICIARY_CNPJ`: CNPJ completo do beneficiário (vai no header `cpf-cnpj`)
+
+### Endpoints
+
+- `BRADESCO_BASE_URL`: URL base da API (padrão: `https://openapi.bradesco.com.br`)
+- `BRADESCO_API_PREFIX`: Prefixo da API (padrão: `/v1/boleto`)
+  - Alternativa: `/boleto/cobranca-registro/v1` (depende do contrato)
 
 ## Mais Informações
 
