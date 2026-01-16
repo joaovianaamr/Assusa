@@ -31,6 +31,15 @@ export interface ConsultaBoletoParams {
 }
 
 /**
+ * Parâmetros opcionais para busca de boletos por CPF via GET /pagadores/{cpf}/boletos
+ */
+export interface BuscarBoletosPorCPFParams {
+  codigoSituacao?: number; // 1: Entrada Normal, 2: Baixado, 3: Liquidado
+  dataInicio?: string; // Data de Vencimento Inicial (formato: yyyy-MM-dd)
+  dataFim?: string; // Data de Vencimento Final (formato: yyyy-MM-dd)
+}
+
+/**
  * Resposta completa do endpoint GET /boletos do Sicoob
  * Mapeia todos os campos retornados pela API conforme especificação
  */

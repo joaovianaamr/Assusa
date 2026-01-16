@@ -5,7 +5,7 @@ import fs from 'fs/promises';
 import { BankProvider } from '../../application/ports/driven/bank-provider.port.js';
 import { SicoobPort } from '../../application/ports/driven/sicoob-port.js';
 import { Title } from '../../domain/entities/title.js';
-import { BoletoSicoob, ConsultaBoletoParams, SicoobBoletoCompleto } from '../../domain/entities/boleto.js';
+import { BoletoSicoob, BuscarBoletosPorCPFParams, ConsultaBoletoParams, SicoobBoletoCompleto } from '../../domain/entities/boleto.js';
 import { BankPdfResult } from '../../application/dtos/bank-pdf-result.dto.js';
 import { BankDataResult } from '../../application/dtos/bank-data-result.dto.js';
 import { Logger } from '../../application/ports/driven/logger-port.js';
@@ -661,19 +661,53 @@ export class SicoobBankProviderAdapter implements BankProvider, SicoobPort {
    * 
    * Usa GET /pagadores/{cpf}/boletos
    * O CPF é recebido como parâmetro (original, não hash)
+   * 
+   * Parâmetros obrigatórios:
+   * - numeroCpfCnpj (path): CPF ou CNPJ do pagador (máximo 14 caracteres)
+   * - numeroCliente (query): Número que identifica o contrato do beneficiário no Sisbr
+   * 
+   * Parâmetros opcionais:
+   * - codigoSituacao (query): Código da Situação do Boleto (1: Entrada Normal, 2: Baixado, 3: Liquidado)
+   * - dataInicio (query): Data de Vencimento Inicial (formato: yyyy-MM-dd)
+   * - dataFim (query): Data de Vencimento Final (formato: yyyy-MM-dd)
    */
-  async buscarBoletosPorCPF(cpf: string, requestId: string): Promise<BoletoSicoob[]> {
+  async buscarBoletosPorCPF(cpf: string, requestId: string, params?: BuscarBoletosPorCPFParams): Promise<BoletoSicoob[]> {
     try {
-      // Validar CPF (deve ter 11 dígitos)
+      // Validar CPF/CNPJ (normalizar e verificar tamanho)
       const cpfNormalized = cpf.replace(/\D/g, '');
-      if (cpfNormalized.length !== 11) {
-        throw new Error('CPF deve ter 11 dígitos');
+      if (cpfNormalized.length < 11 || cpfNormalized.length > 14) {
+        throw new Error('CPF/CNPJ deve ter entre 11 e 14 dígitos');
       }
 
       const token = await this.getAuthToken();
 
-      // Montar query params
-      const queryParams: Record<string, string> = {};
+      // Montar query params obrigatórios
+      const queryParams: Record<string, string | number> = {
+        numeroCliente: this.config.sicoobNumeroCliente,
+      };
+
+      // Adicionar parâmetros opcionais se fornecidos
+      if (params?.codigoSituacao !== undefined) {
+        queryParams.codigoSituacao = params.codigoSituacao;
+      }
+
+      if (params?.dataInicio) {
+        // Validar formato de data (yyyy-MM-dd)
+        const dataInicioRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dataInicioRegex.test(params.dataInicio)) {
+          throw new Error('dataInicio deve estar no formato yyyy-MM-dd');
+        }
+        queryParams.dataInicio = params.dataInicio;
+      }
+
+      if (params?.dataFim) {
+        // Validar formato de data (yyyy-MM-dd)
+        const dataFimRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dataFimRegex.test(params.dataFim)) {
+          throw new Error('dataFim deve estar no formato yyyy-MM-dd');
+        }
+        queryParams.dataFim = params.dataFim;
+      }
 
       // Adicionar contrato se configurado
       if (this.config.sicoobNumeroContratoCobranca) {

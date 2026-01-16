@@ -1,7 +1,7 @@
-import { BoletoSicoob, ConsultaBoletoParams, SicoobBoletoCompleto } from '../../../domain/entities/boleto.js';
+import { BoletoSicoob, BuscarBoletosPorCPFParams, ConsultaBoletoParams, SicoobBoletoCompleto } from '../../../domain/entities/boleto.js';
 
 export interface SicoobPort {
-  buscarBoletosPorCPF(cpf: string, requestId: string): Promise<BoletoSicoob[]>;
+  buscarBoletosPorCPF(cpf: string, requestId: string, params?: BuscarBoletosPorCPFParams): Promise<BoletoSicoob[]>;
   gerarSegundaVia(nossoNumero: string, cpfHash: string, requestId: string): Promise<Buffer>;
   /**
    * Consulta boleto completo via GET /boletos
