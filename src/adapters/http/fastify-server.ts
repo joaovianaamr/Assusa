@@ -5,10 +5,13 @@ import { WhatsAppCloudApiAdapter } from '../whatsapp/whatsapp-cloud-api-adapter.
 import { Config } from '../../infrastructure/config/config.js';
 import { Logger } from '../../application/ports/driven/logger-port.js';
 import { PinoLogger } from '../../infrastructure/logging/pino-logger.js';
+import { ConversationStateStore } from '../../application/ports/driven/conversation-state-store.js';
+import { devtoolsFlowTesterRoutes } from './routes/devtools/flow-tester.routes.js';
 
 export interface AppDependencies {
   whatsappRouter: WhatsappRouter;
   whatsappAdapter: WhatsAppCloudApiAdapter;
+  conversationStateStore: ConversationStateStore;
   config: Config;
   logger: Logger;
 }
@@ -119,6 +122,17 @@ export class FastifyServer {
         return reply.code(500).send({ error: 'Internal Server Error' });
       }
     });
+
+    // Registrar rotas do DevTools (se habilitado)
+    if (this.dependencies.config.devToolsEnabled || this.dependencies.config.nodeEnv !== 'production') {
+      this.app.register(devtoolsFlowTesterRoutes, {
+        whatsappRouter: this.dependencies.whatsappRouter,
+        conversationState: this.dependencies.conversationStateStore,
+        whatsappAdapter: this.dependencies.whatsappAdapter,
+        config: this.dependencies.config,
+        logger: this.dependencies.logger,
+      });
+    }
   }
 
   async listen(): Promise<void> {

@@ -176,6 +176,7 @@ async function bootstrap() {
     const dependencies: AppDependencies = {
       whatsappRouter,
       whatsappAdapter,
+      conversationStateStore,
       config,
       logger,
     };

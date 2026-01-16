@@ -68,6 +68,10 @@ const configSchema = z.object({
 
   // Conversation State
   conversationStateTtlSeconds: z.coerce.number().int().positive().default(15 * 60), // 15 minutos
+
+  // DevTools (apenas desenvolvimento)
+  devToolsEnabled: z.coerce.boolean().default(false),
+  devToolsToken: z.string().optional(),
 });
 
 export type Config = z.infer<typeof configSchema>;
@@ -122,6 +126,8 @@ export function loadConfig(): Config {
       rateLimitMaxRequests: process.env.RATE_LIMIT_MAX_REQUESTS,
       rateLimitWindowMs: process.env.RATE_LIMIT_WINDOW_MS,
       conversationStateTtlSeconds: process.env.CONVERSATION_STATE_TTL_SECONDS,
+      devToolsEnabled: process.env.DEV_TOOLS_ENABLED,
+      devToolsToken: process.env.DEV_TOOLS_TOKEN,
     };
 
     const parsedConfig = configSchema.parse(config);

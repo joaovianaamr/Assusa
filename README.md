@@ -255,6 +255,10 @@ Crie um arquivo `.env` na raiz do projeto e configure as variáveis de ambiente 
 #### Conversation State
 - `CONVERSATION_STATE_TTL_SECONDS`: TTL do estado da conversa em segundos (padrão: 900 = 15 minutos)
 
+#### DevTools (Apenas Desenvolvimento)
+- `DEV_TOOLS_ENABLED`: Habilitar DevTools Flow Tester (true/false, padrão: false)
+- `DEV_TOOLS_TOKEN`: Token opcional para autenticação do DevTools (opcional)
+
 ### Configuração do WhatsApp
 
 1. Configure o webhook no WhatsApp Business:
@@ -700,6 +704,107 @@ npm run test:coverage
 ```bash
 curl http://localhost:3000/health
 ```
+
+### DevTools Flow Tester
+
+O projeto inclui um ambiente de teste manual do fluxo (DevTools Flow Tester) para facilitar o desenvolvimento e depuração sem depender do WhatsApp real.
+
+#### Habilitar DevTools
+
+Para habilitar o DevTools, configure no `.env`:
+
+```bash
+DEV_TOOLS_ENABLED=true
+# Opcional: Token para autenticação
+DEV_TOOLS_TOKEN=seu-token-secreto
+```
+
+**Importante**: O DevTools **não funciona em produção** (`NODE_ENV=production`). Ele só é habilitado quando:
+- `NODE_ENV !== 'production'` OU
+- `DEV_TOOLS_ENABLED=true` explicitamente
+
+#### Acessar Interface
+
+Após iniciar o servidor, acesse:
+
+```
+http://localhost:3000/devtools/flow-tester
+```
+
+#### Funcionalidades
+
+1. **Escolher ponto de partida**: Permite iniciar o teste em diferentes pontos do fluxo:
+   - `MENU`: Estado inicial (menu)
+   - `LGPD_NOTICE`: Após aceitar termos LGPD
+   - `WAITING_CPF`: Aguardando CPF
+   - `SELECT_TITLE`: Aguardando seleção de título
+   - `SELECT_FORMAT`: Aguardando seleção de formato
+   - `CONFIRM`: Estado intermediário
+   - `DONE`: Fluxo concluído
+
+2. **Enviar mensagens**: Simula mensagens do WhatsApp para testar o fluxo
+
+3. **Visualizar estado**: Ver estado atual da conversa após cada interação
+
+4. **Resetar estado**: Limpar o estado de uma conversa para começar novo teste
+
+#### Endpoints da API
+
+##### GET `/devtools/flow-tester`
+Retorna a interface HTML do Flow Tester.
+
+##### POST `/devtools/flow-tester/run`
+Executa o fluxo com uma mensagem de entrada.
+
+**Payload:**
+```json
+{
+  "from": "5511999999999",
+  "input": {
+    "type": "text",
+    "text": "menu"
+  },
+  "startAt": "WAITING_CPF",  // Opcional
+  "stateOverride": {}         // Opcional
+}
+```
+
+**Resposta:**
+```json
+{
+  "requestId": "uuid",
+  "outgoingMessages": [],
+  "stateAfter": {
+    "activeFlow": "SECOND_COPY",
+    "step": "WAITING_SELECTION",
+    "data": {},
+    "updatedAt": "2024-01-12T18:00:00.000Z"
+  },
+  "debug": {
+    "matchedHandler": "WhatsappRouter",
+    "timings": { ... }
+  }
+}
+```
+
+##### POST `/devtools/flow-tester/reset`
+Limpa o estado da conversa para um remetente.
+
+**Payload:**
+```json
+{
+  "from": "5511999999999"
+}
+```
+
+##### GET `/devtools/flow-tester/state?from=5511999999999`
+Retorna o estado atual da conversa.
+
+#### Segurança
+
+- DevTools bloqueado automaticamente em produção
+- Token de autenticação opcional via header `x-dev-tools-token`
+- Nenhum dado sensível é exposto (CPFs são sanitizados)
 
 ## 🔒 LGPD e Segurança
 
