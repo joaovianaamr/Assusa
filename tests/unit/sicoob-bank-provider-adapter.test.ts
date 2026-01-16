@@ -334,6 +334,7 @@ describe('SicoobBankProviderAdapter', () => {
       expect(result?.filename).toBe('boleto-123456.pdf');
 
       // Verificar que a chamada foi feita com os parâmetros corretos
+      // nota: nossoNumero é convertido para number conforme especificação (integer)
       expect(mockAxiosInstance.get).toHaveBeenCalledWith(
         '/boletos/segunda-via',
         expect.objectContaining({
@@ -346,7 +347,7 @@ describe('SicoobBankProviderAdapter', () => {
           params: expect.objectContaining({
             numeroCliente: '12345',
             codigoModalidade: '01',
-            nossoNumero: '123456',
+            nossoNumero: 123456, // Convertido para number conforme especificação (integer)
             gerarPdf: 'true',
             numeroContratoCobranca: '67890',
           }),
