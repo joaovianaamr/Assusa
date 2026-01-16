@@ -1,6 +1,6 @@
 # Assusa - Chatbot WhatsApp para 2ª Via de Boletos
 
-Sistema de chatbot no WhatsApp para geração de 2ª via de boletos bancários usando a API do Sicoob, com compliance total à LGPD.
+Sistema de chatbot no WhatsApp para geração de 2ª via de boletos bancários com suporte a múltiplos bancos (Sicoob e Bradesco), com compliance total à LGPD.
 
 ## 📋 Índice
 
@@ -26,7 +26,8 @@ O Assusa é um chatbot desenvolvido para WhatsApp que permite aos clientes solic
 - ✅ Compliance total com LGPD
 - ✅ Arquitetura limpa e escalável
 - ✅ Suporte a múltiplos canais (preparado para site/app/email)
-- ✅ Suporte a múltiplos bancos (atualmente Sicoob)
+- ✅ Suporte a múltiplos bancos (Sicoob e Bradesco)
+- ✅ Detecção automática de duplicidade entre bancos
 - ✅ Observabilidade completa
 - ✅ Testes automatizados
 - ✅ Deploy no Google Cloud Run
@@ -39,7 +40,7 @@ O projeto segue a **Clean Architecture** (Ports & Adapters), dividida em camadas
 src/
 ├── domain/          # Regras de negócio puras (entities, value-objects, use-cases, ports)
 ├── application/     # Serviços, use-cases e ports de integrações externas
-├── adapters/        # Implementações concretas (WhatsApp, Sicoob, Google, Redis, in-memory)
+├── adapters/        # Implementações concretas (WhatsApp, Sicoob, Bradesco, Google, Redis, in-memory)
 └── infrastructure/  # Configuração, logging, segurança
 ```
 
@@ -60,6 +61,7 @@ src/
    - http: Servidor Fastify
    - whatsapp: Adapter WhatsApp Cloud API
    - sicoob: Adapter Sicoob API
+   - bradesco: Adapter Bradesco API
    - google: Adapters Google Drive/Sheets
    - redis: Adapter Redis (com fallback em memória)
    - in-memory: Implementações em memória para desenvolvimento/testes
@@ -71,7 +73,7 @@ src/
 **Importante**: Os ports de integrações externas estão localizados em `src/application/ports/driven/`, seguindo a arquitetura definida no projeto. Ports puramente de domínio (raros) podem estar em `src/domain/ports/` durante a migração gradual.
 
 **Ports de integrações externas** (em `application/ports/driven/`):
-- `WhatsAppPort`, `SicoobPort`, `DrivePort`, `SheetsPort`, `StoragePort`, `RateLimiter`, `Logger`, etc.
+- `WhatsAppPort`, `SicoobPort`, `BradescoPort`, `DrivePort`, `SheetsPort`, `StoragePort`, `RateLimiter`, `Logger`, etc.
 
 **Ports puramente de domínio** (raros, em `domain/ports/`):
 - Abstrações genéricas como `Clock`, `IdGenerator`, `Hasher`, `RandomProvider`
@@ -95,7 +97,8 @@ Ver mais detalhes em `docs/adr/ADR-0001-ports-na-application.md`.
 - **Logging**: Pino (logs estruturados)
 - **APIs Externas**:
   - WhatsApp Cloud API
-  - Sicoob API
+  - Sicoob API (OAuth2 Client Credentials + mTLS)
+  - Bradesco API (OAuth2 JWT Bearer)
   - Google Drive API
   - Google Sheets API
 - **Testes**: Vitest
@@ -110,7 +113,10 @@ Ver mais detalhes em `docs/adr/ADR-0001-ports-na-application.md`.
 3. Cliente seleciona "Gerar 2ª via de boleto"
 4. Sistema exibe aviso LGPD
 5. Cliente informa CPF
-6. Sistema busca boletos no Sicoob
+6. Sistema busca boletos automaticamente:
+   - Primeiro verifica no **Sicoob**
+   - Depois verifica no **Bradesco**
+   - Se encontrar boletos duplicados (mesmo mês e valor em bancos diferentes), registra evento de duplicidade
 7. Se houver múltiplos boletos, cliente escolhe qual deseja
 8. Cliente escolhe o formato da 2ª via:
    - **PDF**: Gera e envia PDF completo
@@ -135,6 +141,7 @@ Ver mais detalhes em `docs/adr/ADR-0001-ports-na-application.md`.
 - Contas/configurações:
   - WhatsApp Business Cloud API
   - Sicoob API (credenciais e certificados)
+  - Bradesco API (credenciais e chave privada)
   - Google Cloud Project (com APIs habilitadas):
     - Google Drive API
     - Google Sheets API
@@ -205,6 +212,20 @@ Crie um arquivo `.env` na raiz do projeto e configure as variáveis de ambiente 
 - `SICOOB_KEY_PATH`: Caminho da chave privada SSL PEM (opcional, para mTLS)
 - `SICOOB_CERT_PFX_BASE64`: Certificado PFX codificado em base64 (opcional, para mTLS)
 - `SICOOB_CERT_PFX_PASSWORD`: Senha do certificado PFX (opcional, para mTLS)
+
+#### Bradesco API (Open Banking)
+- `BRADESCO_ENV`: Ambiente (prod/homolog, padrão: prod)
+- `BRADESCO_BASE_URL`: URL base da API (padrão: `https://openapi.bradesco.com.br`)
+- `BRADESCO_AUTH_URL`: URL de autenticação OAuth (calculado automaticamente baseado em `BRADESCO_ENV`)
+  - Produção: `https://openapi.bradesco.com.br/auth/server/v1.1/token`
+  - Homologação: `https://proxy.api.prebanco.com.br/auth/server/v1.2/token`
+- `BRADESCO_CLIENT_ID`: Client ID da aplicação Bradesco (obrigatório)
+- `BRADESCO_PRIVATE_KEY_PEM`: Chave privada RSA em formato PEM para assinatura JWT (obrigatório)
+- `BRADESCO_PFX_BASE64`: Certificado PFX codificado em base64 (opcional, alternativa ao PEM)
+- `BRADESCO_PFX_PASSWORD`: Senha do certificado PFX (opcional, se usar PFX)
+- `BRADESCO_BENEFICIARY_CNPJ`: CNPJ do beneficiário (14 dígitos, obrigatório)
+- `BRADESCO_API_PREFIX`: Prefixo da API (padrão: `/v1/boleto`)
+- `BRADESCO_EXTRA_HEADERS`: Headers extras opcionais (JSON string, opcional)
 
 #### Google APIs
 - `GOOGLE_SERVICE_ACCOUNT_JSON_BASE64`: Service Account JSON codificado em base64 (obrigatório)
@@ -439,15 +460,115 @@ O sistema identifica boletos usando parâmetros obrigatórios do `.env` combinad
 - Todos os endpoints requerem o header `client_id` com o valor de `SICOOB_CLIENT_ID`
 - O sistema converte automaticamente Base64 para Buffer quando necessário
 
+### Configuração do Bradesco
+
+O sistema usa a **API Open Banking do Bradesco** para buscar e gerar segunda via de boletos. Configure as seguintes variáveis:
+
+#### Variáveis Obrigatórias
+
+- `BRADESCO_CLIENT_ID`: Client ID da aplicação Bradesco
+- `BRADESCO_PRIVATE_KEY_PEM`: Chave privada RSA em formato PEM para assinatura JWT (RS256)
+- `BRADESCO_BENEFICIARY_CNPJ`: CNPJ do beneficiário (14 dígitos, sem formatação)
+
+#### Variáveis Opcionais
+
+- `BRADESCO_ENV`: Ambiente (prod/homolog, padrão: prod)
+- `BRADESCO_BASE_URL`: URL base da API (padrão: `https://openapi.bradesco.com.br`)
+- `BRADESCO_AUTH_URL`: URL de autenticação OAuth (calculado automaticamente baseado em `BRADESCO_ENV`)
+  - Produção: `https://openapi.bradesco.com.br/auth/server/v1.1/token`
+  - Homologação: `https://proxy.api.prebanco.com.br/auth/server/v1.2/token`
+- `BRADESCO_API_PREFIX`: Prefixo da API (padrão: `/v1/boleto`)
+- `BRADESCO_EXTRA_HEADERS`: Headers extras opcionais (JSON string)
+
+#### Certificados
+
+O Bradesco usa autenticação OAuth2 JWT Bearer (RS256). Você precisa de uma chave privada RSA:
+
+**Opção 1: Chave Privada PEM (recomendado)**
+```env
+BRADESCO_PRIVATE_KEY_PEM=-----BEGIN PRIVATE KEY-----
+...
+-----END PRIVATE KEY-----
+```
+
+**Opção 2: Certificado PFX (alternativa)**
+```env
+BRADESCO_PFX_BASE64=<certificado PFX codificado em base64>
+BRADESCO_PFX_PASSWORD=<senha do certificado PFX>
+```
+
+#### Endpoints Utilizados
+
+- **Autenticação**: `POST {BRADESCO_AUTH_URL}` (OAuth2 JWT Bearer com RS256)
+- **Listar boletos por CPF**: `POST {BRADESCO_BASE_URL}{BRADESCO_API_PREFIX}/listar-titulo-pendente`
+- **Consultar boleto**: `POST {BRADESCO_BASE_URL}{BRADESCO_API_PREFIX}/titulo-consultar`
+
+#### Autenticação
+
+O sistema gera automaticamente um JWT assertion (RS256) usando:
+- `BRADESCO_CLIENT_ID` como `iss` (issuer) e `sub` (subject)
+- `BRADESCO_AUTH_URL` como `aud` (audience)
+- Timestamp atual para `iat` (issued at) e `exp` (expiration)
+- Assinatura RS256 usando `BRADESCO_PRIVATE_KEY_PEM`
+
+O token é cacheado para otimizar requisições subsequentes.
+
+#### Headers Obrigatórios
+
+Todas as requisições incluem:
+- `Authorization: Bearer {token}`
+- `cpf-cnpj: {BRADESCO_BENEFICIARY_CNPJ}`
+- `X-Brad-Nonce`: Nonce único para cada requisição
+- `X-Brad-Timestamp`: Timestamp em milissegundos
+- `X-Brad-Algorithm`: Algoritmo de assinatura (RS256)
+
+#### Detecção de Duplicidade
+
+O sistema detecta automaticamente boletos duplicados entre bancos:
+- Compara boletos pelo **mês de vencimento** (YYYY-MM) e **valor** (arredondado para 2 casas decimais)
+- Se encontrar boletos idênticos em bancos diferentes, registra evento `DUPLICATE_BANK_TITLE` no Google Sheets
+- O log inclui informações sobre os bancos envolvidos, mês, valor e números dos boletos
+
 ### TitleRepository - Repositório de Títulos
 
 O sistema suporta diferentes implementações do `TitleRepository` para buscar títulos:
 
-#### 1. SicoobTitleRepositoryAdapter (Produção)
+#### 1. AggregatedTitleRepositoryAdapter (Produção - Padrão)
 
-Implementação que busca títulos diretamente da API do Sicoob. Esta é a implementação padrão usada em produção.
+Implementação agregada que busca títulos de múltiplos bancos (Sicoob e Bradesco) automaticamente. Esta é a implementação padrão usada em produção.
 
-#### 2. InMemoryTitleRepository (Desenvolvimento)
+**Funcionalidades:**
+- Busca boletos no **Sicoob** primeiro
+- Busca boletos no **Bradesco** em seguida
+- Filtra apenas boletos com status 'Aberto' ou 'Pendente'
+- **Detecção automática de duplicidade**: Se encontrar boletos com mesmo mês e valor em bancos diferentes, registra evento `DUPLICATE_BANK_TITLE` no Google Sheets
+- Retorna todos os boletos encontrados, identificados com o campo `bank` ('SICOOB' ou 'BRADESCO')
+
+**Como usar:**
+
+```typescript
+import { AggregatedTitleRepositoryAdapter } from './adapters/bradesco/aggregated-title-repository-adapter.js';
+import { SicoobBankProviderAdapter } from './adapters/sicoob/sicoob-bank-provider-adapter.js';
+import { BradescoBankProviderAdapter } from './adapters/bradesco/bradesco-bank-provider-adapter.js';
+import { GoogleSheetLoggerAdapter } from './adapters/google/google-sheet-logger-adapter.js';
+
+const sicoobAdapter = new SicoobBankProviderAdapter(config, logger);
+const bradescoAdapter = new BradescoBankProviderAdapter(config, logger);
+const sheetLogger = new GoogleSheetLoggerAdapter(config, logger);
+
+const titleRepository = new AggregatedTitleRepositoryAdapter(
+  sicoobAdapter,
+  bradescoAdapter,
+  sheetLogger,
+  logger
+);
+```
+
+#### 2. SicoobTitleRepositoryAdapter (Legado)
+
+Implementação que busca títulos apenas da API do Sicoob. Mantida para compatibilidade, mas não é mais usada por padrão.
+
+#### 3. InMemoryTitleRepository (Desenvolvimento)
 
 Implementação em memória para desenvolvimento e testes. Mantém um mapa `cpfHash -> Title[]` com dados de exemplo.
 
@@ -506,7 +627,7 @@ titleRepository.addTitles(cpfHash, [
 
 **Importante**: Os hashes de exemplo no código são placeholders. Substitua pelos hashes reais usando `CpfHandler.hashCpf()`.
 
-#### 3. GoogleSheetsTitleRepository (Opcional)
+#### 4. GoogleSheetsTitleRepository (Opcional)
 
 Implementação que lê títulos de uma planilha do Google Sheets. Útil para desenvolvimento ou quando não há integração com ERP.
 
@@ -802,10 +923,17 @@ gcloud run services update assusa \
 - `WHATSAPP_PHONE_NUMBER_ID`
 - `WHATSAPP_VERIFY_TOKEN`
 - `WHATSAPP_APP_SECRET`
+- `CPF_PEPPER` (use Secret Manager!)
+- `WHATSAPP_API_TOKEN`
+- `WHATSAPP_PHONE_NUMBER_ID`
+- `WHATSAPP_VERIFY_TOKEN`
 - `SICOOB_CLIENT_ID`
 - `SICOOB_CLIENT_SECRET`
 - `SICOOB_NUMERO_CLIENTE`
 - `SICOOB_CODIGO_MODALIDADE`
+- `BRADESCO_CLIENT_ID`
+- `BRADESCO_PRIVATE_KEY_PEM`
+- `BRADESCO_BENEFICIARY_CNPJ`
 - `GOOGLE_SERVICE_ACCOUNT_JSON_BASE64`
 - `GOOGLE_DRIVE_FOLDER_ID`
 - `GOOGLE_SHEETS_SPREADSHEET_ID`
@@ -883,6 +1011,7 @@ assusa/
 │   │   ├── http/              # Servidor Fastify
 │   │   ├── whatsapp/          # Adapter WhatsApp Cloud API
 │   │   ├── sicoob/            # Adapter Sicoob API
+│   │   ├── bradesco/          # Adapter Bradesco API
 │   │   ├── google/            # Adapters Google Drive/Sheets
 │   │   ├── redis/             # Adapter Redis (com fallback em memória)
 │   │   └── in-memory/         # Implementações em memória (para desenvolvimento/testes)
@@ -921,6 +1050,14 @@ O sistema tem fallback automático para memória quando Redis não está dispon�
 - Se usar certificados SSL, verifique os caminhos
 - Confirme que as credenciais têm permissões necessárias
 
+### Erro de autenticação do Bradesco
+
+- Verifique se `BRADESCO_CLIENT_ID` está correto
+- Confirme que `BRADESCO_PRIVATE_KEY_PEM` está no formato PEM correto
+- Verifique se a chave privada corresponde ao certificado registrado no Bradesco
+- Confirme que `BRADESCO_BENEFICIARY_CNPJ` está correto (14 dígitos)
+- Se usar PFX, verifique se `BRADESCO_PFX_BASE64` e `BRADESCO_PFX_PASSWORD` estão corretos
+
 ### CPF não encontrado
 
 - Verifique se o CPF está sendo enviado corretamente
@@ -938,6 +1075,10 @@ O sistema tem fallback automático para memória quando Redis não está dispon�
 4. **Redis**: Em produção, use sempre Redis. O fallback em memória é apenas para desenvolvimento.
 
 5. **Sicoob API**: A implementação atual é um exemplo. Adapte conforme a documentação real da API do Sicoob.
+
+6. **Bradesco API**: O sistema suporta autenticação OAuth2 JWT Bearer (RS256). Certifique-se de que a chave privada está corretamente configurada e corresponde ao certificado registrado no Bradesco.
+
+7. **Detecção de Duplicidade**: O sistema detecta automaticamente boletos duplicados entre bancos e registra no Google Sheets. Verifique a planilha periodicamente para identificar possíveis problemas.
 
 ## 🤝 Contribuindo
 
