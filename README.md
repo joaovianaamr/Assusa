@@ -194,7 +194,8 @@ Crie um arquivo `.env` na raiz do projeto e configure as variáveis de ambiente 
 #### Sicoob API (Cobrança Bancária v3)
 - `SICOOB_CLIENT_ID`: Client ID da aplicação Sicoob (obrigatório)
 - `SICOOB_CLIENT_SECRET`: Client Secret da aplicação Sicoob (obrigatório)
-- `SICOOB_NUMERO_CLIENTE`: Número do cliente no Sicoob (obrigatório)
+- `SICOOB_NUMERO_CLIENTE`: Número que identifica o beneficiário/contrato no Sicoob (empresa que emite os boletos) - obrigatório
+  - **Importante**: Não identifica cada indivíduo (CPF), mas sim o beneficiário/contrato que tem acordo com o Sicoob
 - `SICOOB_CODIGO_MODALIDADE`: Código da modalidade de cobrança (obrigatório)
 - `SICOOB_BASE_URL`: URL base da API (padrão: `https://api.sicoob.com.br/cobranca-bancaria/v3`)
   - Para sandbox: `https://sandbox.sicoob.com.br/sicoob/sandbox/cobranca-bancaria/v3`
@@ -352,11 +353,15 @@ SICOOB_KEY_PATH=/caminho/para/key.pem
 O sistema identifica boletos usando parâmetros obrigatórios do `.env` combinados com identificadores obtidos das requisições:
 
 **Parâmetros obrigatórios (sempre presentes - vêm do .env):**
-- `numeroCliente`: Identificador do cliente/contrato no Sicoob (variável `SICOOB_NUMERO_CLIENTE`)
+- `numeroCliente`: Identificador do **beneficiário/contrato** no Sicoob (empresa/instituição que emite os boletos) - variável `SICOOB_NUMERO_CLIENTE`
+  - **Não identifica cada indivíduo (CPF)**, mas sim o beneficiário/contrato que tem acordo com o Sicoob
+  - Este valor é fixo para todos os boletos emitidos por essa empresa
 - `codigoModalidade`: Modalidade de cobrança (variável `SICOOB_CODIGO_MODALIDADE`)
 
 **Identificadores de boleto específico (vêm das requisições):**
-- `nossoNumero`: Identificador único do boleto (obtido da resposta de `GET /pagadores/{cpf}/boletos`)
+- `nossoNumero`: Identificador único de **cada boleto específico** (obtido da resposta de `GET /pagadores/{cpf}/boletos`)
+  - Cada boleto tem seu próprio `nossoNumero` único
+  - Usado para identificar qual boleto específico consultar/gerar segunda via
 - `linhaDigitavel`: Linha digitável do boleto (47 caracteres) - alternativa ao nossoNumero
 - `codigoBarras`: Código de barras do boleto (44 caracteres) - alternativa ao nossoNumero
 
