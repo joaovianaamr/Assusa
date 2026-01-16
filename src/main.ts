@@ -7,6 +7,7 @@ import { InMemoryConversationStateStore } from './adapters/in-memory/in-memory-c
 import { RedisConversationStateStore } from './adapters/redis/redis-conversation-state-store.js';
 import { SicoobBankProviderAdapter } from './adapters/sicoob/sicoob-bank-provider-adapter.js';
 import { BradescoBankProviderAdapter } from './adapters/bradesco/bradesco-bank-provider-adapter.js';
+import { NullBradescoAdapter } from './adapters/bradesco/null-bradesco-adapter.js';
 import { AggregatedTitleRepositoryAdapter } from './adapters/bradesco/aggregated-title-repository-adapter.js';
 import { AggregatedBankProviderAdapter } from './adapters/bradesco/aggregated-bank-provider-adapter.js';
 import { SimplePdfServiceAdapter } from './adapters/services/simple-pdf-service-adapter.js';
@@ -52,7 +53,22 @@ async function bootstrap() {
 
     // Inicializar adapters de bancos
     const sicoobAdapter = new SicoobBankProviderAdapter(config, logger);
-    const bradescoAdapter = new BradescoBankProviderAdapter(config, logger);
+    
+    // Verificar se Bradesco está configurado antes de inicializar
+    const bradescoConfigurado = 
+      config.bradescoClientId && 
+      config.bradescoPrivateKeyPem && 
+      config.bradescoBeneficiaryCnpj;
+    
+    const bradescoAdapter = bradescoConfigurado
+      ? new BradescoBankProviderAdapter(config, logger)
+      : new NullBradescoAdapter();
+    
+    if (!bradescoConfigurado) {
+      logger.info({}, 'Bradesco não configurado - sistema funcionará apenas com Sicoob');
+    } else {
+      logger.info({}, 'Bradesco configurado - sistema funcionará com Sicoob e Bradesco');
+    }
     
     // Inicializar sheetLogger (usado pelo AggregatedTitleRepositoryAdapter)
     const sheetLogger = new GoogleSheetLoggerAdapter(config, logger);
