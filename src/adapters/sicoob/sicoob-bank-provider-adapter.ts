@@ -40,15 +40,67 @@ interface SicoobAuthResponse {
 
 /**
  * Resposta de segunda via do Sicoob (GET /boletos/segunda-via)
+ * 
+ * Conforme especificação atualizada do endpoint:
+ * - Quando gerarPdf=true: retorna pdfBoleto em Base64
+ * - Quando gerarPdf=false: retorna dados do boleto sem PDF
+ * - Campos opcionais podem estar presentes dependendo da configuração do boleto
  */
 interface SicoobSegundaViaResponse {
   resultado: {
-    nossoNumero?: string;
-    linhaDigitavel?: string;
-    codigoBarras?: string;
-    pdfBoleto?: string; // Base64 quando gerarPdf=true
+    // Campos básicos
+    numeroCliente?: number;
+    codigoModalidade?: number;
+    codigoEspecieDocumento?: string;
+    dataEmissao?: string;
+    nossoNumero?: number | string;
+    seuNumero?: string;
+    codigoBarras?: string; // 44 posições
+    linhaDigitavel?: string; // 47 posições
     valor?: number;
     dataVencimento?: string;
+    
+    // Campos de descontos e abatimentos
+    valorAbatimento?: number;
+    tipoDesconto?: number;
+    
+    // Campos de multa e juros
+    tipoMulta?: number;
+    valorMulta?: number;
+    tipoJurosMora?: number;
+    valorJurosMora?: number;
+    
+    // Outros campos
+    numeroParcela?: number;
+    aceite?: boolean;
+    
+    // Pagador e beneficiário
+    pagador?: {
+      numeroCpfCnpj: string;
+      nome: string;
+      endereco: string;
+      bairro: string;
+      cidade: string;
+      cep: string;
+      uf: string;
+      email: string;
+    };
+    beneficiarioFinal?: {
+      numeroCpfCnpj: string;
+      nome: string;
+    };
+    
+    // Instruções
+    mensagensInstrucao?: string[];
+    
+    // PDF e PIX
+    pdfBoleto?: string; // Base64 quando gerarPdf=true
+    qrCode?: string; // QR Code PIX
+    
+    // Contrato
+    numeroContratoCobranca?: number;
+    
+    // Permitir campos adicionais não documentados
     [key: string]: unknown;
   };
 }
@@ -358,6 +410,48 @@ export class SicoobBankProviderAdapter implements BankProvider, SicoobPort {
   }
 
   /**
+   * Constrói query params para o endpoint /boletos/segunda-via
+   * 
+   * Conforme especificação, suporta três formas de identificar o boleto:
+   * - nossoNumero (integer)
+   * - linhaDigitavel (string, 47 posições) - prioridade quando informado
+   * - codigoBarras (string, 44 posições) - prioridade quando informado
+   * 
+   * Quando linhaDigitavel ou codigoBarras são informados, nossoNumero não é necessário.
+   */
+  private buildSegundaViaQueryParams(params: {
+    nossoNumero?: string | number;
+    linhaDigitavel?: string;
+    codigoBarras?: string;
+    gerarPdf: boolean;
+  }): Record<string, string | number> {
+    const queryParams: Record<string, string | number> = {
+      numeroCliente: this.config.sicoobNumeroCliente,
+      codigoModalidade: this.config.sicoobCodigoModalidade,
+      gerarPdf: params.gerarPdf ? 'true' : 'false',
+    };
+
+    // Adicionar identificador conforme prioridade da especificação:
+    // linhaDigitavel e codigoBarras têm prioridade sobre nossoNumero
+    if (params.linhaDigitavel) {
+      queryParams.linhaDigitavel = params.linhaDigitavel.trim();
+    } else if (params.codigoBarras) {
+      queryParams.codigoBarras = params.codigoBarras.trim();
+    } else if (params.nossoNumero) {
+      queryParams.nossoNumero = typeof params.nossoNumero === 'string' 
+        ? parseInt(params.nossoNumero, 10) 
+        : params.nossoNumero;
+    }
+
+    // Adicionar contrato se configurado
+    if (this.config.sicoobNumeroContratoCobranca) {
+      queryParams.numeroContratoCobranca = this.config.sicoobNumeroContratoCobranca;
+    }
+
+    return queryParams;
+  }
+
+  /**
    * Obtém o PDF da segunda via de um título
    * 
    * Usa GET /boletos/segunda-via com gerarPdf=true
@@ -369,18 +463,11 @@ export class SicoobBankProviderAdapter implements BankProvider, SicoobPort {
     try {
       const token = await this.getAuthToken();
 
-      // Montar query params obrigatórios
-      const queryParams: Record<string, string> = {
-        numeroCliente: this.config.sicoobNumeroCliente,
-        codigoModalidade: this.config.sicoobCodigoModalidade,
+      // Montar query params usando helper
+      const queryParams = this.buildSegundaViaQueryParams({
         nossoNumero: title.nossoNumero,
-        gerarPdf: 'true',
-      };
-
-      // Adicionar contrato se configurado
-      if (this.config.sicoobNumeroContratoCobranca) {
-        queryParams.numeroContratoCobranca = this.config.sicoobNumeroContratoCobranca;
-      }
+        gerarPdf: true,
+      });
 
       const response = await this.api.get<SicoobSegundaViaResponse>(
         '/boletos/segunda-via',
@@ -467,18 +554,11 @@ export class SicoobBankProviderAdapter implements BankProvider, SicoobPort {
     try {
       const token = await this.getAuthToken();
 
-      // Montar query params obrigatórios
-      const queryParams: Record<string, string> = {
-        numeroCliente: this.config.sicoobNumeroCliente,
-        codigoModalidade: this.config.sicoobCodigoModalidade,
+      // Montar query params usando helper
+      const queryParams = this.buildSegundaViaQueryParams({
         nossoNumero: title.nossoNumero,
-        gerarPdf: 'false',
-      };
-
-      // Adicionar contrato se configurado
-      if (this.config.sicoobNumeroContratoCobranca) {
-        queryParams.numeroContratoCobranca = this.config.sicoobNumeroContratoCobranca;
-      }
+        gerarPdf: false,
+      });
 
       // Usar /boletos/segunda-via com gerarPdf=false para obter dados atualizados
       const response = await this.api.get<SicoobSegundaViaResponse>(
@@ -534,10 +614,15 @@ export class SicoobBankProviderAdapter implements BankProvider, SicoobPort {
         nossoNumero: title.nossoNumero 
       }, 'Dados do boleto obtidos do Sicoob');
 
+      // Converter nossoNumero para string (pode vir como number da API)
+      const nossoNumeroFinal = resultado.nossoNumero 
+        ? String(resultado.nossoNumero)
+        : title.nossoNumero;
+
       return {
-        nossoNumero: resultado.nossoNumero,
+        nossoNumero: nossoNumeroFinal,
         linhaDigitavel: linhaDigitavelFinal,
-        codigoBarras: resultado.codigoBarras,
+        codigoBarras: resultado.codigoBarras || '',
         valor,
         vencimento,
         beneficiario: undefined,
@@ -662,23 +747,20 @@ export class SicoobBankProviderAdapter implements BankProvider, SicoobPort {
    * Usa GET /boletos/segunda-via com gerarPdf=true
    * Este método é mantido para compatibilidade com SicoobPort.
    * Para novos usos, prefira getSecondCopyPdf() que retorna BankPdfResult.
+   * 
+   * Conforme especificação, suporta identificação por:
+   * - nossoNumero (via parâmetro do método, para compatibilidade)
+   * - linhaDigitavel ou codigoBarras (via parâmetros opcionais, não expostos na interface atual)
    */
   async gerarSegundaVia(nossoNumero: string, _cpfHash: string, requestId: string): Promise<Buffer> {
     try {
       const token = await this.getAuthToken();
 
-      // Montar query params obrigatórios
-      const queryParams: Record<string, string> = {
-        numeroCliente: this.config.sicoobNumeroCliente,
-        codigoModalidade: this.config.sicoobCodigoModalidade,
+      // Montar query params usando helper
+      const queryParams = this.buildSegundaViaQueryParams({
         nossoNumero,
-        gerarPdf: 'true',
-      };
-
-      // Adicionar contrato se configurado
-      if (this.config.sicoobNumeroContratoCobranca) {
-        queryParams.numeroContratoCobranca = this.config.sicoobNumeroContratoCobranca;
-      }
+        gerarPdf: true,
+      });
 
       const response = await this.api.get<SicoobSegundaViaResponse>(
         '/boletos/segunda-via',
