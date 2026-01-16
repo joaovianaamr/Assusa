@@ -27,6 +27,18 @@ const configSchema = z.object({
   sicoobCertPfxBase64: z.string().optional(),
   sicoobCertPfxPassword: z.string().optional(),
 
+  // Bradesco
+  bradescoEnv: z.enum(['prod', 'homolog']).default('prod'),
+  bradescoBaseUrl: z.string().url().default('https://openapi.bradesco.com.br'),
+  bradescoAuthUrl: z.string().url().optional(), // Será calculado baseado em bradescoEnv se não fornecido
+  bradescoClientId: z.string().min(1).optional(),
+  bradescoPrivateKeyPem: z.string().optional(),
+  bradescoPfxBase64: z.string().optional(),
+  bradescoPfxPassword: z.string().optional(),
+  bradescoBeneficiaryCnpj: z.string().min(1).optional(),
+  bradescoApiPrefix: z.string().default('/v1/boleto'),
+  bradescoExtraHeaders: z.record(z.string()).optional(),
+
   // Google
   googleServiceAccountJsonBase64: z.string().min(1),
   googleDriveFolderId: z.string().min(1),
@@ -82,6 +94,16 @@ export function loadConfig(): Config {
       sicoobKeyPath: process.env.SICOOB_KEY_PATH,
       sicoobCertPfxBase64: process.env.SICOOB_CERT_PFX_BASE64,
       sicoobCertPfxPassword: process.env.SICOOB_CERT_PFX_PASSWORD,
+      bradescoEnv: process.env.BRADESCO_ENV,
+      bradescoBaseUrl: process.env.BRADESCO_BASE_URL,
+      bradescoAuthUrl: process.env.BRADESCO_AUTH_URL,
+      bradescoClientId: process.env.BRADESCO_CLIENT_ID,
+      bradescoPrivateKeyPem: process.env.BRADESCO_PRIVATE_KEY_PEM,
+      bradescoPfxBase64: process.env.BRADESCO_PFX_BASE64,
+      bradescoPfxPassword: process.env.BRADESCO_PFX_PASSWORD,
+      bradescoBeneficiaryCnpj: process.env.BRADESCO_BENEFICIARY_CNPJ,
+      bradescoApiPrefix: process.env.BRADESCO_API_PREFIX,
+      bradescoExtraHeaders: process.env.BRADESCO_EXTRA_HEADERS ? JSON.parse(process.env.BRADESCO_EXTRA_HEADERS) : undefined,
       googleServiceAccountJsonBase64: process.env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64,
       googleDriveFolderId: process.env.GOOGLE_DRIVE_FOLDER_ID,
       googleSheetsSpreadsheetId: process.env.GOOGLE_SHEETS_SPREADSHEET_ID,
@@ -102,7 +124,18 @@ export function loadConfig(): Config {
       conversationStateTtlSeconds: process.env.CONVERSATION_STATE_TTL_SECONDS,
     };
 
-    return configSchema.parse(config);
+    const parsedConfig = configSchema.parse(config);
+    
+    // Calcular bradescoAuthUrl se não fornecido, baseado em bradescoEnv
+    if (!parsedConfig.bradescoAuthUrl) {
+      if (parsedConfig.bradescoEnv === 'homolog') {
+        parsedConfig.bradescoAuthUrl = 'https://proxy.api.prebanco.com.br/auth/server/v1.2/token';
+      } else {
+        parsedConfig.bradescoAuthUrl = 'https://openapi.bradesco.com.br/auth/server/v1.1/token';
+      }
+    }
+    
+    return parsedConfig;
   } catch (error) {
     if (error instanceof z.ZodError) {
       const missingVars = error.errors.map((e) => e.path.map(String).join('.')).join(', ');
