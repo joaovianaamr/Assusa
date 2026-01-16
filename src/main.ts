@@ -5,8 +5,10 @@ import { GoogleDriveAdapter } from './adapters/google/drive-adapter.js';
 import { RedisAdapter } from './adapters/redis/redis-adapter.js';
 import { InMemoryConversationStateStore } from './adapters/in-memory/in-memory-conversation-state-store.js';
 import { RedisConversationStateStore } from './adapters/redis/redis-conversation-state-store.js';
-import { SicoobTitleRepositoryAdapter } from './adapters/sicoob/sicoob-title-repository-adapter.js';
 import { SicoobBankProviderAdapter } from './adapters/sicoob/sicoob-bank-provider-adapter.js';
+import { BradescoBankProviderAdapter } from './adapters/bradesco/bradesco-bank-provider-adapter.js';
+import { AggregatedTitleRepositoryAdapter } from './adapters/bradesco/aggregated-title-repository-adapter.js';
+import { AggregatedBankProviderAdapter } from './adapters/bradesco/aggregated-bank-provider-adapter.js';
 import { SimplePdfServiceAdapter } from './adapters/services/simple-pdf-service-adapter.js';
 import { GoogleDriveStorageAdapter } from './adapters/google/google-drive-storage-adapter.js';
 import { GoogleSheetLoggerAdapter } from './adapters/google/google-sheet-logger-adapter.js';
@@ -48,15 +50,27 @@ async function bootstrap() {
       ? new RedisConversationStateStore(config, logger)
       : new InMemoryConversationStateStore(logger);
 
-    // Inicializar adapter Sicoob (consolida BankProvider e SicoobPort)
+    // Inicializar adapters de bancos
     const sicoobAdapter = new SicoobBankProviderAdapter(config, logger);
+    const bradescoAdapter = new BradescoBankProviderAdapter(config, logger);
     
-    // Inicializar adapters wrappers
-    const titleRepository = new SicoobTitleRepositoryAdapter(sicoobAdapter, logger);
-    const bankProvider = sicoobAdapter; // Mesma instância, implementa BankProvider
+    // Inicializar sheetLogger (usado pelo AggregatedTitleRepositoryAdapter)
+    const sheetLogger = new GoogleSheetLoggerAdapter(config, logger);
+    
+    // Inicializar adapters agregados
+    const titleRepository = new AggregatedTitleRepositoryAdapter(
+      sicoobAdapter,
+      bradescoAdapter,
+      sheetLogger,
+      logger
+    );
+    const bankProvider = new AggregatedBankProviderAdapter(
+      sicoobAdapter,
+      bradescoAdapter,
+      logger
+    );
     const pdfService = new SimplePdfServiceAdapter(logger);
     const driveStorage = new GoogleDriveStorageAdapter(driveAdapter, logger);
-    const sheetLogger = new GoogleSheetLoggerAdapter(config, logger);
     const siteLinkService = new SiteLinkServiceAdapter(config, logger, storageAdapter);
 
     // Inicializar rate limiter
