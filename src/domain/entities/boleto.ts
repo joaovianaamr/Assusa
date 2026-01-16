@@ -20,6 +20,16 @@ export interface BoletoSicoob {
   pdf?: Buffer;
 }
 
+export interface BoletoBradesco {
+  nossoNumero: string;
+  numeroDocumento: string;
+  valor: number;
+  vencimento: string;
+  situacao: string;
+  pdf?: Buffer;
+  bank?: 'BRADESCO'; // Identificador do banco de origem
+}
+
 /**
  * Parâmetros para consulta de boleto via GET /boletos
  * Pelo menos um dos identificadores deve ser fornecido: nossoNumero, linhaDigitavel ou codigoBarras

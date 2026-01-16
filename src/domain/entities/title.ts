@@ -10,4 +10,5 @@ export interface Title {
   valor?: number;
   vencimento?: Date;
   status?: string; // Status do título (ex: "Aberto", "Liquidado", "Cancelado", etc.)
+  bank?: 'SICOOB' | 'BRADESCO'; // Banco de origem (opcional para compatibilidade)
 }
