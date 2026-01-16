@@ -52,6 +52,7 @@ export class ProcessFormatSelectionUseCase {
         nossoNumero: string;
         valor?: number;
         vencimento?: string;
+        bank?: 'SICOOB' | 'BRADESCO';
       }>;
 
       if (titles && Array.isArray(titles)) {
@@ -106,6 +107,7 @@ export class ProcessFormatSelectionUseCase {
       nossoNumero: string;
       valor?: number;
       vencimento?: string;
+      bank?: 'SICOOB' | 'BRADESCO';
     };
 
     if (!selectedTitleData) {
@@ -121,12 +123,13 @@ export class ProcessFormatSelectionUseCase {
     const cpfHash = state.data.cpfHash as string;
     const cpfMasked = state.data.cpfMasked as string;
 
-    // Reconstruir objeto Title
+    // Reconstruir objeto Title (preservar informação do banco)
     const selectedTitle: Title = {
       id: selectedTitleData.id,
       nossoNumero: selectedTitleData.nossoNumero,
       valor: selectedTitleData.valor,
       vencimento: selectedTitleData.vencimento ? new Date(selectedTitleData.vencimento) : undefined,
+      bank: selectedTitleData.bank, // Preservar informação do banco para roteamento correto
     };
 
     this.logger.info({ 

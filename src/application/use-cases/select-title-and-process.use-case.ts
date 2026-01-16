@@ -34,6 +34,7 @@ export class SelectTitleAndProcessUseCase {
       nossoNumero: string;
       valor?: number;
       vencimento?: string;
+      bank?: 'SICOOB' | 'BRADESCO';
     }>;
 
     if (!titles || !Array.isArray(titles)) {
@@ -91,6 +92,7 @@ export class SelectTitleAndProcessUseCase {
           nossoNumero: selectedTitleData.nossoNumero,
           valor: selectedTitleData.valor,
           vencimento: selectedTitleData.vencimento,
+          bank: selectedTitleData.bank, // Preservar informação do banco
         },
       },
       updatedAt: new Date(),

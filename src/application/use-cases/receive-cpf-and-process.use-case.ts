@@ -103,12 +103,14 @@ export class ReceiveCpfAndProcessUseCase {
             nossoNumero: t.nossoNumero,
             valor: t.valor,
             vencimento: t.vencimento?.toISOString(),
+            bank: t.bank, // Preservar informação do banco
           })),
           selectedTitle: {
             id: title.id,
             nossoNumero: title.nossoNumero,
             valor: title.valor,
             vencimento: title.vencimento?.toISOString(),
+            bank: title.bank, // Preservar informação do banco
           },
         },
         updatedAt: new Date(),
@@ -145,6 +147,7 @@ export class ReceiveCpfAndProcessUseCase {
           nossoNumero: t.nossoNumero,
           valor: t.valor,
           vencimento: t.vencimento?.toISOString(),
+          bank: t.bank, // Preservar informação do banco
         })),
       },
       updatedAt: new Date(),
