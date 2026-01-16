@@ -314,7 +314,7 @@ O sistema usa a **API Cobrança Bancária v3** do Sicoob. Configure as seguintes
 
 - `SICOOB_CLIENT_ID`: Client ID da API Sicoob
 - `SICOOB_CLIENT_SECRET`: Client Secret da API Sicoob
-- `SICOOB_NUMERO_CLIENTE`: Número do cliente no Sicoob
+- `SICOOB_NUMERO_CLIENTE`: Número que identifica o beneficiário/contrato no Sicoob (empresa que emite os boletos)
 - `SICOOB_CODIGO_MODALIDADE`: Código da modalidade de cobrança
 
 #### Variáveis Opcionais
