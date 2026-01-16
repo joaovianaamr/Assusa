@@ -192,11 +192,15 @@ Verifique a planilha do Google Sheets:
 
 2. **Segunda Via com PDF**
    - `GET {SICOOB_BASE_URL}/boletos/segunda-via?gerarPdf=true&numeroCliente=...&codigoModalidade=...&nossoNumero=...`
+   - **Alternativas**: Pode usar `linhaDigitavel` (47 caracteres) ou `codigoBarras` (44 caracteres) em vez de `nossoNumero`
+   - **Parâmetros opcionais**: `numeroContratoCobranca`
    - Headers: `Authorization: Bearer <token>`, `client_id: <clientId>`
    - Resposta: JSON com `resultado.pdfBoleto` (Base64)
 
 3. **Dados do Boleto**
    - `GET {SICOOB_BASE_URL}/boletos/segunda-via?gerarPdf=false&numeroCliente=...&codigoModalidade=...&nossoNumero=...`
+   - **Alternativas**: Pode usar `linhaDigitavel` (47 caracteres) ou `codigoBarras` (44 caracteres) em vez de `nossoNumero`
+   - **Parâmetros opcionais**: `numeroContratoCobranca`
    - Headers: `Authorization: Bearer <token>`, `client_id: <clientId>`
    - Resposta: JSON com `resultado.linhaDigitavel`, `resultado.codigoBarras`, etc.
 
