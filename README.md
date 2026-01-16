@@ -349,7 +349,16 @@ SICOOB_KEY_PATH=/caminho/para/key.pem
 
 #### Fluxo de Requisições do Sicoob
 
-O sistema obtém os identificadores dos boletos (`nossoNumero`) a partir do CPF informado pelo usuário através do seguinte fluxo:
+O sistema identifica boletos usando parâmetros obrigatórios do `.env` combinados com identificadores obtidos das requisições:
+
+**Parâmetros obrigatórios (sempre presentes - vêm do .env):**
+- `numeroCliente`: Identificador do cliente/contrato no Sicoob (variável `SICOOB_NUMERO_CLIENTE`)
+- `codigoModalidade`: Modalidade de cobrança (variável `SICOOB_CODIGO_MODALIDADE`)
+
+**Identificadores de boleto específico (vêm das requisições):**
+- `nossoNumero`: Identificador único do boleto (obtido da resposta de `GET /pagadores/{cpf}/boletos`)
+- `linhaDigitavel`: Linha digitável do boleto (47 caracteres) - alternativa ao nossoNumero
+- `codigoBarras`: Código de barras do boleto (44 caracteres) - alternativa ao nossoNumero
 
 **1. Usuário informa CPF**
 - Entrada: apenas o CPF (11 dígitos)
@@ -369,18 +378,26 @@ O sistema obtém os identificadores dos boletos (`nossoNumero`) a partir do CPF 
   ```
 - **Observação**: O `nossoNumero` é **extraído da resposta** desta chamada inicial
 
-**3. Enriquecimento dos boletos (usa nossoNumero obtido da lista)**
-- **Endpoint**: `GET /boletos?nossoNumero={nossoNumero}`
+**3. Enriquecimento dos boletos (usa numeroCliente do .env + nossoNumero da lista)**
+- **Endpoint**: `GET /boletos?numeroCliente={numeroCliente}&codigoModalidade={codigoModalidade}&nossoNumero={nossoNumero}`
 - **Método**: `consultarBoleto({ nossoNumero }, requestId)`
+- **Parâmetros obrigatórios**: 
+  - `numeroCliente`: vem de `SICOOB_NUMERO_CLIENTE` (`.env`)
+  - `codigoModalidade`: vem de `SICOOB_CODIGO_MODALIDADE` (`.env`)
+- **Parâmetro opcional** (identificador do boleto):
+  - `nossoNumero`: extraído da resposta do passo 2
 - **Quando**: Executado em paralelo para cada boleto encontrado na lista
-- **Usa**: `nossoNumero` extraído da resposta do passo 2
 - **Retorna**: Dados completos do boleto (pagador, histórico, QR Code, etc.)
 
-**4. Geração da segunda via (usa nossoNumero obtido da lista)**
-- **Endpoint**: `GET /boletos/segunda-via?nossoNumero={nossoNumero}&gerarPdf=true/false`
+**4. Geração da segunda via (usa numeroCliente do .env + nossoNumero da lista)**
+- **Endpoint**: `GET /boletos/segunda-via?numeroCliente={numeroCliente}&codigoModalidade={codigoModalidade}&nossoNumero={nossoNumero}&gerarPdf=true/false`
 - **Métodos**: `getSecondCopyPdf(title)` / `getSecondCopyData(title)`
+- **Parâmetros obrigatórios**:
+  - `numeroCliente`: vem de `SICOOB_NUMERO_CLIENTE` (`.env`)
+  - `codigoModalidade`: vem de `SICOOB_CODIGO_MODALIDADE` (`.env`)
+- **Parâmetro opcional** (identificador do boleto):
+  - `nossoNumero`: obtido do passo 2 (sem precisar do CPF novamente)
 - **Quando**: Quando o usuário escolhe o formato (PDF, código de barras ou linha digitável)
-- **Usa**: `title.nossoNumero` (obtido do passo 2, sem precisar do CPF novamente)
 - **Retorna**: PDF ou dados atualizados do boleto
 
 **Fluxo visual:**
@@ -394,15 +411,22 @@ O sistema obtém os identificadores dos boletos (`nossoNumero`) a partir do CPF 
 4. Sistema extrai nossoNumero de cada boleto da lista
    ↓
 5. Para cada nossoNumero extraído (em paralelo):
-   ├─→ GET /boletos?nossoNumero={nossoNumero} (enriquecimento)
-   └─→ GET /boletos/segunda-via?nossoNumero={nossoNumero} (gerar PDF)
+   ├─→ GET /boletos?
+   │      numeroCliente={SICOOB_NUMERO_CLIENTE} ← .env
+   │      &codigoModalidade={SICOOB_CODIGO_MODALIDADE} ← .env
+   │      &nossoNumero={nossoNumero} ← passo 2
+   └─→ GET /boletos/segunda-via?
+         numeroCliente={SICOOB_NUMERO_CLIENTE} ← .env
+         &codigoModalidade={SICOOB_CODIGO_MODALIDADE} ← .env
+         &nossoNumero={nossoNumero} ← passo 2
+         &gerarPdf=true/false
 ```
 
 **Resumo:**
+- ✅ **`numeroCliente` e `codigoModalidade` vêm do `.env`** e são **obrigatórios** em todas as requisições
 - ✅ **CPF é necessário apenas para descobrir quais boletos existem** (passo 2)
-- ✅ **Depois, todas as operações usam `nossoNumero`** extraído da lista inicial
-- ✅ **O `nossoNumero` é obtido automaticamente** da resposta de `GET /pagadores/{cpf}/boletos`
-- ✅ **Não é necessário que o usuário informe `nossoNumero`** - ele vem da resposta do Sicoob
+- ✅ **`nossoNumero` é obtido automaticamente** da resposta de `GET /pagadores/{cpf}/boletos`
+- ✅ **Depois da listagem inicial, todas as operações usam `numeroCliente` (`.env`) + `nossoNumero` (resposta)** para identificar e processar boletos específicos
 
 #### Notas Importantes
 
