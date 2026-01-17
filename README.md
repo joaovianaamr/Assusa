@@ -1,1205 +1,136 @@
 # Assusa - Chatbot WhatsApp para 2ª Via de Boletos
 
-Sistema de chatbot no WhatsApp para geração de 2ª via de boletos bancários com suporte a múltiplos bancos (Sicoob e Bradesco), com compliance total à LGPD.
+Sistema de chatbot no WhatsApp para geração de 2ª via de boletos bancários com suporte a múltiplos bancos (Sicoob e Bradesco), desenvolvido com compliance total à LGPD e seguindo Clean Architecture.
 
-## 📋 Índice
+## 🚀 Início Rápido
 
-- [Sobre](#sobre)
-- [Arquitetura](#arquitetura)
-- [Stack Tecnológica](#stack-tecnológica)
-- [Funcionalidades](#funcionalidades)
-- [Requisitos](#requisitos)
-- [Instalação](#instalação)
-- [Configuração](#configuração)
-- [Uso](#uso)
-- [LGPD e Segurança](#lgpd-e-segurança)
-- [Testes](#testes)
-- [Deploy](#deploy)
-- [Estrutura do Projeto](#estrutura-do-projeto)
+```bash
+# 1. Clone e instale as dependências
+git clone <repository-url>
+cd assusa
+npm install
 
-## 🎯 Sobre
+# 2. Configure as variáveis de ambiente
+# Copie o template de docs/ENV_TEMPLATE.md para .env
+# Preencha todas as variáveis obrigatórias
 
-O Assusa é um chatbot desenvolvido para WhatsApp que permite aos clientes solicitar a 2ª via de boletos bancários de forma rápida e segura. O sistema foi desenvolvido seguindo os princípios da **Clean Architecture** (Ports & Adapters) para garantir flexibilidade, testabilidade e fácil manutenção.
+# 3. Valide a configuração
+npm run validate-config
 
-### Principais Características
-
-- ✅ Compliance total com LGPD
-- ✅ Arquitetura limpa e escalável
-- ✅ Suporte a múltiplos canais (preparado para site/app/email)
-- ✅ Suporte a múltiplos bancos (Sicoob e Bradesco)
-- ✅ Detecção automática de duplicidade entre bancos
-- ✅ Observabilidade completa
-- ✅ Testes automatizados
-- ✅ Deploy no Google Cloud Run
-
-## 🏗️ Arquitetura
-
-O projeto segue a **Clean Architecture** (Ports & Adapters), dividida em camadas:
-
-```
-src/
-├── domain/          # Regras de negócio puras (entities, value-objects, use-cases, ports)
-├── application/     # Serviços, use-cases e ports de integrações externas
-├── adapters/        # Implementações concretas (WhatsApp, Sicoob, Bradesco, Google, Redis, in-memory)
-└── infrastructure/  # Configuração, logging, segurança
+# 4. Execute em modo desenvolvimento
+npm run dev
 ```
 
-### Camadas
+📖 **Documentação Completa**: Veja [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) para um guia passo a passo detalhado.
 
-1. **Domain** (`domain/`): 
-   - Entidades de domínio
-   - Value Objects (CPF, etc.)
-   - Ports puramente de domínio (raros, durante migração gradual)
+## ✨ Características Principais
 
-2. **Application** (`application/`): 
-   - Serviços que orquestram os casos de uso (ApplicationService, WhatsappRouter)
-   - Use Cases da camada de aplicação (ShowMenu, StartSecondCopyFlow, GenerateSecondCopy, DeleteData, etc.)
-   - **Ports de integrações externas** (`application/ports/driven/`): Interfaces de integrações (WhatsApp, Sicoob, Google Drive, Google Sheets, Redis, Logger, etc.)
-   - DTOs
+- ✅ **Compliance total com LGPD** - Proteção de dados desde o design
+- ✅ **Clean Architecture** - Código organizado e testável
+- ✅ **Múltiplos bancos** - Suporte a Sicoob e Bradesco
+- ✅ **Detecção de duplicidade** - Identifica boletos duplicados entre bancos
+- ✅ **Observabilidade completa** - Logs estruturados e rastreabilidade
+- ✅ **Testes automatizados** - Cobertura de testes unitários e de integração
+- ✅ **Deploy no Google Cloud Run** - Escalável e gerenciado
 
-3. **Adapters** (`adapters/`): Implementações concretas das portas
-   - http: Servidor Fastify
-   - whatsapp: Adapter WhatsApp Cloud API
-   - sicoob: Adapter Sicoob API
-   - bradesco: Adapter Bradesco API
-   - google: Adapters Google Drive/Sheets
-   - redis: Adapter Redis (com fallback em memória)
-   - in-memory: Implementações em memória para desenvolvimento/testes
+## 📚 Documentação
 
-4. **Infrastructure** (`infrastructure/`): Configuração, logging, segurança
+Nossa documentação está organizada para ser intuitiva e fácil de navegar:
 
-### Organização dos Ports
+### 🎯 Para Começar
+- **[Guia de Início Rápido](docs/GETTING_STARTED.md)** - Configure e execute o projeto em poucos minutos
+- **[Setup Detalhado](docs/SETUP.md)** - Configuração completa passo a passo
 
-**Importante**: Os ports de integrações externas estão localizados em `src/application/ports/driven/`, seguindo a arquitetura definida no projeto. Ports puramente de domínio (raros) podem estar em `src/domain/ports/` durante a migração gradual.
+### ⚙️ Configuração
+- **[Configuração Completa](docs/CONFIGURATION.md)** - Todas as variáveis de ambiente e configurações detalhadas
+- **[Integrações de APIs](docs/API_INTEGRATIONS.md)** - Configuração de WhatsApp, Sicoob, Bradesco e Google APIs
 
-**Ports de integrações externas** (em `application/ports/driven/`):
-- `WhatsAppPort`, `SicoobPort`, `BradescoPort`, `DrivePort`, `SheetsPort`, `StoragePort`, `RateLimiter`, `Logger`, etc.
+### 🏗️ Arquitetura e Desenvolvimento
+- **[Arquitetura do Projeto](docs/ARCHITECTURE.md)** - Estrutura, camadas e princípios de design
+- **[Desenvolvimento](docs/DEVELOPMENT.md)** - DevTools, testes, troubleshooting e boas práticas
 
-**Ports puramente de domínio** (raros, em `domain/ports/`):
-- Abstrações genéricas como `Clock`, `IdGenerator`, `Hasher`, `RandomProvider`
+### 🚢 Deploy e Operação
+- **[Deploy no Google Cloud Run](docs/DEPLOY.md)** - Guia completo de deploy em produção
+- **[Validação Manual](docs/VALIDACAO_MANUAL.md)** - Guia de validação manual do fluxo completo
+- **[Sicoob API](docs/SICOOB.md)** - Documentação específica da integração com Sicoob
 
-Ver mais detalhes em `docs/adr/ADR-0001-ports-na-application.md`.
-
-### Benefícios da Arquitetura
-
-- **Desacoplamento**: Facilita a troca de implementações (ex: trocar Redis por Memcached)
-- **Testabilidade**: Permite criar mocks facilmente
-- **Extensibilidade**: Adicionar novos bancos ou canais é simples
-- **Manutenibilidade**: Código organizado e fácil de entender
+### 📋 Documentação Adicional
+- **[Changelog de Implementação](docs/CHANGELOG_IMPLEMENTACAO.md)** - Histórico de mudanças e implementações
 
 ## 🛠️ Stack Tecnológica
 
-- **Runtime**: Node.js 20+
-- **Linguagem**: TypeScript
-- **Framework HTTP**: Fastify
-- **Validação**: Zod
-- **Cache/Estado**: Redis (com fallback em memória)
-- **Logging**: Pino (logs estruturados)
-- **APIs Externas**:
-  - WhatsApp Cloud API
-  - Sicoob API (OAuth2 Client Credentials + mTLS)
-  - Bradesco API (OAuth2 JWT Bearer)
-  - Google Drive API
-  - Google Sheets API
-- **Testes**: Vitest
-- **Deploy**: Google Cloud Run
+| Categoria | Tecnologia |
+|-----------|-----------|
+| **Runtime** | Node.js 20+ |
+| **Linguagem** | TypeScript |
+| **Framework HTTP** | Fastify |
+| **Validação** | Zod |
+| **Cache/Estado** | Redis (com fallback em memória) |
+| **Logging** | Pino (logs estruturados) |
+| **Testes** | Vitest |
+| **Deploy** | Google Cloud Run |
+| **APIs Externas** | WhatsApp Cloud API, Sicoob API, Bradesco API, Google Drive/Sheets |
 
-## ✨ Funcionalidades
-
-### Fluxo Principal: Gerar 2ª Via de Boleto
-
-1. Cliente envia mensagem no WhatsApp
-2. Sistema apresenta menu interativo
-3. Cliente seleciona "Gerar 2ª via de boleto"
-4. Sistema exibe aviso LGPD
-5. Cliente informa CPF
-6. Sistema busca boletos automaticamente:
-   - Primeiro verifica no **Sicoob**
-   - Depois verifica no **Bradesco**
-   - Se encontrar boletos duplicados (mesmo mês e valor em bancos diferentes), registra evento de duplicidade
-7. Se houver múltiplos boletos, cliente escolhe qual deseja
-8. Cliente escolhe o formato da 2ª via:
-   - **PDF**: Gera e envia PDF completo
-   - **Código de barras**: Envia apenas o código de barras
-   - **Linha digitável**: Envia apenas a linha digitável
-9. Sistema processa a solicitação:
-   - Para PDF: gera PDF, salva no Google Drive (pasta privada), registra no Sheets e envia via WhatsApp
-   - Para código de barras/linha digitável: obtém dados do boleto, registra no Sheets e envia via WhatsApp
-10. Solicitação é registrada no Google Sheets com o tipo apropriado
-
-### Outras Funcionalidades
-
-- **Fale com a gente**: Exibe informações de contato
-- **Acessar nosso site**: Exibe link do site
-- **EXCLUIR DADOS (LGPD)**: Permite que o cliente solicite exclusão de todos os seus dados
-
-## 📦 Requisitos
-
-- Node.js 20 ou superior
-- npm ou yarn
-- Redis (opcional - tem fallback em memória)
-- Contas/configurações:
-  - WhatsApp Business Cloud API
-  - Sicoob API (credenciais e certificados)
-  - Bradesco API (credenciais e chave privada)
-  - Google Cloud Project (com APIs habilitadas):
-    - Google Drive API
-    - Google Sheets API
-
-## 🚀 Instalação
-
-1. Clone o repositório:
-```bash
-git clone <repository-url>
-cd assusa
-```
-
-2. Instale as dependências:
-```bash
-npm install
-```
-
-3. Configure as variáveis de ambiente:
-   - Copie o template de `docs/ENV_TEMPLATE.md` para um novo arquivo `.env` na raiz
-   - Preencha todas as variáveis obrigatórias com seus valores reais
-   - Valide a configuração: `npm run validate-config`
-
-4. Compile o projeto:
-```bash
-npm run build
-```
-
-5. Execute o projeto:
-```bash
-npm start
-```
-
-Para desenvolvimento com hot-reload:
-```bash
-npm run dev
-```
-
-## ⚙️ Configuração
-
-Crie um arquivo `.env` na raiz do projeto e configure as variáveis de ambiente abaixo.
-
-**Nota**: Não existe um arquivo `.env.example` no projeto. Configure manualmente as variáveis necessárias.
-
-### Variáveis de Ambiente
-
-#### Servidor
-- `NODE_ENV`: Ambiente (development/production/test)
-- `PORT`: Porta do servidor (padrão: 3000)
-- `HOST`: Host do servidor (padrão: 0.0.0.0)
-
-#### WhatsApp Cloud API
-- `WHATSAPP_API_TOKEN`: Token de acesso da API do WhatsApp
-- `WHATSAPP_PHONE_NUMBER_ID`: ID do número de telefone no WhatsApp
-- `WHATSAPP_VERIFY_TOKEN`: Token de verificação do webhook
-- `WHATSAPP_WEBHOOK_URL`: URL pública do webhook (opcional)
-
-#### Sicoob API (Cobrança Bancária v3)
-- `SICOOB_CLIENT_ID`: Client ID da aplicação Sicoob (obrigatório)
-- `SICOOB_CLIENT_SECRET`: Client Secret da aplicação Sicoob (obrigatório)
-- `SICOOB_NUMERO_CLIENTE`: Número que identifica o beneficiário/contrato no Sicoob (empresa que emite os boletos) - obrigatório
-  - **Importante**: Não identifica cada indivíduo (CPF), mas sim o beneficiário/contrato que tem acordo com o Sicoob
-- `SICOOB_CODIGO_MODALIDADE`: Código da modalidade de cobrança (obrigatório)
-- `SICOOB_BASE_URL`: URL base da API (padrão: `https://api.sicoob.com.br/cobranca-bancaria/v3`)
-  - Para sandbox: `https://sandbox.sicoob.com.br/sicoob/sandbox/cobranca-bancaria/v3`
-- `SICOOB_AUTH_TOKEN_URL`: URL de autenticação OAuth (padrão: `https://auth.sicoob.com.br/auth/realms/cooperado/protocol/openid-connect/token`)
-- `SICOOB_NUMERO_CONTRATO_COBRANCA`: Número do contrato de cobrança (opcional)
-- `SICOOB_CERTIFICATE_PATH`: Caminho do certificado SSL PEM (opcional, para mTLS)
-- `SICOOB_KEY_PATH`: Caminho da chave privada SSL PEM (opcional, para mTLS)
-- `SICOOB_CERT_PFX_BASE64`: Certificado PFX codificado em base64 (opcional, para mTLS)
-- `SICOOB_CERT_PFX_PASSWORD`: Senha do certificado PFX (opcional, para mTLS)
-
-#### Bradesco API (Open Banking)
-- `BRADESCO_ENV`: Ambiente (prod/homolog, padrão: prod)
-- `BRADESCO_BASE_URL`: URL base da API (padrão: `https://openapi.bradesco.com.br`)
-- `BRADESCO_AUTH_URL`: URL de autenticação OAuth (calculado automaticamente baseado em `BRADESCO_ENV`)
-  - Produção: `https://openapi.bradesco.com.br/auth/server/v1.1/token`
-  - Homologação: `https://proxy.api.prebanco.com.br/auth/server/v1.2/token`
-- `BRADESCO_CLIENT_ID`: Client ID da aplicação Bradesco (obrigatório)
-- `BRADESCO_PRIVATE_KEY_PEM`: Chave privada RSA em formato PEM para assinatura JWT (obrigatório)
-- `BRADESCO_PFX_BASE64`: Certificado PFX codificado em base64 (opcional, alternativa ao PEM)
-- `BRADESCO_PFX_PASSWORD`: Senha do certificado PFX (opcional, se usar PFX)
-- `BRADESCO_BENEFICIARY_CNPJ`: CNPJ do beneficiário (14 dígitos, obrigatório)
-- `BRADESCO_API_PREFIX`: Prefixo da API (padrão: `/v1/boleto`)
-- `BRADESCO_EXTRA_HEADERS`: Headers extras opcionais (JSON string, opcional)
-
-#### Google APIs
-- `GOOGLE_SERVICE_ACCOUNT_JSON_BASE64`: Service Account JSON codificado em base64 (obrigatório)
-- `GOOGLE_DRIVE_FOLDER_ID`: ID da pasta no Google Drive onde os PDFs serão salvos (obrigatório)
-- `GOOGLE_SHEETS_SPREADSHEET_ID`: ID da planilha do Google Sheets (obrigatório)
-- `GOOGLE_SHEETS_WORKSHEET_NAME`: Nome da aba na planilha (padrão: Requests)
-
-**Nota**: Campos legados (`GOOGLE_CLIENT_EMAIL`, `GOOGLE_PRIVATE_KEY`, `GOOGLE_PROJECT_ID`) são opcionais e mantidos apenas para compatibilidade durante migração.
-
-#### Redis
-- `REDIS_URL`: URL de conexão do Redis (ex: redis://localhost:6379)
-- `REDIS_ENABLED`: Habilitar Redis (true/false, padrão: true)
-
-#### Segurança & LGPD
-- `CPF_PEPPER`: String secreta para hash do CPF (mínimo 32 caracteres) - **OBRIGATÓRIO**
-- `ALLOW_RAW_CPF_IN_FILENAME`: Permitir CPF puro em nomes de arquivo (true/false, padrão: false)
-- `DATA_RETENTION_DAYS`: Dias de retenção de dados (padrão: 90)
-
-#### Observabilidade
-- `LOG_LEVEL`: Nível de log (fatal/error/warn/info/debug/trace, padrão: info)
-- `SERVICE_NAME`: Nome do serviço para logs (padrão: assusa)
-
-#### Rate Limiting
-- `RATE_LIMIT_MAX_REQUESTS`: Máximo de requisições por janela (padrão: 100)
-- `RATE_LIMIT_WINDOW_MS`: Janela de tempo em milissegundos (padrão: 60000 = 1 minuto)
-
-#### Conversation State
-- `CONVERSATION_STATE_TTL_SECONDS`: TTL do estado da conversa em segundos (padrão: 900 = 15 minutos)
-
-#### DevTools (Apenas Desenvolvimento)
-- `DEV_TOOLS_ENABLED`: Habilitar DevTools Flow Tester (true/false, padrão: false)
-- `DEV_TOOLS_TOKEN`: Token opcional para autenticação do DevTools (opcional)
-
-### Configuração do WhatsApp
-
-1. Configure o webhook no WhatsApp Business:
-   - URL: `https://seu-dominio.com/webhook`
-   - Método: GET (para verificação) e POST (para mensagens)
-   - Token de verificação: Use o valor de `WHATSAPP_VERIFY_TOKEN`
-
-### Configuração do Google Cloud
-
-#### 1. Criar Service Account
-
-1. Acesse o [Google Cloud Console](https://console.cloud.google.com/)
-2. Crie um projeto ou selecione um existente
-3. Vá em **IAM & Admin** > **Service Accounts**
-4. Clique em **Create Service Account**
-5. Preencha os dados e crie a service account
-6. Clique na service account criada e vá em **Keys** > **Add Key** > **Create new key**
-7. Selecione **JSON** e baixe o arquivo
-
-#### 2. Habilitar APIs
-
-1. No Google Cloud Console, vá em **APIs & Services** > **Library**
-2. Habilite as seguintes APIs:
-   - **Google Drive API**
-   - **Google Sheets API**
-
-#### 3. Codificar Service Account JSON em Base64
-
-1. Abra o arquivo JSON baixado
-2. Codifique o conteúdo completo em base64:
+## 📦 Comandos Úteis
 
 ```bash
-# Linux/Mac
-cat service-account.json | base64 -w 0
-
-# Windows (PowerShell)
-[Convert]::ToBase64String([System.IO.File]::ReadAllBytes("service-account.json"))
-```
-
-3. Copie o resultado e configure a variável `GOOGLE_SERVICE_ACCOUNT_JSON_BASE64`
-
-#### 4. Configurar Pasta Privada no Google Drive
-
-1. Acesse o [Google Drive](https://drive.google.com/)
-2. Crie uma nova pasta (ou use uma existente) para armazenar os PDFs
-3. Clique com o botão direito na pasta > **Compartilhar**
-4. Adicione o email da service account (encontrado no campo `client_email` do JSON) com permissão de **Editor**
-5. **Importante**: Não torne a pasta pública. Mantenha apenas a service account e membros da equipe com acesso
-6. Para obter o **Folder ID**:
-   - Abra a pasta no Google Drive
-   - O ID está na URL: `https://drive.google.com/drive/folders/FOLDER_ID_AQUI`
-   - Copie o `FOLDER_ID_AQUI` e configure em `GOOGLE_DRIVE_FOLDER_ID`
-
-#### 5. Configurar Planilha do Google Sheets
-
-1. Crie uma nova planilha no Google Sheets (ou use uma existente)
-2. Compartilhe a planilha com o email da service account com permissão de **Editor**
-3. Para obter o **Spreadsheet ID**:
-   - Abra a planilha
-   - O ID está na URL: `https://docs.google.com/spreadsheets/d/SPREADSHEET_ID_AQUI/edit`
-   - Copie o `SPREADSHEET_ID_AQUI` e configure em `GOOGLE_SHEETS_SPREADSHEET_ID`
-4. Configure o nome da aba em `GOOGLE_SHEETS_WORKSHEET_NAME` (padrão: `Requests`)
-
-#### Resumo das Variáveis
-
-```env
-GOOGLE_SERVICE_ACCOUNT_JSON_BASE64=<JSON codificado em base64>
-GOOGLE_DRIVE_FOLDER_ID=<ID da pasta do Drive>
-GOOGLE_SHEETS_SPREADSHEET_ID=<ID da planilha>
-GOOGLE_SHEETS_WORKSHEET_NAME=Requests
-```
-
-### Configuração do Sicoob
-
-O sistema usa a **API Cobrança Bancária v3** do Sicoob. Configure as seguintes variáveis:
-
-#### Variáveis Obrigatórias
-
-- `SICOOB_CLIENT_ID`: Client ID da API Sicoob
-- `SICOOB_CLIENT_SECRET`: Client Secret da API Sicoob
-- `SICOOB_NUMERO_CLIENTE`: Número que identifica o beneficiário/contrato no Sicoob (empresa que emite os boletos)
-- `SICOOB_CODIGO_MODALIDADE`: Código da modalidade de cobrança
-
-#### Variáveis Opcionais
-
-- `SICOOB_BASE_URL`: URL base da API (padrão: `https://api.sicoob.com.br/cobranca-bancaria/v3`)
-  - Para sandbox: `https://sandbox.sicoob.com.br/sicoob/sandbox/cobranca-bancaria/v3`
-- `SICOOB_AUTH_TOKEN_URL`: URL de autenticação OAuth (padrão: `https://auth.sicoob.com.br/auth/realms/cooperado/protocol/openid-connect/token`)
-- `SICOOB_NUMERO_CONTRATO_COBRANCA`: Número do contrato de cobrança (se aplicável)
-
-#### Certificados SSL (mTLS)
-
-Se a API do Sicoob exigir certificados SSL para autenticação mútua (mTLS), configure uma das opções:
-
-**Opção 1: Certificado PFX em Base64 (recomendado)**
-```env
-SICOOB_CERT_PFX_BASE64=<certificado PFX codificado em base64>
-SICOOB_CERT_PFX_PASSWORD=<senha do certificado PFX>
-```
-
-**Opção 2: Certificado PEM separado**
-```env
-SICOOB_CERTIFICATE_PATH=/caminho/para/cert.pem
-SICOOB_KEY_PATH=/caminho/para/key.pem
-```
-
-#### Endpoints Utilizados
-
-- **Autenticação**: `POST {SICOOB_AUTH_TOKEN_URL}` (OAuth Client Credentials)
-- **Listar boletos por CPF**: `GET {SICOOB_BASE_URL}/pagadores/{cpf}/boletos`
-- **Consultar boleto completo**: `GET {SICOOB_BASE_URL}/boletos?nossoNumero={nossoNumero}`
-- **Segunda via com PDF**: `GET {SICOOB_BASE_URL}/boletos/segunda-via?gerarPdf=true&nossoNumero={nossoNumero}`
-- **Dados do boleto**: `GET {SICOOB_BASE_URL}/boletos/segunda-via?gerarPdf=false&nossoNumero={nossoNumero}`
-
-#### Fluxo de Requisições do Sicoob
-
-O sistema identifica boletos usando parâmetros obrigatórios do `.env` combinados com identificadores obtidos das requisições:
-
-**Parâmetros obrigatórios (sempre presentes - vêm do .env):**
-- `numeroCliente`: Identificador do **beneficiário/contrato** no Sicoob (empresa/instituição que emite os boletos) - variável `SICOOB_NUMERO_CLIENTE`
-  - **Não identifica cada indivíduo (CPF)**, mas sim o beneficiário/contrato que tem acordo com o Sicoob
-  - Este valor é fixo para todos os boletos emitidos por essa empresa
-- `codigoModalidade`: Modalidade de cobrança (variável `SICOOB_CODIGO_MODALIDADE`)
-
-**Identificadores de boleto específico (vêm das requisições):**
-- `nossoNumero`: Identificador único de **cada boleto específico** (obtido da resposta de `GET /pagadores/{cpf}/boletos`)
-  - Cada boleto tem seu próprio `nossoNumero` único
-  - Usado para identificar qual boleto específico consultar/gerar segunda via
-- `linhaDigitavel`: Linha digitável do boleto (47 caracteres) - alternativa ao nossoNumero
-- `codigoBarras`: Código de barras do boleto (44 caracteres) - alternativa ao nossoNumero
-
-**1. Usuário informa CPF**
-- Entrada: apenas o CPF (11 dígitos)
-
-**2. Listagem inicial de boletos (usa CPF)**
-- **Endpoint**: `GET /pagadores/{cpf}/boletos`
-- **Método**: `buscarBoletosPorCPF(cpf: string, requestId: string)`
-- **Resposta**: Lista de boletos, cada um contendo:
-  ```json
-  {
-    "nossoNumero": "12345678901234567",
-    "numeroDocumento": "DOC001",
-    "valor": 100.50,
-    "vencimento": "2024-12-31",
-    "situacao": "Aberto"
-  }
-  ```
-- **Observação**: O `nossoNumero` é **extraído da resposta** desta chamada inicial
-
-**3. Enriquecimento dos boletos (usa numeroCliente do .env + nossoNumero da lista)**
-- **Endpoint**: `GET /boletos?numeroCliente={numeroCliente}&codigoModalidade={codigoModalidade}&nossoNumero={nossoNumero}`
-- **Método**: `consultarBoleto({ nossoNumero }, requestId)`
-- **Parâmetros obrigatórios**: 
-  - `numeroCliente`: vem de `SICOOB_NUMERO_CLIENTE` (`.env`)
-  - `codigoModalidade`: vem de `SICOOB_CODIGO_MODALIDADE` (`.env`)
-- **Parâmetro opcional** (identificador do boleto):
-  - `nossoNumero`: extraído da resposta do passo 2
-- **Quando**: Executado em paralelo para cada boleto encontrado na lista
-- **Retorna**: Dados completos do boleto (pagador, histórico, QR Code, etc.)
-
-**4. Geração da segunda via (usa numeroCliente do .env + nossoNumero da lista)**
-- **Endpoint**: `GET /boletos/segunda-via?numeroCliente={numeroCliente}&codigoModalidade={codigoModalidade}&nossoNumero={nossoNumero}&gerarPdf=true/false`
-- **Métodos**: `getSecondCopyPdf(title)` / `getSecondCopyData(title)`
-- **Parâmetros obrigatórios**:
-  - `numeroCliente`: vem de `SICOOB_NUMERO_CLIENTE` (`.env`)
-  - `codigoModalidade`: vem de `SICOOB_CODIGO_MODALIDADE` (`.env`)
-- **Parâmetro opcional** (identificador do boleto):
-  - `nossoNumero`: obtido do passo 2 (sem precisar do CPF novamente)
-- **Quando**: Quando o usuário escolhe o formato (PDF, código de barras ou linha digitável)
-- **Retorna**: PDF ou dados atualizados do boleto
-
-**Fluxo visual:**
-```
-1. Usuário informa CPF
-   ↓
-2. GET /pagadores/{cpf}/boletos
-   ↓
-3. Resposta: Lista de boletos [ { nossoNumero: "123...", ... }, ... ]
-   ↓
-4. Sistema extrai nossoNumero de cada boleto da lista
-   ↓
-5. Para cada nossoNumero extraído (em paralelo):
-   ├─→ GET /boletos?
-   │      numeroCliente={SICOOB_NUMERO_CLIENTE} ← .env
-   │      &codigoModalidade={SICOOB_CODIGO_MODALIDADE} ← .env
-   │      &nossoNumero={nossoNumero} ← passo 2
-   └─→ GET /boletos/segunda-via?
-         numeroCliente={SICOOB_NUMERO_CLIENTE} ← .env
-         &codigoModalidade={SICOOB_CODIGO_MODALIDADE} ← .env
-         &nossoNumero={nossoNumero} ← passo 2
-         &gerarPdf=true/false
-```
-
-**Resumo:**
-- ✅ **`numeroCliente` e `codigoModalidade` vêm do `.env`** e são **obrigatórios** em todas as requisições
-- ✅ **CPF é necessário apenas para descobrir quais boletos existem** (passo 2)
-- ✅ **`nossoNumero` é obtido automaticamente** da resposta de `GET /pagadores/{cpf}/boletos`
-- ✅ **Depois da listagem inicial, todas as operações usam `numeroCliente` (`.env`) + `nossoNumero` (resposta)** para identificar e processar boletos específicos
-
-#### Notas Importantes
-
-- A API retorna PDF em Base64 no campo `pdfBoleto` da resposta JSON
-- Todos os endpoints requerem o header `client_id` com o valor de `SICOOB_CLIENT_ID`
-- O sistema converte automaticamente Base64 para Buffer quando necessário
-
-### Configuração do Bradesco
-
-O sistema usa a **API Open Banking do Bradesco** para buscar e gerar segunda via de boletos. Configure as seguintes variáveis:
-
-#### Variáveis Obrigatórias
-
-- `BRADESCO_CLIENT_ID`: Client ID da aplicação Bradesco
-- `BRADESCO_PRIVATE_KEY_PEM`: Chave privada RSA em formato PEM para assinatura JWT (RS256)
-- `BRADESCO_BENEFICIARY_CNPJ`: CNPJ do beneficiário (14 dígitos, sem formatação)
-
-#### Variáveis Opcionais
-
-- `BRADESCO_ENV`: Ambiente (prod/homolog, padrão: prod)
-- `BRADESCO_BASE_URL`: URL base da API (padrão: `https://openapi.bradesco.com.br`)
-- `BRADESCO_AUTH_URL`: URL de autenticação OAuth (calculado automaticamente baseado em `BRADESCO_ENV`)
-  - Produção: `https://openapi.bradesco.com.br/auth/server/v1.1/token`
-  - Homologação: `https://proxy.api.prebanco.com.br/auth/server/v1.2/token`
-- `BRADESCO_API_PREFIX`: Prefixo da API (padrão: `/v1/boleto`)
-- `BRADESCO_EXTRA_HEADERS`: Headers extras opcionais (JSON string)
-
-#### Certificados
-
-O Bradesco usa autenticação OAuth2 JWT Bearer (RS256). Você precisa de uma chave privada RSA:
-
-**Opção 1: Chave Privada PEM (recomendado)**
-```env
-BRADESCO_PRIVATE_KEY_PEM=-----BEGIN PRIVATE KEY-----
-...
------END PRIVATE KEY-----
-```
-
-**Opção 2: Certificado PFX (alternativa)**
-```env
-BRADESCO_PFX_BASE64=<certificado PFX codificado em base64>
-BRADESCO_PFX_PASSWORD=<senha do certificado PFX>
-```
-
-#### Endpoints Utilizados
-
-- **Autenticação**: `POST {BRADESCO_AUTH_URL}` (OAuth2 JWT Bearer com RS256)
-- **Listar boletos por CPF**: `POST {BRADESCO_BASE_URL}{BRADESCO_API_PREFIX}/listar-titulo-pendente`
-- **Consultar boleto**: `POST {BRADESCO_BASE_URL}{BRADESCO_API_PREFIX}/titulo-consultar`
-
-#### Autenticação
-
-O sistema gera automaticamente um JWT assertion (RS256) usando:
-- `BRADESCO_CLIENT_ID` como `iss` (issuer) e `sub` (subject)
-- `BRADESCO_AUTH_URL` como `aud` (audience)
-- Timestamp atual para `iat` (issued at) e `exp` (expiration)
-- Assinatura RS256 usando `BRADESCO_PRIVATE_KEY_PEM`
-
-O token é cacheado para otimizar requisições subsequentes.
-
-#### Headers Obrigatórios
-
-Todas as requisições incluem:
-- `Authorization: Bearer {token}`
-- `cpf-cnpj: {BRADESCO_BENEFICIARY_CNPJ}`
-- `X-Brad-Nonce`: Nonce único para cada requisição
-- `X-Brad-Timestamp`: Timestamp em milissegundos
-- `X-Brad-Algorithm`: Algoritmo de assinatura (RS256)
-
-#### Detecção de Duplicidade
-
-O sistema detecta automaticamente boletos duplicados entre bancos:
-- Compara boletos pelo **mês de vencimento** (YYYY-MM) e **valor** (arredondado para 2 casas decimais)
-- Se encontrar boletos idênticos em bancos diferentes, registra evento `DUPLICATE_BANK_TITLE` no Google Sheets
-- O log inclui informações sobre os bancos envolvidos, mês, valor e números dos boletos
-
-### TitleRepository - Repositório de Títulos
-
-O sistema suporta diferentes implementações do `TitleRepository` para buscar títulos:
-
-#### 1. AggregatedTitleRepositoryAdapter (Produção - Padrão)
-
-Implementação agregada que busca títulos de múltiplos bancos (Sicoob e Bradesco) automaticamente. Esta é a implementação padrão usada em produção.
-
-**Funcionalidades:**
-- Busca boletos no **Sicoob** primeiro
-- Busca boletos no **Bradesco** em seguida
-- Filtra apenas boletos com status 'Aberto' ou 'Pendente'
-- **Detecção automática de duplicidade**: Se encontrar boletos com mesmo mês e valor em bancos diferentes, registra evento `DUPLICATE_BANK_TITLE` no Google Sheets
-- Retorna todos os boletos encontrados, identificados com o campo `bank` ('SICOOB' ou 'BRADESCO')
-
-**Como usar:**
-
-```typescript
-import { AggregatedTitleRepositoryAdapter } from './adapters/bradesco/aggregated-title-repository-adapter.js';
-import { SicoobBankProviderAdapter } from './adapters/sicoob/sicoob-bank-provider-adapter.js';
-import { BradescoBankProviderAdapter } from './adapters/bradesco/bradesco-bank-provider-adapter.js';
-import { GoogleSheetLoggerAdapter } from './adapters/google/google-sheet-logger-adapter.js';
-
-const sicoobAdapter = new SicoobBankProviderAdapter(config, logger);
-const bradescoAdapter = new BradescoBankProviderAdapter(config, logger);
-const sheetLogger = new GoogleSheetLoggerAdapter(config, logger);
-
-const titleRepository = new AggregatedTitleRepositoryAdapter(
-  sicoobAdapter,
-  bradescoAdapter,
-  sheetLogger,
-  logger
-);
-```
-
-#### 2. SicoobTitleRepositoryAdapter (Legado)
-
-Implementação que busca títulos apenas da API do Sicoob. Mantida para compatibilidade, mas não é mais usada por padrão.
-
-#### 3. InMemoryTitleRepository (Desenvolvimento)
-
-Implementação em memória para desenvolvimento e testes. Mantém um mapa `cpfHash -> Title[]` com dados de exemplo.
-
-**Como usar:**
-
-1. No arquivo `src/main.ts`, substitua a inicialização do `titleRepository`:
-
-```typescript
-// Em vez de:
-const titleRepository = new SicoobTitleRepositoryAdapter(sicoobAdapter, logger);
-
-// Use:
-import { InMemoryTitleRepository } from './adapters/in-memory/in-memory-title-repository.js';
-const titleRepository = new InMemoryTitleRepository(logger);
-```
-
-2. **Seed de Exemplo:**
-
-O `InMemoryTitleRepository` já vem com dados de exemplo pré-configurados. Para obter os hashes reais dos CPFs de teste, use:
-
-```typescript
-import { CpfHandler } from './infrastructure/security/cpf-handler.js';
-
-// Obter hash do CPF
-const cpfHash = CpfHandler.hashCpf('12345678900');
-console.log('Hash do CPF:', cpfHash);
-```
-
-3. **Adicionar Títulos Manualmente:**
-
-Durante desenvolvimento, você pode adicionar títulos manualmente:
-
-```typescript
-const titleRepository = new InMemoryTitleRepository(logger);
-
-// Adicionar títulos para um CPF
-const cpfHash = CpfHandler.hashCpf('12345678900');
-titleRepository.addTitles(cpfHash, [
-  {
-    id: crypto.randomUUID(),
-    nossoNumero: '12345678901234567',
-    contrato: 'CTR-2024-001',
-    codigoBeneficiario: '123456',
-    valor: 150.50,
-    vencimento: new Date('2024-12-31'),
-    status: 'OPEN',
-  },
-]);
-```
-
-**Estrutura dos Dados de Exemplo:**
-
-- **CPF 1**: 1 título em aberto
-- **CPF 2**: 3 títulos em aberto (para testar seleção múltipla)
-- **CPF 3**: 0 títulos (para testar caso sem títulos)
-
-**Importante**: Os hashes de exemplo no código são placeholders. Substitua pelos hashes reais usando `CpfHandler.hashCpf()`.
-
-#### 4. GoogleSheetsTitleRepository (Opcional)
-
-Implementação que lê títulos de uma planilha do Google Sheets. Útil para desenvolvimento ou quando não há integração com ERP.
-
-**Configuração:**
-
-1. Crie uma aba chamada "titles" na planilha configurada em `GOOGLE_SHEETS_SPREADSHEET_ID`
-2. Configure a variável de ambiente (opcional):
-   ```env
-   GOOGLE_SHEETS_TITLES_WORKSHEET_NAME=titles
-   ```
-
-3. Estrutura da planilha (colunas A-G):
-   - **A**: `cpf_hash` - Hash do CPF (SHA256 + pepper)
-   - **B**: `nosso_numero` - Número do título
-   - **C**: `contrato` - Número do contrato (opcional)
-   - **D**: `codigo_beneficiario` - Código do beneficiário (opcional)
-   - **E**: `valor` - Valor do título (opcional)
-   - **F**: `vencimento` - Data de vencimento no formato ISO (opcional)
-   - **G**: `status` - Status do título (OPEN, CLOSED, etc.)
-
-4. O repositório filtra automaticamente apenas títulos com `status=OPEN`
-
-5. **Cache**: O repositório usa cache de 5 minutos para reduzir custos de API do Google Sheets
-
-**Exemplo de dados na planilha:**
-
-| cpf_hash | nosso_numero | contrato | codigo_beneficiario | valor | vencimento | status |
-|----------|--------------|----------|---------------------|-------|------------|--------|
-| abc123... | 12345678901234567 | CTR-2024-001 | 123456 | 150.50 | 2024-12-31 | OPEN |
-| abc123... | 12345678901234568 | CTR-2024-002 | 123456 | 250.75 | 2024-11-30 | OPEN |
-| def456... | 98765432109876543 | CTR-2024-003 | 123456 | 350.00 | 2024-12-15 | CLOSED |
-
-**Como usar:**
-
-```typescript
-import { GoogleSheetsTitleRepository } from './adapters/google/google-sheets-title-repository.js';
-const titleRepository = new GoogleSheetsTitleRepository(config, logger);
-```
-
-## 💻 Uso
-
-### Desenvolvimento Local
-
-```bash
-# Instalar dependências
-npm install
-
-# Rodar em modo desenvolvimento (com hot-reload)
-npm run dev
-
-# Compilar
-npm run build
-
-# Executar
-npm start
-```
-
-### Testes
-
-```bash
-# Rodar testes
-npm test
-
-# Rodar testes com coverage
-npm run test:coverage
-```
-
-### Health Check
-
-```bash
+# Desenvolvimento
+npm run dev              # Executar com hot-reload
+npm run build            # Compilar TypeScript
+npm start                # Executar versão compilada
+
+# Testes
+npm test                 # Executar todos os testes
+npm run test:coverage    # Testes com cobertura de código
+
+# Qualidade de Código
+npm run validate-config  # Validar variáveis de ambiente
+npm run lint             # Verificar código com ESLint
+npm run type-check       # Verificar tipos TypeScript
+
+# Health Check
 curl http://localhost:3000/health
 ```
 
-### DevTools Flow Tester
-
-O projeto inclui um ambiente de teste manual do fluxo (DevTools Flow Tester) para facilitar o desenvolvimento e depuração sem depender do WhatsApp real.
-
-#### Habilitar DevTools
-
-Para habilitar o DevTools, configure no `.env`:
-
-```bash
-DEV_TOOLS_ENABLED=true
-# Opcional: Token para autenticação
-DEV_TOOLS_TOKEN=seu-token-secreto
-```
-
-**Importante**: O DevTools **não funciona em produção** (`NODE_ENV=production`). Ele só é habilitado quando:
-- `NODE_ENV !== 'production'` OU
-- `DEV_TOOLS_ENABLED=true` explicitamente
-
-#### Acessar Interface
-
-Após iniciar o servidor, acesse:
-
-```
-http://localhost:3000/devtools/flow-tester
-```
-
-#### Funcionalidades
-
-1. **Escolher ponto de partida**: Permite iniciar o teste em diferentes pontos do fluxo:
-   - `MENU`: Estado inicial (menu)
-   - `LGPD_NOTICE`: Após aceitar termos LGPD
-   - `WAITING_CPF`: Aguardando CPF
-   - `SELECT_TITLE`: Aguardando seleção de título
-   - `SELECT_FORMAT`: Aguardando seleção de formato
-   - `CONFIRM`: Estado intermediário
-   - `DONE`: Fluxo concluído
-
-2. **Enviar mensagens**: Simula mensagens do WhatsApp para testar o fluxo
-
-3. **Visualizar estado**: Ver estado atual da conversa após cada interação
-
-4. **Resetar estado**: Limpar o estado de uma conversa para começar novo teste
-
-#### Endpoints da API
-
-##### GET `/devtools/flow-tester`
-Retorna a interface HTML do Flow Tester.
-
-##### POST `/devtools/flow-tester/run`
-Executa o fluxo com uma mensagem de entrada.
-
-**Payload:**
-```json
-{
-  "from": "5511999999999",
-  "input": {
-    "type": "text",
-    "text": "menu"
-  },
-  "startAt": "WAITING_CPF",  // Opcional
-  "stateOverride": {}         // Opcional
-}
-```
-
-**Resposta:**
-```json
-{
-  "requestId": "uuid",
-  "outgoingMessages": [],
-  "stateAfter": {
-    "activeFlow": "SECOND_COPY",
-    "step": "WAITING_SELECTION",
-    "data": {},
-    "updatedAt": "2024-01-12T18:00:00.000Z"
-  },
-  "debug": {
-    "matchedHandler": "WhatsappRouter",
-    "timings": { ... }
-  }
-}
-```
-
-##### POST `/devtools/flow-tester/reset`
-Limpa o estado da conversa para um remetente.
-
-**Payload:**
-```json
-{
-  "from": "5511999999999"
-}
-```
-
-##### GET `/devtools/flow-tester/state?from=5511999999999`
-Retorna o estado atual da conversa.
-
-#### Segurança
-
-- DevTools bloqueado automaticamente em produção
-- Token de autenticação opcional via header `x-dev-tools-token`
-- Nenhum dado sensível é exposto (CPFs são sanitizados)
-
 ## 🔒 LGPD e Segurança
 
-O projeto foi desenvolvido com foco total em compliance com a LGPD. As principais medidas implementadas:
+O projeto foi desenvolvido com foco total em compliance com a LGPD:
 
-### Proteção de Dados Sensíveis
+- **CPF Hash**: CPFs armazenados apenas como hash SHA256 + pepper
+- **Máscara**: CPFs mascarados em logs (XXX.XXX.XXX-XX)
+- **Logs Sanitizados**: CPFs nunca aparecem em logs
+- **Pasta Privada**: PDFs salvos em pasta privada no Google Drive
+- **Exclusão de Dados**: Cliente pode solicitar exclusão completa via comando
 
-1. **CPF Hash**: CPFs são armazenados apenas como hash SHA256 + pepper
-2. **Máscara**: CPFs são mascarados em logs e interfaces (XXX.XXX.XXX-XX)
-3. **Logs Sanitizados**: CPFs nunca aparecem em logs (são removidos/mascarados)
-4. **Pasta Privada**: PDFs são salvos em pasta privada no Google Drive
-5. **Política de Retenção**: Dados são retidos apenas pelo período configurado
+📖 Saiba mais sobre [LGPD e Segurança em docs/DEVELOPMENT.md#lgpd-e-segurança](docs/DEVELOPMENT.md#lgpd-e-segurança)
 
-### Funcionalidades LGPD
-
-- **Minimização de Dados**: Apenas dados estritamente necessários são coletados
-- **Comando EXCLUIR DADOS**: Cliente pode solicitar exclusão completa de seus dados
-- **Auditoria**: Todas as operações são registradas no Google Sheets para auditoria
-
-### Nomes de Arquivo
-
-Por padrão, os arquivos no Drive **NÃO** contêm CPF puro. Isso é controlado pela variável `ALLOW_RAW_CPF_IN_FILENAME`:
-
-- `false` (padrão): Nome do arquivo: `boleto-{nossoNumero}-{timestamp}.pdf`
-- `true`: Nome do arquivo: `boleto-{nossoNumero}-{cpf}.pdf`
-
-## 🧪 Testes
-
-### Estrutura de Testes
-
-```
-tests/
-├── unit/          # Testes unitários
-└── integration/   # Testes de integração
-```
-
-### Executar Testes
-
-```bash
-# Todos os testes
-npm test
-
-# Com coverage
-npm run test:coverage
-
-# Apenas testes unitários
-npm test -- tests/unit
-
-# Apenas testes de integração
-npm test -- tests/integration
-
-# Validar configuração de variáveis de ambiente
-npm run validate-config
-```
-
-### Scripts Disponíveis
-
-- `npm run dev` - Desenvolvimento com hot-reload
-- `npm run build` - Compilar TypeScript
-- `npm start` - Executar versão compilada
-- `npm test` - Executar testes
-- `npm run test:coverage` - Testes com cobertura
-- `npm run validate-config` - Validar variáveis de ambiente
-- `npm run lint` - Verificar lint
-- `npm run type-check` - Verificar tipos TypeScript
-
-### Exemplos de Testes
-
-- Validação de CPF (formato, dígitos verificadores)
-- Hash de CPF com pepper
-- Sanitização de logs
-- Fluxo do WhatsApp Service
-- Integrações com APIs externas (mocks)
-
-## 🚢 Deploy
-
-### Google Cloud Run
-
-Este guia descreve o processo completo de deploy no Google Cloud Run.
-
-#### 1. Pré-requisitos
-
-- Conta no Google Cloud Platform (GCP)
-- `gcloud` CLI instalado e configurado
-- Projeto criado no GCP
-- APIs habilitadas: Cloud Run API, Cloud Build API, Artifact Registry API (se usar Artifact Registry)
-
-#### 2. Configurar gcloud CLI
-
-```bash
-# Autenticar
-gcloud auth login
-
-# Configurar projeto
-gcloud config set project SEU_PROJECT_ID
-
-# Verificar configuração
-gcloud config list
-```
-
-#### 3. Habilitar APIs Necessárias
-
-```bash
-gcloud services enable \
-  run.googleapis.com \
-  cloudbuild.googleapis.com \
-  artifactregistry.googleapis.com
-```
-
-#### 4. Criar Artifact Registry (Opcional, mas Recomendado)
-
-O Artifact Registry é o serviço moderno do GCP para armazenar imagens Docker. Alternativamente, você pode usar o Container Registry (GCR).
-
-```bash
-# Criar repositório no Artifact Registry
-gcloud artifacts repositories create assusa-repo \
-  --repository-format=docker \
-  --location=us-central1 \
-  --description="Repositório de imagens Docker do Assusa"
-
-# Configurar autenticação Docker
-gcloud auth configure-docker us-central1-docker.pkg.dev
-```
-
-**Nota**: Se preferir usar Container Registry (legacy), substitua `us-central1-docker.pkg.dev/SEU_PROJECT_ID/assusa-repo` por `gcr.io/SEU_PROJECT_ID/assusa` nos comandos abaixo.
-
-#### 5. Build e Push da Imagem Docker
-
-O projeto possui um Dockerfile multi-stage na raiz que:
-- Faz build do TypeScript
-- Instala apenas dependências de produção
-- Configura usuário não-root para segurança
-- Suporta PORT do Cloud Run (padrão 8080)
-
-```bash
-# Build e push usando Cloud Build
-gcloud builds submit --tag us-central1-docker.pkg.dev/SEU_PROJECT_ID/assusa-repo/assusa:latest
-
-# Ou, se usar Container Registry:
-# gcloud builds submit --tag gcr.io/SEU_PROJECT_ID/assusa:latest
-```
-
-**Alternativa**: Build local e push manual:
-
-```bash
-# Build local
-docker build -t us-central1-docker.pkg.dev/SEU_PROJECT_ID/assusa-repo/assusa:latest .
-
-# Push
-docker push us-central1-docker.pkg.dev/SEU_PROJECT_ID/assusa-repo/assusa:latest
-```
-
-#### 6. Deploy no Cloud Run
-
-```bash
-gcloud run deploy assusa \
-  --image us-central1-docker.pkg.dev/SEU_PROJECT_ID/assusa-repo/assusa:latest \
-  --platform managed \
-  --region us-central1 \
-  --allow-unauthenticated \
-  --port 8080 \
-  --memory 512Mi \
-  --cpu 1 \
-  --min-instances 0 \
-  --max-instances 10 \
-  --timeout 300 \
-  --concurrency 80
-```
-
-**Parâmetros importantes**:
-- `--allow-unauthenticated`: Permite acesso público (necessário para webhook do WhatsApp)
-- `--port 8080`: Porta padrão do Cloud Run (aplicação lê PORT automaticamente)
-- `--memory 512Mi`: Memória alocada (ajuste conforme necessário)
-- `--min-instances 0`: Escala para zero quando não há tráfego (reduz custos)
-- `--timeout 300`: Timeout de 5 minutos (útil para gerar PDFs grandes)
-
-#### 7. Configurar Variáveis de Ambiente
-
-Você pode configurar as variáveis de ambiente de duas formas:
-
-##### Opção A: Via gcloud CLI (Recomendado para desenvolvimento)
-
-```bash
-gcloud run services update assusa \
-  --update-env-vars NODE_ENV=production,PORT=8080 \
-  --region us-central1
-```
-
-Para múltiplas variáveis, crie um arquivo `.env` e use:
-
-```bash
-# Criar arquivo com variáveis (NÃO commitar este arquivo!)
-gcloud run services update assusa \
-  --update-env-vars-file .env.production \
-  --region us-central1
-```
-
-##### Opção B: Via Secret Manager (Recomendado para produção)
-
-O Secret Manager é mais seguro para dados sensíveis como tokens e chaves:
-
-```bash
-# Criar secret
-echo -n "seu-valor-aqui" | gcloud secrets create whatsapp-api-token --data-file=-
-
-# Dar permissão ao Cloud Run para acessar o secret
-gcloud secrets add-iam-policy-binding whatsapp-api-token \
-  --member="serviceAccount:SEU_PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
-  --role="roles/secretmanager.secretAccessor"
-
-# Configurar variável de ambiente que referencia o secret
-gcloud run services update assusa \
-  --update-secrets WHATSAPP_API_TOKEN=whatsapp-api-token:latest \
-  --region us-central1
-```
-
-**Variáveis obrigatórias**:
-
-- `CPF_PEPPER` (use Secret Manager!)
-- `WHATSAPP_API_TOKEN`
-- `WHATSAPP_PHONE_NUMBER_ID`
-- `WHATSAPP_VERIFY_TOKEN`
-- `WHATSAPP_APP_SECRET`
-- `CPF_PEPPER` (use Secret Manager!)
-- `WHATSAPP_API_TOKEN`
-- `WHATSAPP_PHONE_NUMBER_ID`
-- `WHATSAPP_VERIFY_TOKEN`
-- `SICOOB_CLIENT_ID`
-- `SICOOB_CLIENT_SECRET`
-- `SICOOB_NUMERO_CLIENTE`
-- `SICOOB_CODIGO_MODALIDADE`
-- `BRADESCO_CLIENT_ID`
-- `BRADESCO_PRIVATE_KEY_PEM`
-- `BRADESCO_BENEFICIARY_CNPJ`
-- `GOOGLE_SERVICE_ACCOUNT_JSON_BASE64`
-- `GOOGLE_DRIVE_FOLDER_ID`
-- `GOOGLE_SHEETS_SPREADSHEET_ID`
-
-**Variáveis opcionais** (com defaults):
-
-- `NODE_ENV=production`
-- `PORT=8080` (já configurado pelo Cloud Run)
-- `REDIS_URL` (se usar Redis)
-- `REDIS_ENABLED=true`
-
-#### 8. Configurar Webhook do WhatsApp
-
-Após o deploy, obtenha a URL do serviço:
-
-```bash
-gcloud run services describe assusa \
-  --region us-central1 \
-  --format 'value(status.url)'
-```
-
-**Configurar no Meta for Developers**:
-
-1. Acesse [Meta for Developers](https://developers.facebook.com/)
-2. Vá em **WhatsApp** > **Configuração** > **Webhooks**
-3. Clique em **Configurar Webhooks**
-4. Configure:
-   - **URL de retorno de chamada**: `https://SEU_SERVICO.run.app/webhooks/whatsapp`
-   - **Token de verificação**: Use o valor de `WHATSAPP_VERIFY_TOKEN`
-   - **Campos de assinatura**: Marque `messages`
-5. Salve e teste a verificação
-
-**Importante**: Certifique-se de que a URL seja **pública** e **HTTPS**. O Cloud Run já fornece HTTPS automaticamente.
-
-#### 9. Verificar Deploy
-
-```bash
-# Health check
-curl https://SEU_SERVICO.run.app/health
-
-# Resultado esperado:
-# {"status":"ok","timestamp":"2024-01-12T18:00:00.000Z"}
-
-# Ver logs
-gcloud run services logs read assusa --region us-central1 --limit 50
-```
-
-#### 10. Monitoramento e Logs
-
-- **Logs**: `gcloud run services logs read assusa --region us-central1`
-- **Métricas**: Google Cloud Console > Cloud Run > assusa > Métricas
-- **Alertas**: Configure alertas para taxa de erro e latência
-
-**Nota**: O projeto já possui um Dockerfile multi-stage na raiz com healthcheck configurado e suporte a PORT do Cloud Run.
-
-## 📁 Estrutura do Projeto
+## 🏗️ Estrutura do Projeto
 
 ```
 assusa/
 ├── src/
-│   ├── domain/
-│   │   ├── entities/          # Entidades de domínio (Boleto, Request, User, etc.)
-│   │   ├── enums/             # Enumeradores (EventType, FlowType, RequestStatus)
-│   │   ├── helpers/           # Helpers de domínio (LGPD helpers)
-│   │   ├── ports/             # Ports puramente de domínio (durante migração gradual)
-│   │   ├── use-cases/         # Use Cases de domínio (GerarSegundaVia, ExcluirDados)
-│   │   └── value-objects/     # Value Objects (CPF)
-│   ├── application/
-│   │   ├── dtos/              # Data Transfer Objects
-│   │   ├── ports/
-│   │   │   └── driven/        # Ports de integrações externas (WhatsApp, Sicoob, Google, Redis, Logger, etc.)
-│   │   ├── services/          # Serviços de aplicação (ApplicationService, WhatsappRouter)
-│   │   └── use-cases/         # Use Cases da camada de aplicação (ShowMenu, StartSecondCopyFlow, etc.)
-│   ├── adapters/
-│   │   ├── http/              # Servidor Fastify
-│   │   ├── whatsapp/          # Adapter WhatsApp Cloud API
-│   │   ├── sicoob/            # Adapter Sicoob API
-│   │   ├── bradesco/          # Adapter Bradesco API
-│   │   ├── google/            # Adapters Google Drive/Sheets
-│   │   ├── redis/             # Adapter Redis (com fallback em memória)
-│   │   └── in-memory/         # Implementações em memória (para desenvolvimento/testes)
-│   ├── infrastructure/
-│   │   ├── config/            # Configuração (loadConfig)
-│   │   ├── logging/           # Logger (Pino)
-│   │   └── security/          # Segurança/LGPD (CPF handler)
-│   └── main.ts                # Entry point (bootstrap)
-├── tests/
-│   ├── unit/                  # Testes unitários
-│   └── integration/           # Testes de integração
-├── docker/                    # Dockerfile adicional
-├── docs/                      # Documentação (ADRs)
-├── Dockerfile                 # Dockerfile principal (multi-stage com healthcheck)
-├── package.json
-├── tsconfig.json
-├── vitest.config.ts
-└── README.md
+│   ├── domain/          # Regras de negócio puras
+│   ├── application/     # Serviços e casos de uso
+│   ├── adapters/        # Implementações concretas (WhatsApp, bancos, Google)
+│   └── infrastructure/  # Configuração, logging, segurança
+├── tests/               # Testes unitários e de integração
+├── docs/                # Documentação completa
+└── scripts/             # Scripts utilitários
 ```
 
-## 🔧 Troubleshooting
-
-### Redis não disponível
-
-O sistema tem fallback automático para memória quando Redis não está disponível. Um aviso será exibido nos logs.
-
-### Erro de autenticação do Google
-
-- Verifique se o `GOOGLE_PRIVATE_KEY` está corretamente formatado (com `\n` escapados)
-- Confirme que a service account tem permissões necessárias
-- Verifique se as APIs estão habilitadas no Google Cloud Console
-
-### Erro de autenticação do Sicoob
-
-- Verifique se `SICOOB_CLIENT_ID` e `SICOOB_CLIENT_SECRET` estão corretos
-- Se usar certificados SSL, verifique os caminhos
-- Confirme que as credenciais têm permissões necessárias
-
-### Erro de autenticação do Bradesco
-
-- Verifique se `BRADESCO_CLIENT_ID` está correto
-- Confirme que `BRADESCO_PRIVATE_KEY_PEM` está no formato PEM correto
-- Verifique se a chave privada corresponde ao certificado registrado no Bradesco
-- Confirme que `BRADESCO_BENEFICIARY_CNPJ` está correto (14 dígitos)
-- Se usar PFX, verifique se `BRADESCO_PFX_BASE64` e `BRADESCO_PFX_PASSWORD` estão corretos
-
-### CPF não encontrado
-
-- Verifique se o CPF está sendo enviado corretamente
-- Confirme que o hash está sendo gerado corretamente (mesmo pepper)
-- Verifique a integração com a API do Sicoob
-
-## 📝 Notas Importantes
-
-1. **CPF_PEPPER**: Esta é uma variável crítica. Nunca compartilhe ou commite. Use um gerador de strings seguras (ex: `openssl rand -hex 32`).
-
-2. **Logs**: CPFs nunca aparecem em logs. Se encontrar um CPF em logs, reporte imediatamente como bug de segurança.
-
-3. **Google Drive**: A pasta configurada deve ser privada. Apenas a service account deve ter acesso.
-
-4. **Redis**: Em produção, use sempre Redis. O fallback em memória é apenas para desenvolvimento.
-
-5. **Sicoob API**: A implementação atual é um exemplo. Adapte conforme a documentação real da API do Sicoob.
-
-6. **Bradesco API**: O sistema suporta autenticação OAuth2 JWT Bearer (RS256). Certifique-se de que a chave privada está corretamente configurada e corresponde ao certificado registrado no Bradesco.
-
-7. **Detecção de Duplicidade**: O sistema detecta automaticamente boletos duplicados entre bancos e registra no Google Sheets. Verifique a planilha periodicamente para identificar possíveis problemas.
+📖 Veja [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) para entender a arquitetura em detalhes.
 
 ## 🤝 Contribuindo
 
 1. Faça um fork do projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Push para a branch (`git push origin feature/AmazingFeature`)
+2. Crie uma branch para sua feature (`git checkout -b feature/MinhaFeature`)
+3. Commit suas mudanças (`git commit -m 'feat: adiciona MinhaFeature'`)
+4. Push para a branch (`git push origin feature/MinhaFeature`)
 5. Abra um Pull Request
 
-## 📄 Licença
-
-Este projeto está sob a licença MIT.
+📖 Veja [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) para padrões de código e boas práticas.
 
 ## 📞 Suporte
-
-Para suporte, entre em contato através dos canais:
 
 - **Email comercial:** [aguavaledoouro@gmail.com](mailto:aguavaledoouro@gmail.com)
 - **Email técnico:** [joaovianaamr@gmail.com](mailto:joaovianaamr@gmail.com)
@@ -1207,6 +138,10 @@ Para suporte, entre em contato através dos canais:
   - (31) 8549-7547
   - (31) 3624-8550
 - **WhatsApp suporte técnico:** (31) 99475-6008
+
+## 📄 Licença
+
+Este projeto está sob a licença MIT.
 
 ---
 
