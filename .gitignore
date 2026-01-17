@@ -64,6 +64,8 @@ playwright-report/
 .settings/
 *.sublime-project
 *.sublime-workspace
+.cursorrules
+.cursor/
 
 # OS
 .DS_Store
