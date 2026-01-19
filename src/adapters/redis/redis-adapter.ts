@@ -104,13 +104,13 @@ export class RedisAdapter implements StoragePort {
   async increment(key: string, requestId: string): Promise<number> {
     try {
       if (this.isFallback || !this.client) {
-        return this.incrementInMemory(key);
+        return await this.incrementInMemory(key);
       }
 
       return await this.client.incr(key);
     } catch (error) {
       this.logger.warn({ requestId, key, error }, 'Erro ao incrementar no Redis. Usando fallback.');
-      return this.incrementInMemory(key);
+      return await this.incrementInMemory(key);
     }
   }
 
@@ -167,10 +167,30 @@ export class RedisAdapter implements StoragePort {
     this.inMemoryFallback.delete(key);
   }
 
-  private incrementInMemory(key: string): number {
-    const existing = this.getFromMemory(key);
-    const newValue = existing ? parseInt(existing, 10) + 1 : 1;
-    this.setInMemory(key, newValue.toString());
-    return newValue;
+  // Lock para operações increment em memória (evitar race condition)
+  private incrementLocks: Map<string, Promise<void>> = new Map();
+
+  private async incrementInMemory(key: string): Promise<number> {
+    // Garantir que apenas uma operação de increment por key execute por vez
+    const existingLock = this.incrementLocks.get(key) || Promise.resolve();
+    let resolveLock: () => void;
+    const newLock = new Promise<void>((resolve) => {
+      resolveLock = resolve;
+    });
+    this.incrementLocks.set(key, newLock);
+
+    try {
+      await existingLock;
+      const existing = this.getFromMemory(key);
+      const newValue = existing ? parseInt(existing, 10) + 1 : 1;
+      this.setInMemory(key, newValue.toString());
+      return newValue;
+    } finally {
+      // Liberar lock
+      resolveLock!();
+      if (this.incrementLocks.get(key) === newLock) {
+        this.incrementLocks.delete(key);
+      }
+    }
   }
 }
