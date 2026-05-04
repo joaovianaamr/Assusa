@@ -47,13 +47,15 @@ You will need:
 
 - [Node](https://nodejs.org/en/) 10.x or higher
 - Remote server service, a local tunneling service such as [ngrok](https://ngrok.com/), or your own webserver.
+- Opcional: [Python](https://www.python.org/) 3.11+ para o microsserviço de **boletos Sicoob** (`python/sicoob_service`). O Node chama este serviço por HTTP quando `SICOOB_SERVICE_URL` e `INTERNAL_API_KEY` estão definidos (ver `.sample.env` e `python/sicoob_service/README.md`).
+- Documentação de contexto, guias e ficheiros do template Meta: pasta [docs/meta/](docs/meta/) (índice em [docs/meta/README.md](docs/meta/README.md)).
 
 # Usage
 
 ## Using ngrok
 
 #### 1. Setup templates
-In order for the app to send templated messages, you need to first create those templates under your WhatsApp Business Account. You can either do this by running `./template.sh` or through [WhatsApp Manager](https://business.facebook.com/latest/whatsapp_manager/message_templates).
+In order for the app to send templated messages, you need to first create those templates under your WhatsApp Business Account. You can either do this by running `./docs/meta/template.sh` or through [WhatsApp Manager](https://business.facebook.com/latest/whatsapp_manager/message_templates).
 
 #### 2. Install Redis
 If not already installed, install redis via [download](https://redis.io/docs/latest/operate/oss_and_stack/install/install-stack/).
@@ -139,7 +141,7 @@ If you see a response to your message in WhatsApp, you have fully set up your ap
 
 Sample WhatsApp App Jasper's Market is Apache 2.0 licensed, as found in the LICENSE file.
 
-See the [CONTRIBUTING](CONTRIBUTING.md) file for how to help out.
+See [CONTRIBUTING](docs/meta/CONTRIBUTING.md) for how to help out. Contexto do produto (ASSUSA / Sicoob): [docs/meta/project-context.md](docs/meta/project-context.md).
 
 Terms of Use - https://opensource.facebook.com/legal/terms
 Privacy Policy - https://opensource.facebook.com/legal/privacy

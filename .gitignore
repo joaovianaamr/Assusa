@@ -18,3 +18,10 @@ node_modules/
 
 # dotenv environment variables file
 .env*
+
+# Python (microsserviço sicoob)
+python/sicoob_service/.venv/
+python/sicoob_service/**/__pycache__/
+python/sicoob_service/**/*.egg-info/
+.python-version
+.pytest_cache/

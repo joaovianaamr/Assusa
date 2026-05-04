@@ -56,6 +56,6 @@ Variáveis do sample Meta: ver `.sample.env` e README.
 
 ## Notas
 
-- Manter `project-context.md` alinhado a mudanças de escopo, versão da API do WhatsApp ou do contrato com o Sicoob.
+- Manter [project-context.md](project-context.md) (nesta pasta `docs/meta/`) alinhado a mudanças de escopo, versão da API do WhatsApp ou do contrato com o Sicoob.
 - Tratar idempotência e duplicidade de eventos do webhook (a Meta pode reenviar o mesmo evento).
 - O `origin` do Git pode ainda apontar para o repositório da Meta; ao publicar o projeto da ASSUSA, configure o remoto para o seu próprio repositório.

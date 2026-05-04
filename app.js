@@ -15,6 +15,7 @@ const express = require('express');
 
 const config = require('./services/config');
 const Conversation = require('./services/conversation');
+const sicoobClient = require('./services/sicoobClient');
 const Message = require('./services/message');
 const app = express();
 
@@ -106,6 +107,18 @@ function verifyRequestSignature(req, res, buf) {
 }
 
 
-var listener = app.listen(config.port, () => {
-  console.log(`The app is listening on port ${listener.address().port}`);
+var listener = app.listen(config.port, async () => {
+  const addr = listener.address();
+  console.log(`The app is listening on port ${addr.port}`);
+  try {
+    const h = await sicoobClient.checkPythonHealth();
+    if (!h.skipped) {
+      console.log(
+        h.ok ? "Microsserviço Python (Sicoob): OK" : "Microsserviço Python (Sicoob): indisponível",
+        h.body || h.error || ""
+      );
+    }
+  } catch (e) {
+    console.warn("Health check Python (Sicoob) falhou:", e.message || e);
+  }
 });
