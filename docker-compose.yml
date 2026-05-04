@@ -1,0 +1,70 @@
+# Stack: Redis + microsserviço Sicoob (FastAPI) + servidor Node (WhatsApp).
+#
+# Uso: cp .sample.env .env e preencha ACCESS_TOKEN, APP_SECRET, VERIFY_TOKEN,
+# INTERNAL_API_KEY (ou deixe vazio e use o default dev abaixo). Depois:
+#   docker compose up --build
+#
+# Porta no host (mapeada para 8080 no container): defina WEB_PUBLISH_PORT se 8080
+# estiver ocupada, por exemplo: WEB_PUBLISH_PORT=18080 docker compose up --build
+#
+# Certificados Sicoob (rotas /internal/* com cliente bancário): monte um volume
+# no serviço sicoob, por exemplo:
+#   volumes:
+#     - ./certs:/certs:ro
+#   environment:
+#     SICOOB_CERT_PATH: /certs/cert.pem
+#     SICOOB_KEY_PATH: /certs/key.pem
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  sicoob:
+    build:
+      context: ./python/sicoob_service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-docker-dev-internal-key}
+      SICOOB_SERVICE_HOST: "0.0.0.0"
+      SICOOB_SERVICE_PORT: "8090"
+    ports:
+      - "8090:8090"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health')",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  web:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${WEB_PUBLISH_PORT:-8080}:8080"
+    environment:
+      PORT: "8080"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      SICOOB_SERVICE_URL: http://sicoob:8090
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-docker-dev-internal-key}
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      redis:
+        condition: service_healthy
+      sicoob:
+        condition: service_healthy
