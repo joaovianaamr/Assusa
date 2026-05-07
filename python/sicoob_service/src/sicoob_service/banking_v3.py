@@ -113,6 +113,7 @@ class BankingSicoobV3:
         query = {
             "numeroCliente": int(params["numeroCliente"]),
             "codigoModalidade": 1,
+            "nossoNumero": params.get("nossoNumero"),
             "linhaDigitavel": params.get("linhaDigitavel"),
             "codigoBarras": params.get("codigoBarras"),
             "gerarPdf": "true",
