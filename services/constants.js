@@ -15,9 +15,15 @@ module.exports = Object.freeze({
   APP_DEFAULT_MESSAGE: "Olá! Bem-vindo à Assusa Distribuidora de Água. Como podemos te ajudar hoje?",
   APP_TRY_ANOTHER_MESSAGE: "Posso te ajudar com mais alguma coisa?",
   MSG_REDIRECIONAMENTO_ATENDENTE:
-    "Nosso atendimento humano funciona de segunda a sexta, das 8h às 18h, e aos sábados das 8h às 12h.",
-  MSG_HORARIO_ENTREGA:
+    "Nossos atendentes estão disponíveis de segunda a sexta, das 8h às 18h. Para falar com um atendente agora, ligue: (31)3624-8550.",
+  MSG_HORARIO_FUNCIONAMENTO:
     "Nosso atendimento funciona de segunda a sexta, das 8h às 18h, e aos sábados das 8h às 12h.",
+  MSG_SOLICITAR_CPF:
+    "Para emitir a 2ª via da sua conta, preciso do seu CPF ou número de contrato. Por favor, envie apenas os números.",
+  MSG_SEGUNDA_VIA_SUCESSO:
+    "Aqui está a sua 2ª via. O vencimento é {DATA}. Você pode pagar pelo código de barras abaixo ou pelo PIX.",
+  MSG_SEGUNDA_VIA_ERRO:
+    "Não encontrei uma conta ativa com esse CPF. Verifique os dados e tente novamente, ou fale com nosso atendente.",
 
 
   // CTA texts

@@ -92,7 +92,7 @@ module.exports = class Conversation {
           message.id,
           senderPhoneNumberId,
           message.senderPhoneNumber,
-          constants.MSG_HORARIO_ENTREGA,
+          constants.MSG_HORARIO_FUNCIONAMENTO,
           []
         );
         break;
