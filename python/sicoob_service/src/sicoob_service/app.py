@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import AsyncGenerator
 from typing import Annotated, Any
 
@@ -15,6 +16,11 @@ from sicoob_service.settings import Settings, get_settings
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Sicoob boletos (interno)", version="0.1.0")
+
+# Token do Sicoob expira em 300s — renova com 1 minuto de margem
+_TOKEN_TTL = 240
+_cached_client: BankingSicoobV3 | None = None
+_cached_at: float = 0.0
 
 
 async def verify_internal_key(
@@ -32,16 +38,19 @@ async def verify_internal_key(
 async def banking_dependency(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> AsyncGenerator[BankingSicoobV3, None]:
-    try:
-        client = create_banking_client(settings)
-    except SicoobConfigError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
-    try:
-        yield client
-    finally:
-        client.close()
+    global _cached_client, _cached_at
+    now = time.monotonic()
+    if _cached_client is None or (now - _cached_at) > _TOKEN_TTL:
+        if _cached_client is not None:
+            _cached_client.close()
+        try:
+            _cached_client = create_banking_client(settings)
+            _cached_at = now
+        except SicoobConfigError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+    yield _cached_client
 
 
 BankingDep = Annotated[BankingSicoobV3, Depends(banking_dependency)]
