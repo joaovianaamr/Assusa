@@ -6,6 +6,16 @@
 - Node.js (bot) em `http://localhost:8080`
 - Microsserviço Python (Sicoob) em `http://localhost:8090`
 
+### Modo sandbox (sem certificados)
+
+Para testar sem as chaves e certificados reais do Sicoob, garanta que o `.env` tenha:
+
+```
+SICOOB_SANDBOX=true
+```
+
+Com isso o microsserviço usa token e client_id hardcoded do ambiente de testes do Sicoob e não exige nenhum arquivo de certificado. O valor padrão já é `true`, então se a variável não estiver no `.env` o sandbox já está ativo.
+
 ---
 
 ## 2. Environment do Postman
@@ -21,6 +31,7 @@ Crie um Environment chamado **assusa-local** com as variáveis abaixo:
 | `INTERNAL_API_KEY` | `docker-dev-internal-key` | Chave interna Node → Python |
 | `PHONE_NUMBER_ID` | `123456789` | ID do número de telefone WhatsApp |
 | `USER_PHONE` | `5531999999999` | Número do usuário simulado |
+| `SICOOB_NUMERO_CLIENTE` | mesmo valor do `.env` | Número de cliente da Assusa no Sicoob (cedente) |
 
 ---
 
@@ -147,9 +158,11 @@ Deve ser enviado logo após o 4.4 (estado `aguardando_cpf` expira em 5 min).
 }]
 ```
 
-**Resultado esperado (com Sicoob acessível):** bot responde com botões de seleção de boleto.
+**Resultado esperado (sandbox ativo):** bot responde com botões de seleção de boleto, usando dados fictícios do ambiente de testes do Sicoob.
 
-**Resultado esperado (sem Sicoob):** bot responde com mensagem de serviço indisponível.
+**Resultado esperado (Python fora do ar):** bot responde com mensagem de serviço indisponível.
+
+> Em sandbox, use apenas CPFs cadastrados nos dados de teste do Sicoob. Se não tiver essa lista, solicite ao Sicoob ou à cooperativa da Assusa.
 
 **CPF inválido (menos de 11 dígitos):**
 ```json
@@ -255,11 +268,13 @@ X-Internal-Api-Key: {{INTERNAL_API_KEY}}
 ```json
 {
   "numeroCpfCnpj": "12345678901",
-  "numeroCliente": 25546454,
+  "numeroCliente": "{{SICOOB_NUMERO_CLIENTE}}",
   "dataInicio": "2024-01-01",
-  "dataFim": "2026-01-01"
+  "dataFim": "2026-05-07"
 }
 ```
+
+> `numeroCliente` é o número de cliente da **Assusa** no Sicoob (o cedente), não o CPF do usuário. O bot preenche esse campo automaticamente via `SICOOB_NUMERO_CLIENTE` do `.env`.
 
 **Resposta esperada (sandbox):**
 ```json
@@ -285,11 +300,13 @@ X-Internal-Api-Key: {{INTERNAL_API_KEY}}
 **Body:**
 ```json
 {
-  "numeroCliente": 25546454,
+  "numeroCliente": "{{SICOOB_NUMERO_CLIENTE}}",
   "codigoModalidade": 1,
   "linhaDigitavel": "012345678901234567890123456789012345678901234567"
 }
 ```
+
+> Use a `linhaDigitavel` retornada pelo `/listar` acima — não invente o valor.
 
 **Resposta esperada (sandbox):**
 ```json
@@ -354,5 +371,7 @@ KEYS *
 | `403 Forbidden` no POST /webhook | Header `x-hub-signature-256` ausente ou `APP_SECRET` errado no Environment |
 | Bot não responde nada | `ACCESS_TOKEN` inválido — a chamada à Meta falha silenciosamente |
 | `503` no Python | `INTERNAL_API_KEY` do Postman diferente do configurado no container |
-| `"nenhum boleto encontrado"` mesmo com CPF válido | Sandbox do Sicoob ativo (`SICOOB_SANDBOX=true`) e CPF não cadastrado no sandbox |
+| Python falha ao subir com erro de certificado | `SICOOB_SANDBOX` não está `true` e nenhum certificado foi configurado |
+| `"nenhum boleto encontrado"` mesmo com CPF válido | CPF não está cadastrado nos dados de teste do sandbox do Sicoob |
 | Estado não persiste entre requests | Redis não está rodando ou `REDIS_HOST` aponta para endereço errado |
+| `numeroCliente` rejeitado pelo Python | Valor não é numérico — confirme que `SICOOB_NUMERO_CLIENTE` está preenchido no `.env` |
