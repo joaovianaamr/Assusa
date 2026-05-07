@@ -35,9 +35,17 @@ def resolve_cert_paths(settings: Settings) -> tuple[str, str]:
 
 
 def build_sicoob_config(settings: Settings) -> dict:
+    if settings.sicoob_sandbox:
+        return {
+            "sandbox": True,
+            "certificate": None,
+            "certificateKey": None,
+            "client_id": settings.sicoob_client_id,
+            "api": "boleto",
+        }
     cert, key = resolve_cert_paths(settings)
     return {
-        "sandbox": settings.sicoob_sandbox,
+        "sandbox": False,
         "certificate": cert,
         "certificateKey": key,
         "client_id": settings.sicoob_client_id,
