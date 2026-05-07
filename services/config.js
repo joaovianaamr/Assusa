@@ -12,7 +12,15 @@ require("dotenv").config();
 
 // Required environment variables (webhook verify token checked separately:
 // WHATSAPP_VERIFY_TOKEN or legacy VERIFY_TOKEN)
-const ENV_VARS = ["ACCESS_TOKEN", "APP_SECRET", "REDIS_HOST", "REDIS_PORT"];
+const ENV_VARS = [
+  "ACCESS_TOKEN",
+  "APP_SECRET",
+  "REDIS_HOST",
+  "REDIS_PORT",
+  "SICOOB_CLIENT_ID",
+  "SICOOB_CLIENT_SECRET",
+  "SICOOB_COOPERATIVA_ID"
+];
 
 module.exports = Object.freeze({
   // Application information
@@ -25,6 +33,9 @@ module.exports = Object.freeze({
   port: process.env.PORT || 8080,
   redisHost: process.env.REDIS_HOST || "localhost",
   redisPort: process.env.REDIS_PORT || 6379,
+  sicoobClientId: process.env.SICOOB_CLIENT_ID,
+  sicoobClientSecret: process.env.SICOOB_CLIENT_SECRET,
+  sicoobCooperativaId: process.env.SICOOB_COOPERATIVA_ID,
 
   checkEnvVariables: function () {
     ENV_VARS.forEach(function (key) {
