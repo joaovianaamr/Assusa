@@ -51,7 +51,7 @@ class BankingSicoobV3:
             base_url=self._url,
             timeout=60.0,
             verify=True,
-            cert=self._cert(),
+            cert=None if self._sandbox else self._cert(),
         )
 
     def close(self) -> None:
