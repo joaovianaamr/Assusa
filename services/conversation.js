@@ -15,7 +15,12 @@ const Status = require('./status');
 const Cache = require('./redis');
 
 
-function sendTryOutDemoMessage(messageId, senderPhoneNumberId, recipientPhoneNumber, messageBody) {
+function sendMenuPrincipal(
+  messageId,
+  senderPhoneNumberId,
+  recipientPhoneNumber,
+  messageBody
+) {
   return GraphApi.messageWithInteractiveReply(
     messageId,
     senderPhoneNumberId,
@@ -23,61 +28,32 @@ function sendTryOutDemoMessage(messageId, senderPhoneNumberId, recipientPhoneNum
     messageBody,
     [
       {
-        id: constants.REPLY_INTERACTIVE_MEDIA_ID,
-        title: constants.REPLY_INTERACTIVE_WITH_MEDIA_CTA,
+        id: constants.REPLY_SEGUNDA_VIA_ID,
+        title: constants.REPLY_SEGUNDA_VIA_CTA,
       },
       {
-        id: constants.REPLY_MEDIA_CAROUSEL_ID,
-        title: constants.REPLY_MEDIA_CARD_CAROUSEL_CTA,
+        id: constants.REPLY_FALAR_ATENDENTE_ID,
+        title: constants.REPLY_FALAR_ATENDENTE_CTA,
       },
       {
-        id: constants.REPLY_OFFER_ID,
-        title: constants.REPLY_OFFER_CTA,
+        id: constants.REPLY_HORARIO_ID,
+        title: constants.REPLY_HORARIO_CTA,
       }
     ]
   );
 }
 
-function sendInteractiveMediaMessage(messageId, senderPhoneNumberId, recipientPhoneNumber) {
-  return GraphApi.messageWithUtilityTemplate(
+function handleSolicitacaoSegundaVia(
+  messageId,
+  senderPhoneNumberId,
+  recipientPhoneNumber
+) {
+  return GraphApi.messageWithInteractiveReply(
     messageId,
     senderPhoneNumberId,
     recipientPhoneNumber,
-    {
-      templateName: "grocery_delivery_utility",
-      locale: "en_US",
-      imageLink: "https://scontent.xx.fbcdn.net/mci_ab/uap/asset_manager/id/?ab_b=e&ab_page=AssetManagerID&ab_entry=1530053877871776",
-    }
-  );
-}
-
-function sendLimitedTimeOfferMessage(messageId, senderPhoneNumberId, recipientPhoneNumber) {
-  return GraphApi.messageWithLimitedTimeOfferTemplate(
-    messageId,
-    senderPhoneNumberId,
-    recipientPhoneNumber,
-    {
-      templateName: "strawberries_limited_offer",
-      locale: "en_US",
-      imageLink: "https://scontent.xx.fbcdn.net/mci_ab/uap/asset_manager/id/?ab_b=e&ab_page=AssetManagerID&ab_entry=1393969325614091",
-      offerCode: "BERRIES20",
-    }
-  );
-}
-
-function sendMediaCarouselMessage(messageId, senderPhoneNumberId, recipientPhoneNumber) {
-  return GraphApi.messageWithMediaCardCarousel(
-    messageId,
-    senderPhoneNumberId,
-    recipientPhoneNumber,
-    {
-      templateName: "recipe_media_carousel",
-      locale: "en_US",
-      imageLinks: [
-        "https://scontent.xx.fbcdn.net/mci_ab/uap/asset_manager/id/?ab_b=e&ab_page=AssetManagerID&ab_entry=1389202275965231",
-        "https://scontent.xx.fbcdn.net/mci_ab/uap/asset_manager/id/?ab_b=e&ab_page=AssetManagerID&ab_entry=3255815791260974"
-      ]
-    }
+    "Para solicitar a 2ª via, envie seu CPF ou número do contrato.",
+    []
   );
 }
 
@@ -95,32 +71,33 @@ module.exports = class Conversation {
     const message = new Message(rawMessage);
 
     switch (message.type) {
-      case constants.REPLY_INTERACTIVE_MEDIA_ID:
-        let interactiveMediaResponse = await sendInteractiveMediaMessage(
+      case constants.REPLY_SEGUNDA_VIA_ID:
+        await handleSolicitacaoSegundaVia(
           message.id,
           senderPhoneNumberId,
           message.senderPhoneNumber
         );
-        await markMessageForFollowUp(interactiveMediaResponse.messages[0].id);
         break;
-      case constants.REPLY_MEDIA_CAROUSEL_ID:
-        let mediaCarouselResponse = await sendMediaCarouselMessage(
+      case constants.REPLY_FALAR_ATENDENTE_ID:
+        await GraphApi.messageWithInteractiveReply(
           message.id,
           senderPhoneNumberId,
-          message.senderPhoneNumber
+          message.senderPhoneNumber,
+          constants.MSG_REDIRECIONAMENTO_ATENDENTE,
+          []
         );
-        await markMessageForFollowUp(mediaCarouselResponse.messages[0].id);
         break;
-      case constants.REPLY_OFFER_ID:
-        let ltoResponse = await sendLimitedTimeOfferMessage(
+      case constants.REPLY_HORARIO_ID:
+        await GraphApi.messageWithInteractiveReply(
           message.id,
           senderPhoneNumberId,
-          message.senderPhoneNumber
+          message.senderPhoneNumber,
+          constants.MSG_HORARIO_ENTREGA,
+          []
         );
-        await markMessageForFollowUp(ltoResponse.messages[0].id);
         break;
       default:
-        sendTryOutDemoMessage(
+        sendMenuPrincipal(
           message.id,
           senderPhoneNumberId,
           message.senderPhoneNumber,
@@ -141,7 +118,7 @@ module.exports = class Conversation {
     // Only send a follow up message if the current message is flagged
     // as needing one in the cache.
     if (await Cache.remove(status.messageId)) {
-      await sendTryOutDemoMessage(
+      await sendMenuPrincipal(
         undefined,
         senderPhoneNumberId,
         status.recipientPhoneNumber,

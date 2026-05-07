@@ -14,6 +14,10 @@ module.exports = Object.freeze({
   // Response messages
   APP_DEFAULT_MESSAGE: "Olá! Bem-vindo à Assusa Distribuidora de Água. Como podemos te ajudar hoje?",
   APP_TRY_ANOTHER_MESSAGE: "Posso te ajudar com mais alguma coisa?",
+  MSG_REDIRECIONAMENTO_ATENDENTE:
+    "Nosso atendimento humano funciona de segunda a sexta, das 8h às 18h, e aos sábados das 8h às 12h.",
+  MSG_HORARIO_ENTREGA:
+    "Nosso atendimento funciona de segunda a sexta, das 8h às 18h, e aos sábados das 8h às 12h.",
 
 
   // CTA texts
