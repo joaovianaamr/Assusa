@@ -1,6 +1,6 @@
-# Jasper's Market WhatsApp Bot
+# bot-assusa-wpp
 
-Jasper's Market is a fictional grocery brand created to showcase key features of the WhatsApp Business Platform. The bot leverages key features to deliver a great customer experience. Using this demo as inspiration, you can create a delightful WhatsApp experience that leverages both automation and live customer support.
+bot-assusa-wpp is based on the WhatsApp Business Platform sample experience and adapted for the ASSUSA second-copy flow. Using this demo as inspiration, you can create a delightful WhatsApp experience that leverages both automation and live customer support.
 
 [Access the WhatsApp experience](https://wa.me/15558813169?text=Get+started)
 
@@ -39,8 +39,8 @@ Before you begin, make sure you have completed all of the requirements listed ab
 Clone this repository on your local machine:
 
 ```bash
-$ git clone git@github.com:fbsamples/whatsapp-business-jaspers-market.git
-$ cd whatsapp-business-jaspers-market
+$ git clone git@github.com:<seu-usuario>/bot-assusa-wpp.git
+$ cd bot-assusa-wpp
 ```
 
 You will need:
@@ -139,7 +139,7 @@ If you see a response to your message in WhatsApp, you have fully set up your ap
 
 ## License
 
-Sample WhatsApp App Jasper's Market is Apache 2.0 licensed, as found in the LICENSE file.
+This project includes code derived from the Jasper's Market sample, which is Apache 2.0 licensed, as found in the LICENSE file.
 
 See [CONTRIBUTING](docs/meta/CONTRIBUTING.md) for how to help out. Contexto do produto (ASSUSA / Sicoob): [docs/meta/project-context.md](docs/meta/project-context.md).
 

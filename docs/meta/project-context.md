@@ -4,11 +4,13 @@
 
 Bot de atendimento no **WhatsApp** (via **Cloud API** da Meta) que atende solicitações de **segunda via** no contexto da **ASSUSA**. O processamento da segunda via ocorre no **back-end do Sicoob**, acessado por este serviço mediante **chamadas HTTP** (cliente REST ou equivalente); o bot orquestra o diálogo no WhatsApp e dispara essas requisições quando for preciso emitir ou consultar segunda via.
 
+Nome atual do aplicativo: **bot-assusa-wpp**.
+
 A comunicação entre o WhatsApp e o serviço do bot é feita por **webhook** (HTTPS): a Meta envia eventos e mensagens recebidas para uma URL configurada na aplicação; respostas e envios de mensagem usam a API REST da Cloud API.
 
 ## Base de código (WhatsApp / Meta)
 
-A implementação de referência na raiz deste repositório partiu do exemplo oficial **Jasper's Market** da Meta ([fbsamples/whatsapp-business-jaspers-market](https://github.com/fbsamples/whatsapp-business-jaspers-market)): Node.js, webhook em `/webhook`, Redis e fluxo documentado no `README.md` do projeto. Licença do trecho original: **Apache 2.0** (ver `LICENSE`). Evoluções específicas da ASSUSA/Sicoob devem respeitar essa origem e as [condições de uso](https://opensource.facebook.com/legal/terms) do sample, quando aplicável.
+A implementação de referência na raiz deste repositório partiu do exemplo oficial **Jasper's Market** da Meta ([fbsamples/whatsapp-business-jaspers-market](https://github.com/fbsamples/whatsapp-business-jaspers-market)): Node.js, webhook em `/webhook`, Redis e fluxo documentado no `README.md` do projeto. O projeto atual foi renomeado para **bot-assusa-wpp**. Licença do trecho original: **Apache 2.0** (ver `LICENSE`). Evoluções específicas da ASSUSA/Sicoob devem respeitar essa origem e as [condições de uso](https://opensource.facebook.com/legal/terms) do sample, quando aplicável.
 
 ## Arquitetura (resumo)
 
