@@ -17,12 +17,12 @@ module.exports = Object.freeze({
 
 
   // CTA texts
-  REPLY_INTERACTIVE_WITH_MEDIA_CTA: "Shop online",
-  REPLY_MEDIA_CARD_CAROUSEL_CTA: "Get recipe ideas",
-  REPLY_OFFER_CTA: "Current promo",
+  REPLY_SEGUNDA_VIA_CTA: "2ª via de conta",
+  REPLY_FALAR_ATENDENTE_CTA: "Falar com atendente",
+  REPLY_HORARIO_CTA: "Horário atendimento",
 
   // Reply Button IDs
-  REPLY_INTERACTIVE_MEDIA_ID: "reply-interactive-with-media",
-  REPLY_MEDIA_CAROUSEL_ID: "reply-media-card-carousel",
-  REPLY_OFFER_ID: "reply-offer"
+  REPLY_SEGUNDA_VIA_ID: "assusa-segunda-via",
+  REPLY_FALAR_ATENDENTE_ID: "assusa-falar-atendente",
+  REPLY_HORARIO_ID: "assusa-horario-funcionamento"
 });
