@@ -194,7 +194,7 @@ class BankingSicoobV3:
                 headers={**self._headers_json(), "Accept": "application/json"},
                 params={
                     "numeroCliente": int(params["numeroCliente"]),
-                    "codigoSituação": 1,
+                    "codigoSituacao": 1,
                     "dataInicio": params["dataInicio"],
                     "dataFim": params["dataFim"],
                     "numeroCpfCnpj": int(params["numeroCpfCnpj"]),
