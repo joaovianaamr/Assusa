@@ -1,7 +1,7 @@
 # Stack: Redis + microsserviço Sicoob (FastAPI) + servidor Node (WhatsApp).
 #
-# Uso: cp .sample.env .env e preencha ACCESS_TOKEN, APP_SECRET, VERIFY_TOKEN,
-# INTERNAL_API_KEY (ou deixe vazio e use o default dev abaixo). Depois:
+# Uso: cp .sample.env .env e preencha ACCESS_TOKEN, APP_SECRET, WHATSAPP_VERIFY_TOKEN
+# (ou VERIFY_TOKEN legado), INTERNAL_API_KEY (ou deixe vazio e use o default dev abaixo). Depois:
 #   docker compose up --build
 #
 # Porta no host (mapeada para 8080 no container): defina WEB_PUBLISH_PORT se 8080

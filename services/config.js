@@ -10,20 +10,16 @@
 // Use dotenv to read .env vars into Node
 require("dotenv").config();
 
-// Required environment variables
-const ENV_VARS = [
-  "ACCESS_TOKEN",
-  "APP_SECRET",
-  "VERIFY_TOKEN",
-  "REDIS_HOST",
-  "REDIS_PORT"
-];
+// Required environment variables (webhook verify token checked separately:
+// WHATSAPP_VERIFY_TOKEN or legacy VERIFY_TOKEN)
+const ENV_VARS = ["ACCESS_TOKEN", "APP_SECRET", "REDIS_HOST", "REDIS_PORT"];
 
 module.exports = Object.freeze({
   // Application information
   appSecret: process.env.APP_SECRET,
   accessToken: process.env.ACCESS_TOKEN,
-  verifyToken: process.env.VERIFY_TOKEN,
+  verifyToken:
+    process.env.WHATSAPP_VERIFY_TOKEN || process.env.VERIFY_TOKEN,
 
   // Server configuration
   port: process.env.PORT || 8080,
@@ -36,5 +32,10 @@ module.exports = Object.freeze({
         console.warn("WARNING: Missing the environment variable " + key);
       }
     });
+    if (!process.env.WHATSAPP_VERIFY_TOKEN && !process.env.VERIFY_TOKEN) {
+      console.warn(
+        "WARNING: Missing WHATSAPP_VERIFY_TOKEN (or legacy VERIFY_TOKEN) for webhook URL verification"
+      );
+    }
   }
 });
