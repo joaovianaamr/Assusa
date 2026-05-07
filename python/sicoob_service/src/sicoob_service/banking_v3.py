@@ -138,9 +138,10 @@ class BankingSicoobV3:
             return {"error": "Erro na comunicação com a API Sicoob", "exception": str(exc)}
 
     def consultar_boleto(self, params: dict[str, Any]) -> Any:
+        base = SANDBOX_BASE if self._sandbox else ""
         try:
             r = self._client.get(
-                "/cobranca-bancaria/v3/boletos",
+                f"{base}/cobranca-bancaria/v3/boletos",
                 headers={**self._headers_json(), "Accept": "application/json"},
                 params={
                     "numeroCliente": int(params["numeroCliente"]),
@@ -187,7 +188,8 @@ class BankingSicoobV3:
 
     def listar_boleto(self, params: dict[str, Any]) -> Any:
         cpf = params["numeroCpfCnpj"]
-        path = f"/cobranca-bancaria/v3/pagadores/{cpf}/boletos"
+        base = SANDBOX_BASE if self._sandbox else ""
+        path = f"{base}/cobranca-bancaria/v3/pagadores/{cpf}/boletos"
         try:
             r = self._client.get(
                 path,
