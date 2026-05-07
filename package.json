@@ -1,26 +1,21 @@
 {
-  "name": "jaspers-market",
+  "name": "bot-assusa-wpp",
   "version": "1.0.0",
   "description": "Sample Whatsapp App - Jasper's Market",
   "keywords": [
     "whatsapp",
     "webhook"
   ],
-  "homepage": "https://github.com/fbsamples/whatsapp-business-jaspers-market#readme",
-  "bugs": {
-    "url": "https://github.com/fbsamples/whatsapp-business-jaspers-market/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/fbsamples/whatsapp-business-jaspers-market.git"
-  },
   "license": "BSD",
   "author": "Meta",
   "type": "commonjs",
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "test": "echo no tests yet!"
+    "test": "node --test test/webhook.test.js"
+  },
+  "devDependencies": {
+    "supertest": "^7.0.0"
   },
   "dependencies": {
     "body-parser": "^1.20.2",
