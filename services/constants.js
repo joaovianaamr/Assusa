@@ -12,8 +12,8 @@ module.exports = Object.freeze({
   USER_START_MESSAGE: "Tap send to get started",
 
   // Response messages
-  APP_DEFAULT_MESSAGE: "Welcome to Jasper's Market! What can we help you with today?",
-  APP_TRY_ANOTHER_MESSAGE: "Is there anything else we can help you with?",
+  APP_DEFAULT_MESSAGE: "Olá! Bem-vindo à Assusa Distribuidora de Água. Como podemos te ajudar hoje?",
+  APP_TRY_ANOTHER_MESSAGE: "Posso te ajudar com mais alguma coisa?",
 
 
   // CTA texts
