@@ -10,6 +10,7 @@
 module.exports = class Message {
   constructor(rawMessage) {
     this.id = rawMessage.id;
+    this.text = rawMessage && rawMessage.text ? rawMessage.text.body : undefined;
 
     let type = rawMessage.type;
     if (type === 'interactive') {

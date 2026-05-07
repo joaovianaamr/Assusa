@@ -161,6 +161,44 @@ module.exports = class GraphApi {
     return this.#makeApiCall(messageId, senderPhoneNumberId, requestBody);
   }
 
+  static async uploadMedia(senderPhoneNumberId, pdfBuffer) {
+    const formData = new FormData();
+    formData.append("messaging_product", "whatsapp");
+    formData.append("type", "application/pdf");
+    formData.append(
+      "file",
+      new Blob([pdfBuffer], { type: "application/pdf" }),
+      "boleto.pdf"
+    );
+
+    const res = await fetch(
+      `https://graph.facebook.com/v20.0/${senderPhoneNumberId}/media`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${config.accessToken}` },
+        body: formData,
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.text().catch(() => res.status);
+      throw new Error(`Media upload falhou: ${err}`);
+    }
+
+    return await res.json();
+  }
+
+  static async messageWithDocument(messageId, senderPhoneNumberId, recipientPhoneNumber, mediaId, filename, caption) {
+    const requestBody = {
+      messaging_product: "whatsapp",
+      to: recipientPhoneNumber,
+      type: "document",
+      document: { id: mediaId, filename, caption },
+    };
+
+    return this.#makeApiCall(messageId, senderPhoneNumberId, requestBody);
+  }
+
   static async messageWithMediaCardCarousel(messageId, senderPhoneNumberId, recipientPhoneNumber, options) {
     const { templateName, locale, imageLinks } = options;
     const requestBody = {

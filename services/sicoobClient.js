@@ -52,6 +52,51 @@ async function checkPythonHealth() {
 }
 
 /**
+ * POST /internal/boleto/listar
+ * @param {{ numeroCpfCnpj: string, numeroCliente?: string, dataInicio?: string, dataFim?: string }} payload
+ * @returns {Promise<{status:number, body: object}>}
+ */
+async function listarBoletos({ numeroCpfCnpj }) {
+  const b = baseUrl();
+  if (!b) {
+    throw new Error("SICOOB_SERVICE_URL não configurado");
+  }
+
+  const hoje = new Date();
+  const doisAnosAtras = new Date(hoje);
+  doisAnosAtras.setFullYear(hoje.getFullYear() - 2);
+  const fmt = d => d.toISOString().slice(0, 10);
+
+  const payload = {
+    numeroCpfCnpj,
+    numeroCliente: Number(process.env.SICOOB_NUMERO_CLIENTE),
+    dataInicio: fmt(doisAnosAtras),
+    dataFim: fmt(hoje),
+  };
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${b}/internal/boleto/listar`, {
+      method: "POST",
+      headers: internalHeaders(),
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    let body = {};
+    try {
+      body = await res.json();
+    } catch {
+      body = {};
+    }
+    return { status: res.status, body };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
  * POST /internal/boleto/segunda-via
  * @param {Record<string, unknown>} payload
  * @returns {Promise<{status:number, body: object}>}
@@ -86,5 +131,6 @@ async function segundaViaBoleto(payload) {
 module.exports = {
   baseUrl,
   checkPythonHealth,
+  listarBoletos,
   segundaViaBoleto,
 };

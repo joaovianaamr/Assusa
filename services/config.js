@@ -19,7 +19,8 @@ const ENV_VARS = [
   "REDIS_PORT",
   "SICOOB_CLIENT_ID",
   "SICOOB_CLIENT_SECRET",
-  "SICOOB_COOPERATIVA_ID"
+  "SICOOB_COOPERATIVA_ID",
+  "SICOOB_NUMERO_CLIENTE"
 ];
 
 module.exports = Object.freeze({
@@ -36,6 +37,7 @@ module.exports = Object.freeze({
   sicoobClientId: process.env.SICOOB_CLIENT_ID,
   sicoobClientSecret: process.env.SICOOB_CLIENT_SECRET,
   sicoobCooperativaId: process.env.SICOOB_COOPERATIVA_ID,
+  sicoobNumeroCliente: process.env.SICOOB_NUMERO_CLIENTE,
 
   checkEnvVariables: function () {
     ENV_VARS.forEach(function (key) {

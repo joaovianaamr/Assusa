@@ -49,4 +49,35 @@ module.exports = class Cache {
 
         return resp > 0;
     }
+
+    static async setEstado(phoneNumber, estado) {
+        const key = `estado:${phoneNumber}`;
+        await client.set(key, estado, { EX: 300 });
+    }
+
+    static async getEstado(phoneNumber) {
+        const key = `estado:${phoneNumber}`;
+        return await client.get(key);
+    }
+
+    static async clearEstado(phoneNumber) {
+        const key = `estado:${phoneNumber}`;
+        await client.del(key);
+    }
+
+    static async setBoletos(phoneNumber, boletos) {
+        const key = `boletos:${phoneNumber}`;
+        await client.set(key, JSON.stringify(boletos), { EX: 300 });
+    }
+
+    static async getBoletos(phoneNumber) {
+        const key = `boletos:${phoneNumber}`;
+        const raw = await client.get(key);
+        return raw ? JSON.parse(raw) : null;
+    }
+
+    static async clearBoletos(phoneNumber) {
+        const key = `boletos:${phoneNumber}`;
+        await client.del(key);
+    }
 }
