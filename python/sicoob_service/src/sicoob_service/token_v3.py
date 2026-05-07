@@ -27,11 +27,6 @@ def _scope_for_api(api: str | None) -> str:
 class TokenV3:
     def __init__(self, config: dict[str, Any]) -> None:
         self._config = config
-        self._options_request = {
-            "headers": {"Accept": "application/x-www-form-urlencoded"},
-            "cert": config["certificate"],
-            "ssl_key": config["certificateKey"],
-        }
 
     def get_token(self) -> dict[str, Any] | Any:
         data = {
