@@ -45,6 +45,7 @@ function createApp() {
 
   app.use(json({ verify: verifyRequestSignature }));
 
+  // uso único para verificar a conexão com o whatsapp (handshake)
   app.get("/webhook", function (req, res) {
     const mode = req.query["hub.mode"];
     const token = req.query["hub.verify_token"];
@@ -70,6 +71,7 @@ function createApp() {
     return res.status(200).type("text/plain").send(challenge);
   });
 
+  // endpoint principal para receber eventos do whatsapp
   app.post("/webhook", (req, res) => {
     const body = req.body;
     const objectType =
@@ -113,11 +115,8 @@ function createApp() {
 
   app.get("/", (req, res) => {
     res.json({
-      message: "Jasper's Market Server is running",
-      endpoints: [
-        "GET /webhook — Meta webhook verification (hub.challenge)",
-        "POST /webhook — WhatsApp webhook endpoint"
-      ]
+      message: "Assusa Atendimento WhatsApp - Servidor ativo",
+      endpoints: ["POST /webhook - Recebe eventos do WhatsApp"]
     });
   });
 
