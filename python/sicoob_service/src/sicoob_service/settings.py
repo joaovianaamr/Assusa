@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     sicoob_p12_path: str = Field(default="", validation_alias="SICOOB_P12_PATH")
     sicoob_p12_password: str = Field(default="", validation_alias="SICOOB_P12_PASSWORD")
 
+    database_url: str = Field(default="", validation_alias="DATABASE_URL")
+
     host: str = Field(default="0.0.0.0", validation_alias="SICOOB_SERVICE_HOST")
     port: int = Field(default=8090, validation_alias="SICOOB_SERVICE_PORT")
 

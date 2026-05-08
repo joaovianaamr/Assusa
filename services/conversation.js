@@ -14,6 +14,7 @@ const Message = require('./message');
 const Status = require('./status');
 const Cache = require('./redis');
 const sicoobClient = require('./sicoobClient');
+const interacao = require('./interacaoClient');
 
 
 function sendMenuPrincipal(
@@ -62,6 +63,7 @@ async function handleCpfRecebido(senderPhoneNumberId, message) {
   const cpfDigits = (message.text || "").replace(/\D/g, "");
 
   if (cpfDigits.length !== 11) {
+    interacao.registrar(message.senderPhoneNumber, "CPF_INVALIDO", null, { cpf_recebido: cpfDigits });
     await GraphApi.messageWithInteractiveReply(
       message.id,
       senderPhoneNumberId,
@@ -76,6 +78,7 @@ async function handleCpfRecebido(senderPhoneNumberId, message) {
   try {
     resultado = await sicoobClient.listarBoletos({ numeroCpfCnpj: cpfDigits });
   } catch {
+    interacao.registrar(message.senderPhoneNumber, "ERRO_SERVICO", cpfDigits, { etapa: "listar_boletos" });
     await GraphApi.messageWithInteractiveReply(
       message.id,
       senderPhoneNumberId,
@@ -93,6 +96,7 @@ async function handleCpfRecebido(senderPhoneNumberId, message) {
     : [];
 
   if (!boletos.length) {
+    interacao.registrar(message.senderPhoneNumber, "NENHUM_BOLETO", cpfDigits);
     await GraphApi.messageWithInteractiveReply(
       message.id,
       senderPhoneNumberId,
@@ -121,6 +125,7 @@ async function handleCpfRecebido(senderPhoneNumberId, message) {
     );
   }
 
+  interacao.registrar(message.senderPhoneNumber, "BOLETOS_LISTADOS", cpfDigits, { total: boletos.length, exibidos: exibir.length });
   await Cache.setBoletos(message.senderPhoneNumber, exibir);
   await Cache.setEstado(message.senderPhoneNumber, "aguardando_selecao_boleto");
 
@@ -159,6 +164,7 @@ async function handleSelecaoBoleto(senderPhoneNumberId, message) {
   }
 
   const boleto = boletos[idx];
+  interacao.registrar(message.senderPhoneNumber, "BOLETO_SELECIONADO", null, { idx, dataVencimento: boleto.dataVencimento });
   let resultado;
   try {
     const res = await sicoobClient.segundaViaBoleto({
@@ -172,6 +178,7 @@ async function handleSelecaoBoleto(senderPhoneNumberId, message) {
   }
 
   if (!resultado?.pdfBoleto) {
+    interacao.registrar(message.senderPhoneNumber, "ERRO_SERVICO", null, { etapa: "segunda_via" });
     await GraphApi.messageWithInteractiveReply(
       message.id,
       senderPhoneNumberId,
@@ -197,6 +204,7 @@ async function handleSelecaoBoleto(senderPhoneNumberId, message) {
         "boleto.pdf",
         caption
       );
+      interacao.registrar(message.senderPhoneNumber, "PDF_ENTREGUE", null, { dataVencimento: resultado.dataVencimento, valor: resultado.valor });
     } catch {
       // upload falhou — envia só o texto como fallback
       await GraphApi.messageWithInteractiveReply(
@@ -239,6 +247,7 @@ module.exports = class Conversation {
 
     switch (message.type) {
       case constants.REPLY_SEGUNDA_VIA_ID:
+        interacao.registrar(message.senderPhoneNumber, "SEGUNDA_VIA_INICIADA");
         await Cache.setEstado(message.senderPhoneNumber, "aguardando_cpf");
         await handleSolicitacaoSegundaVia(
           message.id,
@@ -247,6 +256,7 @@ module.exports = class Conversation {
         );
         break;
       case constants.REPLY_FALAR_ATENDENTE_ID:
+        interacao.registrar(message.senderPhoneNumber, "ATENDENTE_SOLICITADO");
         await GraphApi.messageWithInteractiveReply(
           message.id,
           senderPhoneNumberId,
@@ -256,6 +266,7 @@ module.exports = class Conversation {
         );
         break;
       case constants.REPLY_HORARIO_ID:
+        interacao.registrar(message.senderPhoneNumber, "HORARIO_CONSULTADO");
         await GraphApi.messageWithInteractiveReply(
           message.id,
           senderPhoneNumberId,
@@ -265,6 +276,7 @@ module.exports = class Conversation {
         );
         break;
       default:
+        interacao.registrar(message.senderPhoneNumber, "MENU_EXIBIDO");
         sendMenuPrincipal(
           message.id,
           senderPhoneNumberId,

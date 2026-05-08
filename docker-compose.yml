@@ -25,6 +25,21 @@ services:
       timeout: 3s
       retries: 5
 
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: assusa
+      POSTGRES_USER: assusa
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-assusa-dev}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U assusa -d assusa"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   sicoob:
     build:
       context: ./python/sicoob_service
@@ -34,8 +49,12 @@ services:
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-docker-dev-internal-key}
       SICOOB_SERVICE_HOST: "0.0.0.0"
       SICOOB_SERVICE_PORT: "8090"
+      DATABASE_URL: postgresql://assusa:${POSTGRES_PASSWORD:-assusa-dev}@postgres:5432/assusa
     ports:
       - "8090:8090"
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test:
         [
@@ -68,3 +87,6 @@ services:
         condition: service_healthy
       sicoob:
         condition: service_healthy
+
+volumes:
+  postgres_data:

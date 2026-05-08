@@ -5,9 +5,11 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from sicoob_service import database
 from sicoob_service.banking_v3 import BankingSicoobV3
 from sicoob_service.bootstrap import create_banking_client
 from sicoob_service.exceptions import SicoobConfigError
@@ -15,7 +17,17 @@ from sicoob_service.settings import Settings, get_settings
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Sicoob boletos (interno)", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    settings = get_settings()
+    if settings.database_url:
+        database.init_pool(settings.database_url)
+        logger.info("PostgreSQL: pool inicializado via lifespan")
+    yield
+
+
+app = FastAPI(title="Sicoob boletos (interno)", version="0.1.0", lifespan=lifespan)
 
 # Token do Sicoob expira em 300s — renova com 1 minuto de margem
 _TOKEN_TTL = 240
@@ -121,3 +133,22 @@ async def webhook_alterar(
 @app.delete("/internal/webhook/{id_webhook}", dependencies=[AuthDep])
 async def webhook_delete(id_webhook: str, banking: BankingDep) -> dict[str, Any]:
     return {"ok": True, "result": banking.delete_webhook(id_webhook)}
+
+
+@app.post("/interno/interacao", dependencies=[AuthDep])
+def registrar_interacao(body: dict[str, Any]) -> dict[str, Any]:
+    database.inserir(body["telefone"], body["evento"], body.get("cpf"), body.get("detalhes"))
+    return {"ok": True}
+
+
+@app.get("/interno/interacoes", dependencies=[AuthDep])
+def listar_interacoes(
+    telefone: str | None = None,
+    cpf: str | None = None,
+    evento: str | None = None,
+    data_inicio: str | None = None,
+    data_fim: str | None = None,
+    limite: int = 50,
+) -> dict[str, Any]:
+    rows = database.consultar(telefone, cpf, evento, data_inicio, data_fim, min(limite, 200))
+    return {"ok": True, "result": rows}
