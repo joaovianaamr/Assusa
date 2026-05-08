@@ -329,16 +329,107 @@ X-Internal-Api-Key: {{INTERNAL_API_KEY}}
 
 ---
 
+### 5.4 POST /interno/interacao — registrar evento manualmente
+
+Grava uma interação diretamente no PostgreSQL, sem passar pelo bot.
+
+**Headers:**
+```
+Content-Type: application/json
+X-Internal-Api-Key: {{INTERNAL_API_KEY}}
+```
+
+**Body:**
+```json
+{
+  "telefone": "{{USER_PHONE}}",
+  "evento": "TESTE",
+  "cpf": null,
+  "detalhes": null
+}
+```
+
+**Resposta esperada:**
+```json
+{ "ok": true }
+```
+
+> Os campos `cpf` e `detalhes` são opcionais. `detalhes` aceita qualquer objeto JSON.
+
+---
+
+### 5.5 GET /interno/interacoes — consultar interações
+
+Retorna interações gravadas com filtros opcionais.
+
+**Headers:**
+```
+X-Internal-Api-Key: {{INTERNAL_API_KEY}}
+```
+
+**Query params (todos opcionais):**
+
+| Parâmetro | Exemplo | Descrição |
+|---|---|---|
+| `telefone` | `5531999999999` | Filtra por número |
+| `cpf` | `12345678901` | Filtra por CPF |
+| `evento` | `PDF_ENTREGUE` | Filtra por tipo de evento |
+| `data_inicio` | `2026-01-01` | A partir desta data |
+| `data_fim` | `2026-12-31` | Até esta data |
+| `limite` | `50` | Máx. de registros (padrão 50, máx. 200) |
+
+**Exemplo:**
+```
+GET {{PYTHON_URL}}/interno/interacoes?telefone={{USER_PHONE}}&limite=20
+```
+
+**Resposta esperada:**
+```json
+{
+  "ok": true,
+  "result": [
+    {
+      "id": 1,
+      "telefone": "5531999999999",
+      "evento": "MENU_EXIBIDO",
+      "cpf": null,
+      "detalhes": null,
+      "criado_em": "2026-05-08T00:10:00Z"
+    }
+  ]
+}
+```
+
+> Resultados ordenados do mais recente para o mais antigo.
+
+**Eventos possíveis:**
+
+| Evento | Quando |
+|---|---|
+| `MENU_EXIBIDO` | Mensagem desconhecida → menu enviado |
+| `SEGUNDA_VIA_INICIADA` | Usuário clicou em 2ª via |
+| `ATENDENTE_SOLICITADO` | Usuário clicou em falar com atendente |
+| `HORARIO_CONSULTADO` | Usuário clicou em horário |
+| `CPF_INVALIDO` | CPF com dígitos != 11 |
+| `NENHUM_BOLETO` | Sicoob retornou lista vazia |
+| `BOLETOS_LISTADOS` | Boletos exibidos como botões |
+| `BOLETO_SELECIONADO` | Usuário clicou em um boleto |
+| `PDF_ENTREGUE` | PDF enviado com sucesso |
+| `ERRO_SERVICO` | Falha na chamada ao Python/Sicoob |
+
+---
+
 ## 6. Fluxo completo passo a passo
 
 Execute nesta ordem para simular um atendimento real:
 
 ```
-1. GET  /webhook          → handshake (1x só)
-2. POST /webhook          → msg 4.3 (texto qualquer) → confirma menu principal
-3. POST /webhook          → msg 4.4 (botão 2ª via)   → confirma pedido de CPF
-4. POST /webhook          → msg 4.5 (CPF válido)     → confirma lista de boletos
-5. POST /webhook          → msg 4.6 (boleto-0)       → confirma envio do PDF
+1. GET  /webhook                        → handshake (1x só)
+2. POST /webhook                        → msg 4.3 (texto qualquer) → confirma menu principal
+3. POST /webhook                        → msg 4.4 (botão 2ª via)   → confirma pedido de CPF
+4. POST /webhook                        → msg 4.5 (CPF válido)     → confirma lista de boletos
+5. POST /webhook                        → msg 4.6 (boleto-0)       → confirma envio do PDF
+6. GET  /interno/interacoes?telefone=…  → confirma todos os eventos gravados em ordem
 ```
 
 ---
@@ -375,3 +466,5 @@ KEYS *
 | `"nenhum boleto encontrado"` mesmo com CPF válido | CPF não está cadastrado nos dados de teste do sandbox do Sicoob |
 | Estado não persiste entre requests | Redis não está rodando ou `REDIS_HOST` aponta para endereço errado |
 | `numeroCliente` rejeitado pelo Python | Valor não é numérico — confirme que `SICOOB_NUMERO_CLIENTE` está preenchido no `.env` |
+| `GET /interno/interacoes` retorna `[]` | `DATABASE_URL` não configurado ou postgres não subiu — verifique `docker ps` |
+| `POST /interno/interacao` retorna 500 | Campo `telefone` ou `evento` ausente no body |
