@@ -134,6 +134,10 @@ class BankingSicoobV3:
             return {"error": "Erro na comunicação com a API Sicoob", "exception": str(exc)}
 
     def consultar_boleto(self, params: dict[str, Any]) -> Any:
+        if not params.get("numeroCliente"):
+            return {"error": "numeroCliente é obrigatório"}
+        if not params.get("numeroContratoCobranca"):
+            return {"error": "numeroContratoCobranca é obrigatório"}
         try:
             r = self._client.get(
                 self._path("/cobranca-bancaria/v3/boletos"),
@@ -158,6 +162,10 @@ class BankingSicoobV3:
             return {"error": f"Falha ao consultar Boleto Cobranca: {exc}"}
 
     def baixa_boleto(self, params: dict[str, Any]) -> Any:
+        if not params.get("nossoNumero"):
+            return {"error": "nossoNumero é obrigatório"}
+        if not params.get("numeroCliente"):
+            return {"error": "numeroCliente é obrigatório"}
         boleto = int(params["nossoNumero"])
         numero_cliente = int(params["numeroCliente"])
         path = self._path(f"/cobranca-bancaria/v3/boletos/{boleto}/baixar")
@@ -179,6 +187,14 @@ class BankingSicoobV3:
             return {"error": f"Falha ao consultar Boleto Cobranca: {exc}"}
 
     def listar_boleto(self, params: dict[str, Any]) -> Any:
+        if not params.get("numeroCliente"):
+            return {"error": "numeroCliente é obrigatório"}
+        if not params.get("numeroCpfCnpj"):
+            return {"error": "numeroCpfCnpj é obrigatório"}
+        if not params.get("dataInicio"):
+            return {"error": "dataInicio é obrigatório"}
+        if not params.get("dataFim"):
+            return {"error": "dataFim é obrigatório"}
         cpf = params["numeroCpfCnpj"]
         path = self._path(f"/cobranca-bancaria/v3/pagadores/{cpf}/boletos")
         try:
