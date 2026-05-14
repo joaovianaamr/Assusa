@@ -243,11 +243,12 @@ class BankingSicoobV3:
             return {"error": str(exc)}
 
     def consultar_webhook(self, params: dict[str, Any]) -> Any:
-        path = self._path(f"/cobranca-bancaria/v3/webhooks?idWebhook={params['idWebhook']}&codigoTipoMovimento=7")
+        path = self._path("/cobranca-bancaria/v3/webhooks")
         try:
             r = self._client.get(
                 path,
                 headers={**self._headers_json(), "Accept": "application/json"},
+                params={"idWebhook": params["idWebhook"], "codigoTipoMovimento": 7},
             )
             r.raise_for_status()
             result = _loads_maybe(r.text)
