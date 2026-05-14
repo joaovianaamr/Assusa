@@ -25,3 +25,6 @@ python/sicoob_service/**/__pycache__/
 python/sicoob_service/**/*.egg-info/
 .python-version
 .pytest_cache/
+
+# sicoob
+sicob/
