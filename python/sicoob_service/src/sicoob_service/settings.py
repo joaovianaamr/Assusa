@@ -20,6 +20,23 @@ class Settings(BaseSettings):
     sicoob_sandbox: bool = Field(default=True, validation_alias="SICOOB_SANDBOX")
     sicoob_client_id: str = Field(default="", validation_alias="SICOOB_CLIENT_ID")
 
+    sicoob_prod_base_url: str = Field(
+        default="https://api.sicoob.com.br",
+        validation_alias="SICOOB_PROD_BASE_URL",
+    )
+    sicoob_sandbox_base_url: str = Field(
+        default="https://sandbox.sicoob.com.br/sicoob/sandbox",
+        validation_alias="SICOOB_SANDBOX_BASE_URL",
+    )
+    sicoob_sandbox_token: str = Field(
+        default="1301865f-c6bc-38f3-9f49-666dbcfc59c3",
+        validation_alias="SICOOB_SANDBOX_TOKEN",
+    )
+    sicoob_sandbox_client_id: str = Field(
+        default="9b5e603e428cc477a2841e2683c92d21",
+        validation_alias="SICOOB_SANDBOX_CLIENT_ID",
+    )
+
     # Caminhos PEM (como no PHP quando já existem ficheiros)
     sicoob_cert_path: str = Field(default="", validation_alias="SICOOB_CERT_PATH")
     sicoob_key_path: str = Field(default="", validation_alias="SICOOB_KEY_PATH")

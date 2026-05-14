@@ -34,23 +34,22 @@ def resolve_cert_paths(settings: Settings) -> tuple[str, str]:
     )
 
 
-def build_sicoob_config(settings: Settings) -> dict:
-    if settings.sicoob_sandbox:
-        return {
-            "sandbox": True,
-            "certificate": None,
-            "certificateKey": None,
-            "client_id": settings.sicoob_client_id,
-            "api": "boleto",
-        }
-    cert, key = resolve_cert_paths(settings)
+def _base_config(settings: Settings) -> dict:
     return {
-        "sandbox": False,
-        "certificate": cert,
-        "certificateKey": key,
+        "sandbox_base_url": settings.sicoob_sandbox_base_url,
+        "prod_base_url": settings.sicoob_prod_base_url,
+        "sandbox_token": settings.sicoob_sandbox_token,
+        "sandbox_client_id": settings.sicoob_sandbox_client_id,
         "client_id": settings.sicoob_client_id,
         "api": "boleto",
     }
+
+
+def build_sicoob_config(settings: Settings) -> dict:
+    if settings.sicoob_sandbox:
+        return {**_base_config(settings), "sandbox": True, "certificate": None, "certificateKey": None}
+    cert, key = resolve_cert_paths(settings)
+    return {**_base_config(settings), "sandbox": False, "certificate": cert, "certificateKey": key}
 
 
 def create_banking_client(settings: Settings) -> BankingSicoobV3:

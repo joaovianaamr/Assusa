@@ -15,11 +15,6 @@ from sicoob_service.token_v3 import TokenV3
 
 logger = logging.getLogger(__name__)
 
-PROD_BASE = "https://api.sicoob.com.br"
-SANDBOX_BASE = "https://sandbox.sicoob.com.br/sicoob/sandbox"
-SANDBOX_TOKEN = "1301865f-c6bc-38f3-9f49-666dbcfc59c3"
-SANDBOX_CLIENT_ID = "9b5e603e428cc477a2841e2683c92d21"
-
 
 def _loads_maybe(text: str) -> Any:
     text = text.strip()
@@ -35,10 +30,11 @@ class BankingSicoobV3:
     def __init__(self, config: dict[str, Any]) -> None:
         self._config = dict(config)
         self._sandbox = bool(self._config.get("sandbox"))
-        self._url = SANDBOX_BASE if self._sandbox else PROD_BASE
+        self._sandbox_base = str(self._config.get("sandbox_base_url", ""))
+        self._url = self._sandbox_base if self._sandbox else str(self._config.get("prod_base_url", ""))
         if self._sandbox:
-            self._token = SANDBOX_TOKEN
-            self._client_id = SANDBOX_CLIENT_ID
+            self._token = str(self._config.get("sandbox_token", ""))
+            self._client_id = str(self._config.get("sandbox_client_id", ""))
         else:
             tokens = TokenV3(self._config)
             ret = tokens.get_token()
@@ -77,7 +73,7 @@ class BankingSicoobV3:
         return self._token
 
     def registrar_boleto(self, fields: dict[str, Any]) -> Any:
-        url_prefix = SANDBOX_BASE if self._sandbox else ""
+        url_prefix = self._sandbox_base if self._sandbox else ""
         path = f"{url_prefix}/cobranca-bancaria/v3/boletos" if url_prefix else "/cobranca-bancaria/v3/boletos"
         try:
             r = self._client.post(
@@ -98,7 +94,7 @@ class BankingSicoobV3:
 
     def segunda_via_boleto(self, params: dict[str, Any] | None = None) -> Any:
         params = params or {}
-        base_url = SANDBOX_BASE if self._sandbox else ""
+        base_url = self._sandbox_base if self._sandbox else ""
 
         if not params.get("numeroCliente"):
             return {"error": "numeroCliente é obrigatório"}
@@ -138,7 +134,7 @@ class BankingSicoobV3:
             return {"error": "Erro na comunicação com a API Sicoob", "exception": str(exc)}
 
     def consultar_boleto(self, params: dict[str, Any]) -> Any:
-        base = SANDBOX_BASE if self._sandbox else ""
+        base = self._sandbox_base if self._sandbox else ""
         try:
             r = self._client.get(
                 f"{base}/cobranca-bancaria/v3/boletos",
@@ -163,9 +159,7 @@ class BankingSicoobV3:
             return {"error": f"Falha ao consultar Boleto Cobranca: {exc}"}
 
     def baixa_boleto(self, params: dict[str, Any]) -> Any:
-        base_url = self._url
-        if self._sandbox:
-            base_url = SANDBOX_BASE
+        base_url = self._sandbox_base if self._sandbox else self._url
         boleto = int(params["nossoNumero"])
         numero_cliente = int(params["numeroCliente"])
         path = f"{base_url}/cobranca-bancaria/v3/boletos/{boleto}/baixar"
@@ -188,7 +182,7 @@ class BankingSicoobV3:
 
     def listar_boleto(self, params: dict[str, Any]) -> Any:
         cpf = params["numeroCpfCnpj"]
-        base = SANDBOX_BASE if self._sandbox else ""
+        base = self._sandbox_base if self._sandbox else ""
         path = f"{base}/cobranca-bancaria/v3/pagadores/{cpf}/boletos"
         try:
             r = self._client.get(
@@ -214,7 +208,7 @@ class BankingSicoobV3:
             return {"error": f"Falha ao consultar Boleto Cobranca: {exc}"}
 
     def alterar_dados_boleto(self, fields: dict[str, Any], nosso_numero: str | int) -> Any:
-        url = SANDBOX_BASE if self._sandbox else ""
+        url = self._sandbox_base if self._sandbox else ""
         path = f"{url}/cobranca-bancaria/v3/boletos/{nosso_numero}"
         try:
             r = self._client.patch(
@@ -234,7 +228,7 @@ class BankingSicoobV3:
             return {"error": str(exc)}
 
     def cadastrar_webhook(self, fields: dict[str, Any]) -> Any:
-        url_prefix = SANDBOX_BASE if self._sandbox else ""
+        url_prefix = self._sandbox_base if self._sandbox else ""
         path = f"{url_prefix}/cobranca-bancaria/v3/webhooks" if url_prefix else "/cobranca-bancaria/v3/webhooks"
         try:
             r = self._client.post(
@@ -259,7 +253,7 @@ class BankingSicoobV3:
             return {"error": str(exc)}
 
     def consultar_webhook(self, params: dict[str, Any]) -> Any:
-        base = SANDBOX_BASE if self._sandbox else ""
+        base = self._sandbox_base if self._sandbox else ""
         path = f"{base}/cobranca-bancaria/v3/webhooks?idWebhook={params['idWebhook']}&codigoTipoMovimento=7"
         try:
             r = self._client.get(
@@ -278,7 +272,7 @@ class BankingSicoobV3:
             return {"error": f"Falha ao consultar Boleto Cobranca: {exc}"}
 
     def alterar_webhook(self, fields: dict[str, Any], id_webhook: str | int) -> Any:
-        url = SANDBOX_BASE if self._sandbox else ""
+        url = self._sandbox_base if self._sandbox else ""
         path = f"{url}/cobranca-bancaria/v3/webhooks/{id_webhook}"
         try:
             r = self._client.patch(
@@ -303,7 +297,7 @@ class BankingSicoobV3:
             return {"error": str(exc)}
 
     def delete_webhook(self, id_webhook: str | int) -> Any:
-        url = SANDBOX_BASE if self._sandbox else ""
+        url = self._sandbox_base if self._sandbox else ""
         path = f"{url}/cobranca-bancaria/v3/webhooks/{id_webhook}"
         try:
             r = self._client.delete(
