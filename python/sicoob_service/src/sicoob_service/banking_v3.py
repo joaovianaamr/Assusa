@@ -215,8 +215,7 @@ class BankingSicoobV3:
 
     def alterar_dados_boleto(self, fields: dict[str, Any], nosso_numero: str | int) -> Any:
         url = SANDBOX_BASE if self._sandbox else ""
-        # Paridade com PHP: "{$url}//cobranca-bancaria/..."
-        path = f"{url}//cobranca-bancaria/v3/boletos/{nosso_numero}"
+        path = f"{url}/cobranca-bancaria/v3/boletos/{nosso_numero}"
         try:
             r = self._client.patch(
                 path,
