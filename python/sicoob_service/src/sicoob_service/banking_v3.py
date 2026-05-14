@@ -87,11 +87,13 @@ class BankingSicoobV3:
             result = _loads_maybe(r.text)
             return {"status": r.status_code, "response": result}
         except httpx.HTTPStatusError as exc:
+            logger.warning("Sicoob API error: %s", exc)
             parsed = _loads_maybe(exc.response.text)
             if not parsed:
                 return {"status_code": exc.response.status_code, "body": exc.response.text}
             return parsed
         except Exception as exc:  # noqa: BLE001
+            logger.warning("Sicoob API error: %s", exc)
             return {"error": str(exc)}
 
     def segunda_via_boleto(self, params: dict[str, Any] | None = None) -> Any:
@@ -127,11 +129,14 @@ class BankingSicoobV3:
             response_body = _loads_maybe(r.text)
             return {"status": r.status_code, "response": response_body}
         except httpx.HTTPStatusError as exc:
-            logger.warning("Erro na requisição de segunda via: %s", exc)
-            return {"error": "Erro na comunicação com a API Sicoob", "exception": str(exc)}
+            logger.warning("Sicoob API error: %s", exc)
+            parsed = _loads_maybe(exc.response.text)
+            if not parsed:
+                return {"status_code": exc.response.status_code, "body": exc.response.text}
+            return parsed
         except Exception as exc:  # noqa: BLE001
-            logger.warning("Erro na requisição de segunda via: %s", exc)
-            return {"error": "Erro na comunicação com a API Sicoob", "exception": str(exc)}
+            logger.warning("Sicoob API error: %s", exc)
+            return {"error": str(exc)}
 
     def consultar_boleto(self, params: dict[str, Any]) -> Any:
         if not params.get("numeroCliente"):
@@ -154,11 +159,13 @@ class BankingSicoobV3:
             result = _loads_maybe(r.text)
             return {"status": r.status_code, "response": result}
         except httpx.HTTPStatusError as exc:
+            logger.warning("Sicoob API error: %s", exc)
             parsed = _loads_maybe(exc.response.text)
             if not parsed:
                 return {"status_code": exc.response.status_code, "body": exc.response.text}
             return parsed
         except Exception as exc:  # noqa: BLE001
+            logger.warning("Sicoob API error: %s", exc)
             return {"error": f"Falha ao consultar Boleto Cobranca: {exc}"}
 
     def baixa_boleto(self, params: dict[str, Any]) -> Any:
@@ -179,11 +186,13 @@ class BankingSicoobV3:
             result = _loads_maybe(r.text)
             return {"status": r.status_code, "response": result}
         except httpx.HTTPStatusError as exc:
+            logger.warning("Sicoob API error: %s", exc)
             parsed = _loads_maybe(exc.response.text)
             if not parsed:
                 return {"status_code": exc.response.status_code, "body": exc.response.text}
             return parsed
         except Exception as exc:  # noqa: BLE001
+            logger.warning("Sicoob API error: %s", exc)
             return {"error": f"Falha ao consultar Boleto Cobranca: {exc}"}
 
     def listar_boleto(self, params: dict[str, Any]) -> Any:
@@ -213,11 +222,13 @@ class BankingSicoobV3:
             result = _loads_maybe(r.text)
             return {"status": r.status_code, "response": result}
         except httpx.HTTPStatusError as exc:
+            logger.warning("Sicoob API error: %s", exc)
             parsed = _loads_maybe(exc.response.text)
             if not parsed:
                 return {"status_code": exc.response.status_code, "body": exc.response.text}
             return parsed
         except Exception as exc:  # noqa: BLE001
+            logger.warning("Sicoob API error: %s", exc)
             return {"error": f"Falha ao consultar Boleto Cobranca: {exc}"}
 
     def alterar_dados_boleto(self, fields: dict[str, Any], nosso_numero: str | int) -> Any:
@@ -232,11 +243,13 @@ class BankingSicoobV3:
             result = _loads_maybe(r.text)
             return {"status": r.status_code, "response": result}
         except httpx.HTTPStatusError as exc:
+            logger.warning("Sicoob API error: %s", exc)
             parsed = _loads_maybe(exc.response.text)
             if not parsed:
                 return {"status_code": exc.response.status_code, "body": exc.response.text}
             return parsed
         except Exception as exc:  # noqa: BLE001
+            logger.warning("Sicoob API error: %s", exc)
             return {"error": str(exc)}
 
     def cadastrar_webhook(self, fields: dict[str, Any]) -> Any:
@@ -251,11 +264,13 @@ class BankingSicoobV3:
             result = _loads_maybe(r.text)
             return {"status": r.status_code, "response": result}
         except httpx.HTTPStatusError as exc:
+            logger.warning("Sicoob API error: %s", exc)
             parsed = _loads_maybe(exc.response.text)
             if not parsed:
                 return {"status_code": exc.response.status_code, "body": exc.response.text}
             return parsed
         except Exception as exc:  # noqa: BLE001
+            logger.warning("Sicoob API error: %s", exc)
             return {"error": str(exc)}
 
     def consultar_webhook(self, params: dict[str, Any]) -> Any:
@@ -270,11 +285,13 @@ class BankingSicoobV3:
             result = _loads_maybe(r.text)
             return {"status": r.status_code, "response": result}
         except httpx.HTTPStatusError as exc:
+            logger.warning("Sicoob API error: %s", exc)
             parsed = _loads_maybe(exc.response.text)
             if not parsed:
                 return {"status_code": exc.response.status_code, "body": exc.response.text}
             return parsed
         except Exception as exc:  # noqa: BLE001
+            logger.warning("Sicoob API error: %s", exc)
             return {"error": f"Falha ao consultar Boleto Cobranca: {exc}"}
 
     def alterar_webhook(self, fields: dict[str, Any], id_webhook: str | int) -> Any:
@@ -289,11 +306,13 @@ class BankingSicoobV3:
             result = _loads_maybe(r.text)
             return {"status": r.status_code, "response": result}
         except httpx.HTTPStatusError as exc:
+            logger.warning("Sicoob API error: %s", exc)
             parsed = _loads_maybe(exc.response.text)
             if not parsed:
                 return {"status_code": exc.response.status_code, "body": exc.response.text}
             return parsed
         except Exception as exc:  # noqa: BLE001
+            logger.warning("Sicoob API error: %s", exc)
             return {"error": str(exc)}
 
     def delete_webhook(self, id_webhook: str | int) -> Any:
@@ -307,9 +326,11 @@ class BankingSicoobV3:
             result = _loads_maybe(r.text)
             return {"status": r.status_code, "response": result}
         except httpx.HTTPStatusError as exc:
+            logger.warning("Sicoob API error: %s", exc)
             parsed = _loads_maybe(exc.response.text)
             if not parsed:
                 return {"status_code": exc.response.status_code, "body": exc.response.text}
             return parsed
         except Exception as exc:  # noqa: BLE001
+            logger.warning("Sicoob API error: %s", exc)
             return {"error": str(exc)}
