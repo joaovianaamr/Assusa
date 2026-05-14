@@ -56,6 +56,9 @@ class BankingSicoobV3:
     def _cert(self) -> tuple[str, str]:
         return (str(self._config["certificate"]), str(self._config["certificateKey"]))
 
+    def _path(self, suffix: str) -> str:
+        return f"{self._sandbox_base if self._sandbox else ''}{suffix}"
+
     def _headers_json(self) -> dict[str, str]:
         return {
             "Content-Type": "application/json",
@@ -73,8 +76,7 @@ class BankingSicoobV3:
         return self._token
 
     def registrar_boleto(self, fields: dict[str, Any]) -> Any:
-        url_prefix = self._sandbox_base if self._sandbox else ""
-        path = f"{url_prefix}/cobranca-bancaria/v3/boletos" if url_prefix else "/cobranca-bancaria/v3/boletos"
+        path = self._path("/cobranca-bancaria/v3/boletos")
         try:
             r = self._client.post(
                 path,
@@ -94,8 +96,6 @@ class BankingSicoobV3:
 
     def segunda_via_boleto(self, params: dict[str, Any] | None = None) -> Any:
         params = params or {}
-        base_url = self._sandbox_base if self._sandbox else ""
-
         if not params.get("numeroCliente"):
             return {"error": "numeroCliente é obrigatório"}
         if not params.get("codigoModalidade"):
@@ -105,7 +105,7 @@ class BankingSicoobV3:
         if not any(params.get(k) for k in identificadores):
             return {"error": "Informe pelo menos um: nossoNumero, linhaDigitavel ou codigoBarras"}
 
-        path = f"{base_url}/cobranca-bancaria/v3/boletos/segunda-via"
+        path = self._path("/cobranca-bancaria/v3/boletos/segunda-via")
         query = {
             "numeroCliente": int(params["numeroCliente"]),
             "codigoModalidade": 1,
@@ -134,10 +134,9 @@ class BankingSicoobV3:
             return {"error": "Erro na comunicação com a API Sicoob", "exception": str(exc)}
 
     def consultar_boleto(self, params: dict[str, Any]) -> Any:
-        base = self._sandbox_base if self._sandbox else ""
         try:
             r = self._client.get(
-                f"{base}/cobranca-bancaria/v3/boletos",
+                self._path("/cobranca-bancaria/v3/boletos"),
                 headers={**self._headers_json(), "Accept": "application/json"},
                 params={
                     "numeroCliente": int(params["numeroCliente"]),
@@ -159,10 +158,9 @@ class BankingSicoobV3:
             return {"error": f"Falha ao consultar Boleto Cobranca: {exc}"}
 
     def baixa_boleto(self, params: dict[str, Any]) -> Any:
-        base_url = self._sandbox_base if self._sandbox else self._url
         boleto = int(params["nossoNumero"])
         numero_cliente = int(params["numeroCliente"])
-        path = f"{base_url}/cobranca-bancaria/v3/boletos/{boleto}/baixar"
+        path = self._path(f"/cobranca-bancaria/v3/boletos/{boleto}/baixar")
         try:
             r = self._client.post(
                 path,
@@ -182,8 +180,7 @@ class BankingSicoobV3:
 
     def listar_boleto(self, params: dict[str, Any]) -> Any:
         cpf = params["numeroCpfCnpj"]
-        base = self._sandbox_base if self._sandbox else ""
-        path = f"{base}/cobranca-bancaria/v3/pagadores/{cpf}/boletos"
+        path = self._path(f"/cobranca-bancaria/v3/pagadores/{cpf}/boletos")
         try:
             r = self._client.get(
                 path,
@@ -208,8 +205,7 @@ class BankingSicoobV3:
             return {"error": f"Falha ao consultar Boleto Cobranca: {exc}"}
 
     def alterar_dados_boleto(self, fields: dict[str, Any], nosso_numero: str | int) -> Any:
-        url = self._sandbox_base if self._sandbox else ""
-        path = f"{url}/cobranca-bancaria/v3/boletos/{nosso_numero}"
+        path = self._path(f"/cobranca-bancaria/v3/boletos/{nosso_numero}")
         try:
             r = self._client.patch(
                 path,
@@ -228,8 +224,7 @@ class BankingSicoobV3:
             return {"error": str(exc)}
 
     def cadastrar_webhook(self, fields: dict[str, Any]) -> Any:
-        url_prefix = self._sandbox_base if self._sandbox else ""
-        path = f"{url_prefix}/cobranca-bancaria/v3/webhooks" if url_prefix else "/cobranca-bancaria/v3/webhooks"
+        path = self._path("/cobranca-bancaria/v3/webhooks")
         try:
             r = self._client.post(
                 path,
@@ -253,8 +248,7 @@ class BankingSicoobV3:
             return {"error": str(exc)}
 
     def consultar_webhook(self, params: dict[str, Any]) -> Any:
-        base = self._sandbox_base if self._sandbox else ""
-        path = f"{base}/cobranca-bancaria/v3/webhooks?idWebhook={params['idWebhook']}&codigoTipoMovimento=7"
+        path = self._path(f"/cobranca-bancaria/v3/webhooks?idWebhook={params['idWebhook']}&codigoTipoMovimento=7")
         try:
             r = self._client.get(
                 path,
@@ -272,8 +266,7 @@ class BankingSicoobV3:
             return {"error": f"Falha ao consultar Boleto Cobranca: {exc}"}
 
     def alterar_webhook(self, fields: dict[str, Any], id_webhook: str | int) -> Any:
-        url = self._sandbox_base if self._sandbox else ""
-        path = f"{url}/cobranca-bancaria/v3/webhooks/{id_webhook}"
+        path = self._path(f"/cobranca-bancaria/v3/webhooks/{id_webhook}")
         try:
             r = self._client.patch(
                 path,
@@ -297,8 +290,7 @@ class BankingSicoobV3:
             return {"error": str(exc)}
 
     def delete_webhook(self, id_webhook: str | int) -> Any:
-        url = self._sandbox_base if self._sandbox else ""
-        path = f"{url}/cobranca-bancaria/v3/webhooks/{id_webhook}"
+        path = self._path(f"/cobranca-bancaria/v3/webhooks/{id_webhook}")
         try:
             r = self._client.delete(
                 path,
