@@ -228,12 +228,7 @@ class BankingSicoobV3:
         try:
             r = self._client.post(
                 path,
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {self._token}",
-                    "Accept": "application/json",
-                    "client_id": self._client_id,
-                },
+                headers={**self._headers_json(), "Accept": "application/json"},
                 content=json.dumps(fields),
             )
             r.raise_for_status()
@@ -270,12 +265,7 @@ class BankingSicoobV3:
         try:
             r = self._client.patch(
                 path,
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {self._token}",
-                    "Accept": "application/json",
-                    "client_id": self._client_id,
-                },
+                headers={**self._headers_json(), "Accept": "application/json"},
                 content=json.dumps(fields),
             )
             r.raise_for_status()
@@ -294,12 +284,7 @@ class BankingSicoobV3:
         try:
             r = self._client.delete(
                 path,
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {self._token}",
-                    "Accept": "application/json",
-                    "client_id": self._client_id,
-                },
+                headers={**self._headers_json(), "Accept": "application/json"},
             )
             r.raise_for_status()
             result = _loads_maybe(r.text)
