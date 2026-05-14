@@ -125,7 +125,7 @@ class BankingSicoobV3:
             )
             r.raise_for_status()
             response_body = _loads_maybe(r.text)
-            return {"status": r.status_code, "data": response_body}
+            return {"status": r.status_code, "response": response_body}
         except httpx.HTTPStatusError as exc:
             logger.warning("Erro na requisição de segunda via: %s", exc)
             return {"error": "Erro na comunicação com a API Sicoob", "exception": str(exc)}
