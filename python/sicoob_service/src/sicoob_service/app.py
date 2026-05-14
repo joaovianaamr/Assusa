@@ -131,8 +131,8 @@ async def webhook_alterar(
 
 
 @app.delete("/internal/webhook/{id_webhook}", dependencies=[AuthDep])
-async def webhook_delete(id_webhook: str, banking: BankingDep) -> dict[str, Any]:
-    return {"ok": True, "result": banking.delete_webhook(id_webhook)}
+async def webhook_deletar(id_webhook: str, banking: BankingDep) -> dict[str, Any]:
+    return {"ok": True, "result": banking.deletar_webhook(id_webhook)}
 
 
 @app.post("/interno/interacao", dependencies=[AuthDep])

@@ -315,7 +315,7 @@ class BankingSicoobV3:
             logger.warning("Sicoob API error: %s", exc)
             return {"error": str(exc)}
 
-    def delete_webhook(self, id_webhook: str | int) -> Any:
+    def deletar_webhook(self, id_webhook: str | int) -> Any:
         path = self._path(f"/cobranca-bancaria/v3/webhooks/{id_webhook}")
         try:
             r = self._client.delete(
