@@ -259,7 +259,8 @@ class BankingSicoobV3:
             return {"error": str(exc)}
 
     def consultar_webhook(self, params: dict[str, Any]) -> Any:
-        path = f"/cobranca-bancaria/v3/webhooks?idWebhook={params['idWebhook']}&codigoTipoMovimento=7"
+        base = SANDBOX_BASE if self._sandbox else ""
+        path = f"{base}/cobranca-bancaria/v3/webhooks?idWebhook={params['idWebhook']}&codigoTipoMovimento=7"
         try:
             r = self._client.get(
                 path,
