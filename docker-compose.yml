@@ -45,11 +45,18 @@ services:
       context: ./python/sicoob_service
       dockerfile: Dockerfile
     restart: unless-stopped
+    volumes:
+      - ./certificados:/certs:ro
     environment:
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-docker-dev-internal-key}
       SICOOB_SERVICE_HOST: "0.0.0.0"
       SICOOB_SERVICE_PORT: "8090"
       DATABASE_URL: postgresql://assusa:${POSTGRES_PASSWORD:-assusa-dev}@postgres:5432/assusa
+      SICOOB_SANDBOX: ${SICOOB_SANDBOX:-true}
+      SICOOB_CLIENT_ID: ${SICOOB_CLIENT_ID:-}
+      SICOOB_NUMERO_CLIENTE: ${SICOOB_NUMERO_CLIENTE:-}
+      SICOOB_CERT_PATH: /certs/certificado.pem
+      SICOOB_KEY_PATH: /certs/private_key.pem
     ports:
       - "8090:8090"
     depends_on:
