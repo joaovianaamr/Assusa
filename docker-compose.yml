@@ -55,8 +55,8 @@ services:
       SICOOB_SANDBOX: ${SICOOB_SANDBOX:-true}
       SICOOB_CLIENT_ID: ${SICOOB_CLIENT_ID:-}
       SICOOB_NUMERO_CLIENTE: ${SICOOB_NUMERO_CLIENTE:-}
-      SICOOB_CERT_PATH: /certs/certificado.pem
-      SICOOB_KEY_PATH: /certs/private_key.pem
+      SICOOB_P12_PATH: /certs/certificado.pfx
+      SICOOB_P12_PASSWORD: ${SICOOB_P12_PASSWORD:-}
     ports:
       - "8090:8090"
     depends_on:
