@@ -90,7 +90,25 @@ async function handleCpfRecebido(senderPhoneNumberId, message) {
     return;
   }
 
-  const raw = resultado.body?.result?.response;
+  const resultData = resultado.body?.result;
+  const hasServiceError =
+    resultData?.error ||
+    (resultData?.status_code != null && resultData.status_code >= 400);
+
+  if (hasServiceError) {
+    interacao.registrar(message.senderPhoneNumber, "ERRO_SERVICO", cpfDigits, { etapa: "listar_boletos", detail: resultData });
+    await GraphApi.messageWithInteractiveReply(
+      message.id,
+      senderPhoneNumberId,
+      message.senderPhoneNumber,
+      constants.MSG_SEGUNDA_VIA_ERRO_SERVICO,
+      []
+    );
+    await Cache.clearEstado(message.senderPhoneNumber);
+    return;
+  }
+
+  const raw = resultData?.response;
   const boletos = Array.isArray(raw) ? raw
     : Array.isArray(raw?.resultado) ? raw.resultado
     : [];

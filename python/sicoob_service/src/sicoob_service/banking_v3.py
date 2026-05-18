@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import logging
 import ssl
+import time
 from typing import Any
 
 import httpx
@@ -15,6 +16,9 @@ import httpx
 from sicoob_service.token_v3 import TokenV3
 
 logger = logging.getLogger(__name__)
+
+_MAX_RETRIES = 3
+_RETRY_BASE_DELAY = 1.0  # segundos; dobra a cada tentativa (1s, 2s, 4s)
 
 
 def _loads_maybe(text: str) -> Any:
@@ -73,15 +77,32 @@ class BankingSicoobV3:
     def get_token(self) -> str:
         return self._token
 
+    def _execute(self, fn: Any, *args: Any, **kwargs: Any) -> httpx.Response:
+        """Executa fn(*args, **kwargs) com retry em backoff exponencial para HTTP 429."""
+        for attempt in range(_MAX_RETRIES + 1):
+            r: httpx.Response = fn(*args, **kwargs)
+            if r.status_code != 429 or attempt >= _MAX_RETRIES:
+                r.raise_for_status()
+                return r
+            delay = _RETRY_BASE_DELAY * (2 ** attempt)
+            logger.warning(
+                "Rate limit 429 da API Sicoob — aguardando %.1fs antes de tentar novamente (tentativa %d/%d)",
+                delay,
+                attempt + 1,
+                _MAX_RETRIES,
+            )
+            time.sleep(delay)
+        raise AssertionError("unreachable")
+
     def registrar_boleto(self, fields: dict[str, Any]) -> Any:
         path = self._path("/cobranca-bancaria/v3/boletos")
         try:
-            r = self._client.post(
+            r = self._execute(
+                self._client.post,
                 path,
                 headers=self._headers_json(),
                 content=json.dumps(fields),
             )
-            r.raise_for_status()
             result = _loads_maybe(r.text)
             return {"status": r.status_code, "response": result}
         except httpx.HTTPStatusError as exc:
@@ -115,15 +136,12 @@ class BankingSicoobV3:
             "gerarPdf": "true",
         }
         try:
-            r = self._client.get(
+            r = self._execute(
+                self._client.get,
                 path,
-                headers={
-                    **self._headers_json(),
-                    "Accept": "application/json",
-                },
+                headers={**self._headers_json(), "Accept": "application/json"},
                 params=query,
             )
-            r.raise_for_status()
             response_body = _loads_maybe(r.text)
             return {"status": r.status_code, "response": response_body}
         except httpx.HTTPStatusError as exc:
@@ -142,7 +160,8 @@ class BankingSicoobV3:
         if not params.get("numeroContratoCobranca"):
             return {"error": "numeroContratoCobranca é obrigatório"}
         try:
-            r = self._client.get(
+            r = self._execute(
+                self._client.get,
                 self._path("/cobranca-bancaria/v3/boletos"),
                 headers={**self._headers_json(), "Accept": "application/json"},
                 params={
@@ -153,7 +172,6 @@ class BankingSicoobV3:
                     "numeroContratoCobranca": int(params["numeroContratoCobranca"]),
                 },
             )
-            r.raise_for_status()
             result = _loads_maybe(r.text)
             return {"status": r.status_code, "response": result}
         except httpx.HTTPStatusError as exc:
@@ -175,12 +193,12 @@ class BankingSicoobV3:
         numero_cliente = int(params["numeroCliente"])
         path = self._path(f"/cobranca-bancaria/v3/boletos/{boleto}/baixar")
         try:
-            r = self._client.post(
+            r = self._execute(
+                self._client.post,
                 path,
                 headers={**self._headers_json(), "Accept": "application/json"},
                 content=json.dumps({"numeroCliente": numero_cliente, "codigoModalidade": 1}),
             )
-            r.raise_for_status()
             result = _loads_maybe(r.text)
             return {"status": r.status_code, "response": result}
         except httpx.HTTPStatusError as exc:
@@ -205,7 +223,8 @@ class BankingSicoobV3:
         cpf = params["numeroCpfCnpj"]
         path = self._path(f"/cobranca-bancaria/v3/pagadores/{cpf}/boletos")
         try:
-            r = self._client.get(
+            r = self._execute(
+                self._client.get,
                 path,
                 headers={**self._headers_json(), "Accept": "application/json"},
                 params={
@@ -216,7 +235,6 @@ class BankingSicoobV3:
                     "numeroCpfCnpj": int(params["numeroCpfCnpj"]),
                 },
             )
-            r.raise_for_status()
             result = _loads_maybe(r.text)
             return {"status": r.status_code, "response": result}
         except httpx.HTTPStatusError as exc:
@@ -232,12 +250,12 @@ class BankingSicoobV3:
     def alterar_dados_boleto(self, fields: dict[str, Any], nosso_numero: str | int) -> Any:
         path = self._path(f"/cobranca-bancaria/v3/boletos/{nosso_numero}")
         try:
-            r = self._client.patch(
+            r = self._execute(
+                self._client.patch,
                 path,
                 headers=self._headers_json(),
                 content=json.dumps(fields),
             )
-            r.raise_for_status()
             result = _loads_maybe(r.text)
             return {"status": r.status_code, "response": result}
         except httpx.HTTPStatusError as exc:
@@ -253,12 +271,12 @@ class BankingSicoobV3:
     def cadastrar_webhook(self, fields: dict[str, Any]) -> Any:
         path = self._path("/cobranca-bancaria/v3/webhooks")
         try:
-            r = self._client.post(
+            r = self._execute(
+                self._client.post,
                 path,
                 headers={**self._headers_json(), "Accept": "application/json"},
                 content=json.dumps(fields),
             )
-            r.raise_for_status()
             result = _loads_maybe(r.text)
             return {"status": r.status_code, "response": result}
         except httpx.HTTPStatusError as exc:
@@ -274,12 +292,12 @@ class BankingSicoobV3:
     def consultar_webhook(self, params: dict[str, Any]) -> Any:
         path = self._path("/cobranca-bancaria/v3/webhooks")
         try:
-            r = self._client.get(
+            r = self._execute(
+                self._client.get,
                 path,
                 headers={**self._headers_json(), "Accept": "application/json"},
                 params={"idWebhook": params["idWebhook"], "codigoTipoMovimento": 7},
             )
-            r.raise_for_status()
             result = _loads_maybe(r.text)
             return {"status": r.status_code, "response": result}
         except httpx.HTTPStatusError as exc:
@@ -295,12 +313,12 @@ class BankingSicoobV3:
     def alterar_webhook(self, fields: dict[str, Any], id_webhook: str | int) -> Any:
         path = self._path(f"/cobranca-bancaria/v3/webhooks/{id_webhook}")
         try:
-            r = self._client.patch(
+            r = self._execute(
+                self._client.patch,
                 path,
                 headers={**self._headers_json(), "Accept": "application/json"},
                 content=json.dumps(fields),
             )
-            r.raise_for_status()
             result = _loads_maybe(r.text)
             return {"status": r.status_code, "response": result}
         except httpx.HTTPStatusError as exc:
@@ -316,11 +334,11 @@ class BankingSicoobV3:
     def deletar_webhook(self, id_webhook: str | int) -> Any:
         path = self._path(f"/cobranca-bancaria/v3/webhooks/{id_webhook}")
         try:
-            r = self._client.delete(
+            r = self._execute(
+                self._client.delete,
                 path,
                 headers={**self._headers_json(), "Accept": "application/json"},
             )
-            r.raise_for_status()
             result = _loads_maybe(r.text)
             return {"status": r.status_code, "response": result}
         except httpx.HTTPStatusError as exc:
