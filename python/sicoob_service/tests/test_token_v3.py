@@ -5,7 +5,7 @@ import httpx
 import pytest
 import respx
 
-from sicoob_service.certificate_tools import _ssl_context_from_pem
+from sicoob_service.certificate_tools import ssl_context_from_pem
 from sicoob_service.token_v3 import TokenV3
 
 
@@ -33,7 +33,7 @@ def _openssl_self_signed(tmp_path) -> ssl.SSLContext:
         capture_output=True,
         timeout=30,
     )
-    return _ssl_context_from_pem(cert.read_bytes(), key.read_bytes())
+    return ssl_context_from_pem(cert.read_bytes(), key.read_bytes())
 
 
 @pytest.fixture

@@ -14,8 +14,7 @@ from sicoob_service.exceptions import SicoobCertificateError
 class CertificateTools:
     """Carrega PKCS#12 e expõe ssl.SSLContext com mTLS — chave privada nunca toca o disco."""
 
-    def __init__(self, client_id: str, certificate_content: bytes, certificate_password: str) -> None:
-        self.client_id = client_id
+    def __init__(self, certificate_content: bytes, certificate_password: str) -> None:
         self._ssl_context = self._build_ssl_context(certificate_content, certificate_password)
 
     def _build_ssl_context(self, certificate_content: bytes, certificate_password: str) -> ssl.SSLContext:
@@ -40,7 +39,7 @@ class CertificateTools:
         return self._ssl_context
 
 
-def _ssl_context_from_pem(cert_pem: bytes, key_pem: bytes) -> ssl.SSLContext:
+def ssl_context_from_pem(cert_pem: bytes, key_pem: bytes) -> ssl.SSLContext:
     """Constrói SSLContext com mTLS usando memfd_create — chave nunca é gravada em disco."""
     fd_cert = os.memfd_create("sicoob-cert")
     fd_key = os.memfd_create("sicoob-key")

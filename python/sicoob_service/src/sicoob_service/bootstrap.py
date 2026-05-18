@@ -6,7 +6,7 @@ import ssl
 from pathlib import Path
 
 from sicoob_service.banking_v3 import BankingSicoobV3
-from sicoob_service.certificate_tools import CertificateTools, _ssl_context_from_pem
+from sicoob_service.certificate_tools import CertificateTools, ssl_context_from_pem
 from sicoob_service.exceptions import SicoobConfigError
 from sicoob_service.settings import Settings
 
@@ -16,8 +16,7 @@ def build_ssl_context(settings: Settings) -> ssl.SSLContext:
         p12 = Path(settings.sicoob_p12_path)
         if not p12.is_file():
             raise SicoobConfigError(f"SICOOB_P12_PATH não é ficheiro válido: {p12}")
-        cid = settings.sicoob_client_id or "sicoob-client"
-        tools = CertificateTools(cid, p12.read_bytes(), settings.sicoob_p12_password)
+        tools = CertificateTools(p12.read_bytes(), settings.sicoob_p12_password)
         return tools.get_ssl_context()
 
     if settings.sicoob_cert_path and settings.sicoob_key_path:
@@ -26,7 +25,7 @@ def build_ssl_context(settings: Settings) -> ssl.SSLContext:
             raise SicoobConfigError(
                 "SICOOB_CERT_PATH e SICOOB_KEY_PATH devem apontar para ficheiros existentes"
             )
-        return _ssl_context_from_pem(c.read_bytes(), k.read_bytes())
+        return ssl_context_from_pem(c.read_bytes(), k.read_bytes())
 
     raise SicoobConfigError(
         "Defina SICOOB_CERT_PATH + SICOOB_KEY_PATH ou então SICOOB_P12_PATH + SICOOB_P12_PASSWORD"
