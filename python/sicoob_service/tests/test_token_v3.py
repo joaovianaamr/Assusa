@@ -1,13 +1,15 @@
+import ssl
 import subprocess
 
 import httpx
 import pytest
 import respx
 
+from sicoob_service.certificate_tools import _ssl_context_from_pem
 from sicoob_service.token_v3 import TokenV3
 
 
-def _openssl_self_signed(tmp_path) -> tuple[str, str]:
+def _openssl_self_signed(tmp_path) -> ssl.SSLContext:
     cert = tmp_path / "cert.pem"
     key = tmp_path / "key.pem"
     subprocess.run(
@@ -31,7 +33,7 @@ def _openssl_self_signed(tmp_path) -> tuple[str, str]:
         capture_output=True,
         timeout=30,
     )
-    return str(cert), str(key)
+    return _ssl_context_from_pem(cert.read_bytes(), key.read_bytes())
 
 
 @pytest.fixture
@@ -52,11 +54,10 @@ def mock_auth(respx_mock: respx.MockRouter) -> respx.MockRouter:
     reason="openssl não disponível",
 )
 def test_token_v3_client_credentials(mock_auth: respx.MockRouter, tmp_path) -> None:
-    cert, key = _openssl_self_signed(tmp_path)
+    ctx = _openssl_self_signed(tmp_path)
     cfg = {
         "client_id": "cid",
-        "certificate": cert,
-        "certificateKey": key,
+        "ssl_context": ctx,
         "api": "boleto",
     }
     t = TokenV3(cfg)
