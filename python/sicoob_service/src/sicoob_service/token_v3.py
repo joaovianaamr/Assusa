@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import ssl
 from typing import Any
 
 import httpx
@@ -34,13 +35,12 @@ class TokenV3:
             "client_id": self._config["client_id"],
             "scope": _scope_for_api(self._config.get("api")),
         }
-        cert = (self._config["certificate"], self._config["certificateKey"])
+        ssl_context: ssl.SSLContext | None = self._config.get("ssl_context")
         try:
             with httpx.Client(
                 base_url=AUTH_BASE,
                 timeout=60.0,
-                verify=True,
-                cert=cert,
+                verify=ssl_context if ssl_context is not None else True,
             ) as client:
                 r = client.post(TOKEN_PATH, data=data)
                 r.raise_for_status()

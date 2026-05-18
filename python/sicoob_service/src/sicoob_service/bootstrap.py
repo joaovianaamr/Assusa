@@ -1,33 +1,32 @@
-"""Resolve certificados PEM e constrói o cliente BankingSicoobV3 a partir de Settings."""
+"""Resolve certificados e constrói o cliente BankingSicoobV3 a partir de Settings."""
 
 from __future__ import annotations
 
+import ssl
 from pathlib import Path
 
 from sicoob_service.banking_v3 import BankingSicoobV3
-from sicoob_service.certificate_tools import CertificateTools
+from sicoob_service.certificate_tools import CertificateTools, _ssl_context_from_pem
 from sicoob_service.exceptions import SicoobConfigError
 from sicoob_service.settings import Settings
 
 
-def resolve_cert_paths(settings: Settings) -> tuple[str, str]:
+def build_ssl_context(settings: Settings) -> ssl.SSLContext:
     if settings.sicoob_p12_path:
         p12 = Path(settings.sicoob_p12_path)
         if not p12.is_file():
             raise SicoobConfigError(f"SICOOB_P12_PATH não é ficheiro válido: {p12}")
         cid = settings.sicoob_client_id or "sicoob-client"
-        tools = CertificateTools(
-            cid,
-            p12.read_bytes(),
-            settings.sicoob_p12_password,
-        )
-        return tools.get_certificate_file_path(), tools.get_private_key_file_path()
+        tools = CertificateTools(cid, p12.read_bytes(), settings.sicoob_p12_password)
+        return tools.get_ssl_context()
 
     if settings.sicoob_cert_path and settings.sicoob_key_path:
         c, k = Path(settings.sicoob_cert_path), Path(settings.sicoob_key_path)
         if not c.is_file() or not k.is_file():
-            raise SicoobConfigError("SICOOB_CERT_PATH e SICOOB_KEY_PATH devem apontar para ficheiros existentes")
-        return str(c), str(k)
+            raise SicoobConfigError(
+                "SICOOB_CERT_PATH e SICOOB_KEY_PATH devem apontar para ficheiros existentes"
+            )
+        return _ssl_context_from_pem(c.read_bytes(), k.read_bytes())
 
     raise SicoobConfigError(
         "Defina SICOOB_CERT_PATH + SICOOB_KEY_PATH ou então SICOOB_P12_PATH + SICOOB_P12_PASSWORD"
@@ -47,9 +46,8 @@ def _base_config(settings: Settings) -> dict:
 
 def build_sicoob_config(settings: Settings) -> dict:
     if settings.sicoob_sandbox:
-        return {**_base_config(settings), "sandbox": True, "certificate": None, "certificateKey": None}
-    cert, key = resolve_cert_paths(settings)
-    return {**_base_config(settings), "sandbox": False, "certificate": cert, "certificateKey": key}
+        return {**_base_config(settings), "sandbox": True, "ssl_context": None}
+    return {**_base_config(settings), "sandbox": False, "ssl_context": build_ssl_context(settings)}
 
 
 def create_banking_client(settings: Settings) -> BankingSicoobV3:

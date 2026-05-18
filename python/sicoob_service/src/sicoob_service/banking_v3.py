@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import ssl
 from typing import Any
 
 import httpx
@@ -43,18 +44,15 @@ class BankingSicoobV3:
             self._token = ret["access_token"]
             self._client_id = str(self._config["client_id"])
 
+        ssl_context: ssl.SSLContext | None = self._config.get("ssl_context")
         self._client = httpx.Client(
             base_url=self._url,
             timeout=60.0,
-            verify=True,
-            cert=None if self._sandbox else self._cert(),
+            verify=ssl_context if ssl_context is not None else True,
         )
 
     def close(self) -> None:
         self._client.close()
-
-    def _cert(self) -> tuple[str, str]:
-        return (str(self._config["certificate"]), str(self._config["certificateKey"]))
 
     def _path(self, suffix: str) -> str:
         return f"{self._sandbox_base if self._sandbox else ''}{suffix}"

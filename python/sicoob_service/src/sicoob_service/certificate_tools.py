@@ -1,11 +1,10 @@
-"""Equivalente a CertificateTools.php (api-sicoob): PKCS#12 → ficheiros PEM temporários."""
+"""Equivalente a CertificateTools.php (api-sicoob): PKCS#12 → ssl.SSLContext em memória."""
 
 from __future__ import annotations
 
-import tempfile
-from pathlib import Path
+import os
+import ssl
 
-from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, NoEncryption
 from cryptography.hazmat.primitives.serialization import pkcs12
 
@@ -13,49 +12,51 @@ from sicoob_service.exceptions import SicoobCertificateError
 
 
 class CertificateTools:
-    """Espelha a classe PHP CertificateTools (geração de PEMs temporários)."""
+    """Carrega PKCS#12 e expõe ssl.SSLContext com mTLS — chave privada nunca toca o disco."""
 
     def __init__(self, client_id: str, certificate_content: bytes, certificate_password: str) -> None:
         self.client_id = client_id
-        self._certifcate_files = self.generate_pem_files(client_id, certificate_content, certificate_password)
+        self._ssl_context = self._build_ssl_context(certificate_content, certificate_password)
 
-    def generate_pem_files(
-        self,
-        client_id: str,
-        certificate_content: bytes,
-        certificate_password: str,
-    ) -> dict[str, str]:
+    def _build_ssl_context(self, certificate_content: bytes, certificate_password: str) -> ssl.SSLContext:
         password_bytes = certificate_password.encode("utf-8") if certificate_password else None
         try:
             private_key, certificate, _extra_certs = pkcs12.load_key_and_certificates(
                 certificate_content,
                 password_bytes,
             )
-        except Exception as exc:  # noqa: BLE001 — paridade com openssl_pkcs12_read falha genérica
+        except Exception as exc:  # noqa: BLE001
             raise SicoobCertificateError(f"Error: {exc}") from exc
 
         if private_key is None or certificate is None:
             raise SicoobCertificateError("Error: PKCS#12 sem chave ou certificado")
 
-        cert_pem = certificate.public_bytes(Encoding.PEM).decode("utf-8")
-        key_pem = private_key.private_bytes(
-            Encoding.PEM,
-            PrivateFormat.PKCS8,
-            NoEncryption(),
-        ).decode("utf-8")
+        cert_pem = certificate.public_bytes(Encoding.PEM)
+        key_pem = private_key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption())
 
-        tmp = Path(tempfile.gettempdir())
-        cert_path = self._write_temp_pem(tmp / f"{client_id}.pem", cert_pem)
-        key_path = self._write_temp_pem(tmp / f"{client_id}-private-key.pem", key_pem)
-        return {"certificate": cert_path, "certificateKey": key_path}
+        return _ssl_context_from_pem(cert_pem, key_pem)
 
-    @staticmethod
-    def _write_temp_pem(path: Path, content: str) -> str:
-        path.write_text(content, encoding="utf-8")
-        return str(path)
+    def get_ssl_context(self) -> ssl.SSLContext:
+        return self._ssl_context
 
-    def get_certificate_file_path(self) -> str:
-        return self._certifcate_files["certificate"]
 
-    def get_private_key_file_path(self) -> str:
-        return self._certifcate_files["certificateKey"]
+def _ssl_context_from_pem(cert_pem: bytes, key_pem: bytes) -> ssl.SSLContext:
+    """Constrói SSLContext com mTLS usando memfd_create — chave nunca é gravada em disco."""
+    fd_cert = os.memfd_create("sicoob-cert")
+    fd_key = os.memfd_create("sicoob-key")
+    try:
+        os.write(fd_cert, cert_pem)
+        os.lseek(fd_cert, 0, os.SEEK_SET)
+        os.write(fd_key, key_pem)
+        os.lseek(fd_key, 0, os.SEEK_SET)
+
+        ctx = ssl.create_default_context()
+        ctx.load_cert_chain(
+            certfile=f"/proc/self/fd/{fd_cert}",
+            keyfile=f"/proc/self/fd/{fd_key}",
+        )
+    finally:
+        os.close(fd_cert)
+        os.close(fd_key)
+
+    return ctx
