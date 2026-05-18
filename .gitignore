@@ -28,3 +28,6 @@ python/sicoob_service/**/*.egg-info/
 
 # sicoob
 sicoob/
+
+# certificados (arquivos sensíveis — nunca versionar)
+certificados/
