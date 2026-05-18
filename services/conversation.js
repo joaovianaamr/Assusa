@@ -172,7 +172,7 @@ async function handleSelecaoBoleto(senderPhoneNumberId, message) {
       codigoModalidade: 1,
       linhaDigitavel: boleto.linhaDigitavel,
     });
-    resultado = res.body?.ok ? res.body.result?.data?.resultado : null;
+    resultado = res.body?.ok ? res.body.result?.response?.resultado : null;
   } catch {
     resultado = null;
   }

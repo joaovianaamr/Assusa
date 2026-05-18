@@ -5,6 +5,7 @@
 
 "use strict";
 
+const config = require("./config");
 const DEFAULT_TIMEOUT_MS = 60000;
 
 function baseUrl() {
@@ -69,7 +70,7 @@ async function listarBoletos({ numeroCpfCnpj }) {
 
   const payload = {
     numeroCpfCnpj,
-    numeroCliente: Number(process.env.SICOOB_NUMERO_CLIENTE),
+    numeroCliente: Number(config.sicoobNumeroCliente),
     dataInicio: fmt(doisAnosAtras),
     dataFim: fmt(hoje),
   };

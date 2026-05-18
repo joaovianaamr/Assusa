@@ -17,9 +17,6 @@ const ENV_VARS = [
   "APP_SECRET",
   "REDIS_HOST",
   "REDIS_PORT",
-  "SICOOB_CLIENT_ID",
-  "SICOOB_CLIENT_SECRET",
-  "SICOOB_COOPERATIVA_ID",
   "SICOOB_NUMERO_CLIENTE"
 ];
 
@@ -34,9 +31,6 @@ module.exports = Object.freeze({
   port: process.env.PORT || 8080,
   redisHost: process.env.REDIS_HOST || "localhost",
   redisPort: process.env.REDIS_PORT || 6379,
-  sicoobClientId: process.env.SICOOB_CLIENT_ID,
-  sicoobClientSecret: process.env.SICOOB_CLIENT_SECRET,
-  sicoobCooperativaId: process.env.SICOOB_COOPERATIVA_ID,
   sicoobNumeroCliente: process.env.SICOOB_NUMERO_CLIENTE,
 
   checkEnvVariables: function () {
