@@ -1,5 +1,6 @@
 import ssl
 import subprocess
+import sys
 
 import httpx
 import pytest
@@ -50,8 +51,9 @@ def mock_auth(respx_mock: respx.MockRouter) -> respx.MockRouter:
 
 
 @pytest.mark.skipif(
-    subprocess.run(["which", "openssl"], capture_output=True).returncode != 0,
-    reason="openssl não disponível",
+    sys.platform == "win32"
+    or subprocess.run(["which", "openssl"], capture_output=True).returncode != 0,
+    reason="memfd_create indisponível no Windows / openssl não encontrado",
 )
 def test_token_v3_client_credentials(mock_auth: respx.MockRouter, tmp_path) -> None:
     ctx = _openssl_self_signed(tmp_path)

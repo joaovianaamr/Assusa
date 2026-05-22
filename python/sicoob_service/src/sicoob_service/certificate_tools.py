@@ -33,7 +33,7 @@ class CertificateTools:
         cert_pem = certificate.public_bytes(Encoding.PEM)
         key_pem = private_key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption())
 
-        return _ssl_context_from_pem(cert_pem, key_pem)
+        return ssl_context_from_pem(cert_pem, key_pem)
 
     def get_ssl_context(self) -> ssl.SSLContext:
         return self._ssl_context
