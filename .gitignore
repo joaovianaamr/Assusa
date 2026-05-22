@@ -18,6 +18,7 @@ node_modules/
 
 # dotenv environment variables file
 .env*
+!.env.sample
 
 # Python (microsserviço sicoob)
 python/sicoob_service/.venv/
@@ -31,3 +32,6 @@ sicoob/
 
 # certificados (arquivos sensíveis — nunca versionar)
 certificados/
+
+# Claude Code
+.claude/
