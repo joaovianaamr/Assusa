@@ -27,8 +27,6 @@ python/sicoob_service/**/*.egg-info/
 .python-version
 .pytest_cache/
 
-# sicoob
-sicoob/
 
 # certificados (arquivos sensíveis — nunca versionar)
 certificados/

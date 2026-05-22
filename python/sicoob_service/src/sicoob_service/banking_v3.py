@@ -129,11 +129,11 @@ class BankingSicoobV3:
         path = self._path("/cobranca-bancaria/v3/boletos/segunda-via")
         query = {
             "numeroCliente": int(params["numeroCliente"]),
-            "codigoModalidade": 1,
+            "codigoModalidade": int(params["codigoModalidade"]),
             "nossoNumero": params.get("nossoNumero"),
             "linhaDigitavel": params.get("linhaDigitavel"),
             "codigoBarras": params.get("codigoBarras"),
-            "gerarPdf": "true",
+            "gerarPdf": params.get("gerarPdf", True),
         }
         try:
             r = self._execute(
@@ -157,20 +157,29 @@ class BankingSicoobV3:
     def consultar_boleto(self, params: dict[str, Any]) -> Any:
         if not params.get("numeroCliente"):
             return {"error": "numeroCliente é obrigatório"}
-        if not params.get("numeroContratoCobranca"):
-            return {"error": "numeroContratoCobranca é obrigatório"}
+        if not params.get("codigoModalidade"):
+            return {"error": "codigoModalidade é obrigatório"}
+        identificadores = ("nossoNumero", "linhaDigitavel", "codigoBarras")
+        if not any(params.get(k) for k in identificadores):
+            return {"error": "Informe pelo menos um: nossoNumero, linhaDigitavel ou codigoBarras"}
+        query: dict[str, Any] = {
+            "numeroCliente": int(params["numeroCliente"]),
+            "codigoModalidade": int(params["codigoModalidade"]),
+        }
+        if params.get("nossoNumero"):
+            query["nossoNumero"] = int(params["nossoNumero"])
+        if params.get("linhaDigitavel"):
+            query["linhaDigitavel"] = params["linhaDigitavel"]
+        if params.get("codigoBarras"):
+            query["codigoBarras"] = params["codigoBarras"]
+        if params.get("numeroContratoCobranca"):
+            query["numeroContratoCobranca"] = int(params["numeroContratoCobranca"])
         try:
             r = self._execute(
                 self._client.get,
                 self._path("/cobranca-bancaria/v3/boletos"),
                 headers={**self._headers_json(), "Accept": "application/json"},
-                params={
-                    "numeroCliente": int(params["numeroCliente"]),
-                    "codigoModalidade": 1,
-                    "linhaDigitavel": params.get("linhaDigitavel"),
-                    "codigoBarras": params.get("codigoBarras"),
-                    "numeroContratoCobranca": int(params["numeroContratoCobranca"]),
-                },
+                params=query,
             )
             result = _loads_maybe(r.text)
             return {"status": r.status_code, "response": result}
@@ -220,20 +229,22 @@ class BankingSicoobV3:
             return {"error": "dataInicio é obrigatório"}
         if not params.get("dataFim"):
             return {"error": "dataFim é obrigatório"}
-        cpf = params["numeroCpfCnpj"]
+        cpf = str(params["numeroCpfCnpj"])
         path = self._path(f"/cobranca-bancaria/v3/pagadores/{cpf}/boletos")
+        query: dict[str, Any] = {
+            "numeroCliente": int(params["numeroCliente"]),
+            "dataInicio": params["dataInicio"],
+            "dataFim": params["dataFim"],
+            "numeroCpfCnpj": cpf,
+        }
+        if params.get("codigoSituacao") is not None:
+            query["codigoSituacao"] = int(params["codigoSituacao"])
         try:
             r = self._execute(
                 self._client.get,
                 path,
                 headers={**self._headers_json(), "Accept": "application/json"},
-                params={
-                    "numeroCliente": int(params["numeroCliente"]),
-                    "codigoSituacao": 1,
-                    "dataInicio": params["dataInicio"],
-                    "dataFim": params["dataFim"],
-                    "numeroCpfCnpj": int(params["numeroCpfCnpj"]),
-                },
+                params=query,
             )
             result = _loads_maybe(r.text)
             return {"status": r.status_code, "response": result}
@@ -246,6 +257,39 @@ class BankingSicoobV3:
         except Exception as exc:  # noqa: BLE001
             logger.warning("Sicoob API error: %s", exc)
             return {"error": f"Falha ao consultar Boleto Cobranca: {exc}"}
+
+    def consultar_faixas_nosso_numero(self, params: dict[str, Any]) -> Any:
+        if not params.get("numeroCliente"):
+            return {"error": "numeroCliente é obrigatório"}
+        if not params.get("codigoModalidade"):
+            return {"error": "codigoModalidade é obrigatório"}
+        if not params.get("quantidade"):
+            return {"error": "quantidade é obrigatório"}
+        query: dict[str, Any] = {
+            "numeroCliente": int(params["numeroCliente"]),
+            "codigoModalidade": int(params["codigoModalidade"]),
+            "quantidade": int(params["quantidade"]),
+        }
+        if params.get("numeroContratoCobranca"):
+            query["numeroContratoCobranca"] = int(params["numeroContratoCobranca"])
+        try:
+            r = self._execute(
+                self._client.get,
+                self._path("/cobranca-bancaria/v3/boletos/faixas-nosso-numero-disponiveis"),
+                headers={**self._headers_json(), "Accept": "application/json"},
+                params=query,
+            )
+            result = _loads_maybe(r.text)
+            return {"status": r.status_code, "response": result}
+        except httpx.HTTPStatusError as exc:
+            logger.warning("Sicoob API error: %s", exc)
+            parsed = _loads_maybe(exc.response.text)
+            if not parsed:
+                return {"status_code": exc.response.status_code, "body": exc.response.text}
+            return parsed
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Sicoob API error: %s", exc)
+            return {"error": str(exc)}
 
     def alterar_dados_boleto(self, fields: dict[str, Any], nosso_numero: str | int) -> Any:
         path = self._path(f"/cobranca-bancaria/v3/boletos/{nosso_numero}")
@@ -269,6 +313,12 @@ class BankingSicoobV3:
             return {"error": str(exc)}
 
     def cadastrar_webhook(self, fields: dict[str, Any]) -> Any:
+        if not fields.get("url"):
+            return {"error": "url é obrigatório"}
+        if not fields.get("codigoTipoMovimento"):
+            return {"error": "codigoTipoMovimento é obrigatório"}
+        if not fields.get("codigoPeriodoMovimento"):
+            return {"error": "codigoPeriodoMovimento é obrigatório"}
         path = self._path("/cobranca-bancaria/v3/webhooks")
         try:
             r = self._execute(
@@ -289,14 +339,18 @@ class BankingSicoobV3:
             logger.warning("Sicoob API error: %s", exc)
             return {"error": str(exc)}
 
-    def consultar_webhook(self, params: dict[str, Any]) -> Any:
+    def consultar_webhook(self, params: dict[str, Any] | None = None) -> Any:
+        params = params or {}
+        query: dict[str, Any] = {"codigoTipoMovimento": 7}
+        if params.get("idWebhook"):
+            query["idWebhook"] = params["idWebhook"]
         path = self._path("/cobranca-bancaria/v3/webhooks")
         try:
             r = self._execute(
                 self._client.get,
                 path,
                 headers={**self._headers_json(), "Accept": "application/json"},
-                params={"idWebhook": params["idWebhook"], "codigoTipoMovimento": 7},
+                params=query,
             )
             result = _loads_maybe(r.text)
             return {"status": r.status_code, "response": result}
@@ -318,6 +372,55 @@ class BankingSicoobV3:
                 path,
                 headers={**self._headers_json(), "Accept": "application/json"},
                 content=json.dumps(fields),
+            )
+            result = _loads_maybe(r.text)
+            return {"status": r.status_code, "response": result}
+        except httpx.HTTPStatusError as exc:
+            logger.warning("Sicoob API error: %s", exc)
+            parsed = _loads_maybe(exc.response.text)
+            if not parsed:
+                return {"status_code": exc.response.status_code, "body": exc.response.text}
+            return parsed
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Sicoob API error: %s", exc)
+            return {"error": str(exc)}
+
+    def consultar_solicitacoes_webhook(self, id_webhook: str | int, params: dict[str, Any] | None = None) -> Any:
+        params = params or {}
+        query: dict[str, Any] = {}
+        if params.get("dataSolicitacao"):
+            query["dataSolicitacao"] = params["dataSolicitacao"]
+        if params.get("pagina"):
+            query["pagina"] = int(params["pagina"])
+        if params.get("codigoSolicitacaoSituacao"):
+            query["codigoSolicitacaoSituacao"] = int(params["codigoSolicitacaoSituacao"])
+        path = self._path(f"/cobranca-bancaria/v3/webhooks/{id_webhook}/solicitacoes")
+        try:
+            r = self._execute(
+                self._client.get,
+                path,
+                headers={**self._headers_json(), "Accept": "application/json"},
+                params=query,
+            )
+            result = _loads_maybe(r.text)
+            return {"status": r.status_code, "response": result}
+        except httpx.HTTPStatusError as exc:
+            logger.warning("Sicoob API error: %s", exc)
+            parsed = _loads_maybe(exc.response.text)
+            if not parsed:
+                return {"status_code": exc.response.status_code, "body": exc.response.text}
+            return parsed
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Sicoob API error: %s", exc)
+            return {"error": str(exc)}
+
+    def reativar_webhook(self, id_webhook: str | int) -> Any:
+        path = self._path(f"/cobranca-bancaria/v3/webhooks/{id_webhook}/reativar")
+        try:
+            r = self._execute(
+                self._client.patch,
+                path,
+                headers={**self._headers_json(), "Accept": "application/json"},
             )
             result = _loads_maybe(r.text)
             return {"status": r.status_code, "response": result}

@@ -99,6 +99,24 @@ async def boleto_listar(body: dict[str, Any], banking: BankingDep) -> dict[str, 
     return {"ok": True, "result": banking.listar_boleto(body)}
 
 
+@app.get("/internal/boleto/faixas-nosso-numero", dependencies=[AuthDep])
+async def boleto_faixas_nosso_numero(
+    banking: BankingDep,
+    numeroCliente: int,
+    codigoModalidade: int,
+    quantidade: int,
+    numeroContratoCobranca: int | None = None,
+) -> dict[str, Any]:
+    params: dict[str, Any] = {
+        "numeroCliente": numeroCliente,
+        "codigoModalidade": codigoModalidade,
+        "quantidade": quantidade,
+    }
+    if numeroContratoCobranca is not None:
+        params["numeroContratoCobranca"] = numeroContratoCobranca
+    return {"ok": True, "result": banking.consultar_faixas_nosso_numero(params)}
+
+
 @app.patch("/internal/boleto/alterar/{nosso_numero}", dependencies=[AuthDep])
 async def boleto_alterar(
     nosso_numero: str,
@@ -116,9 +134,10 @@ async def webhook_cadastrar(body: dict[str, Any], banking: BankingDep) -> dict[s
 @app.get("/internal/webhook/consultar", dependencies=[AuthDep])
 async def webhook_consultar(
     banking: BankingDep,
-    id_webhook: Annotated[str, Query(alias="idWebhook")],
+    id_webhook: Annotated[str | None, Query(alias="idWebhook")] = None,
 ) -> dict[str, Any]:
-    return {"ok": True, "result": banking.consultar_webhook({"idWebhook": id_webhook})}
+    params = {"idWebhook": id_webhook} if id_webhook else {}
+    return {"ok": True, "result": banking.consultar_webhook(params)}
 
 
 @app.patch("/internal/webhook/{id_webhook}", dependencies=[AuthDep])
@@ -128,6 +147,27 @@ async def webhook_alterar(
     banking: BankingDep,
 ) -> dict[str, Any]:
     return {"ok": True, "result": banking.alterar_webhook(body, id_webhook)}
+
+
+@app.get("/internal/webhook/{id_webhook}/solicitacoes", dependencies=[AuthDep])
+async def webhook_consultar_solicitacoes(
+    id_webhook: str,
+    banking: BankingDep,
+    data_solicitacao: Annotated[str | None, Query(alias="dataSolicitacao")] = None,
+    pagina: int = 1,
+    codigo_situacao: Annotated[int | None, Query(alias="codigoSolicitacaoSituacao")] = None,
+) -> dict[str, Any]:
+    params: dict[str, Any] = {"pagina": pagina}
+    if data_solicitacao:
+        params["dataSolicitacao"] = data_solicitacao
+    if codigo_situacao is not None:
+        params["codigoSolicitacaoSituacao"] = codigo_situacao
+    return {"ok": True, "result": banking.consultar_solicitacoes_webhook(id_webhook, params)}
+
+
+@app.patch("/internal/webhook/{id_webhook}/reativar", dependencies=[AuthDep])
+async def webhook_reativar(id_webhook: str, banking: BankingDep) -> dict[str, Any]:
+    return {"ok": True, "result": banking.reativar_webhook(id_webhook)}
 
 
 @app.delete("/internal/webhook/{id_webhook}", dependencies=[AuthDep])
