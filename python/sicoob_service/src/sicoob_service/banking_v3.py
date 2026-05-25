@@ -127,14 +127,17 @@ class BankingSicoobV3:
             return {"error": "Informe pelo menos um: nossoNumero, linhaDigitavel ou codigoBarras"}
 
         path = self._path("/cobranca-bancaria/v3/boletos/segunda-via")
-        query = {
+        query: dict[str, Any] = {
             "numeroCliente": int(params["numeroCliente"]),
             "codigoModalidade": int(params["codigoModalidade"]),
-            "nossoNumero": params.get("nossoNumero"),
-            "linhaDigitavel": params.get("linhaDigitavel"),
-            "codigoBarras": params.get("codigoBarras"),
             "gerarPdf": params.get("gerarPdf", True),
         }
+        if params.get("nossoNumero"):
+            query["nossoNumero"] = int(params["nossoNumero"])
+        if params.get("linhaDigitavel"):
+            query["linhaDigitavel"] = params["linhaDigitavel"]
+        if params.get("codigoBarras"):
+            query["codigoBarras"] = params["codigoBarras"]
         try:
             r = self._execute(
                 self._client.get,

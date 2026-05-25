@@ -31,5 +31,8 @@ python/sicoob_service/**/*.egg-info/
 # certificados (arquivos sensíveis — nunca versionar)
 certificados/
 
+# dados sensíveis de teste
+boleto.md
+
 # Claude Code
 .claude/
