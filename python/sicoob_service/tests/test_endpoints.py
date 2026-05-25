@@ -102,6 +102,86 @@ class TestBoletoConsultar:
         assert "nossoNumero" in r["error"]
 
 
+# ── boleto/segunda-via ───────────────────────────────────────────────────────
+
+class TestBoletoSegundaVia:
+    def test_chama_metodo_correto(self, client: TestClient, banking: MagicMock) -> None:
+        banking.segunda_via_boleto.return_value = {"status": 200, "response": {"resultado": {}}}
+        body = {"numeroCliente": 1964895, "codigoModalidade": 1, "linhaDigitavel": "123456"}
+        r = client.post("/internal/boleto/segunda-via", json=body, headers=HEADERS)
+        assert r.status_code == 200
+        assert r.json()["ok"] is True
+        banking.segunda_via_boleto.assert_called_once_with(body)
+
+    def test_sem_auth_retorna_401(self, client: TestClient) -> None:
+        r = client.post("/internal/boleto/segunda-via", json={})
+        assert r.status_code == 401
+
+    def test_valida_sem_cliente(self, bv3: BankingSicoobV3) -> None:
+        r = bv3.segunda_via_boleto({"codigoModalidade": 1, "linhaDigitavel": "123"})
+        assert "error" in r
+
+    def test_valida_sem_modalidade(self, bv3: BankingSicoobV3) -> None:
+        r = bv3.segunda_via_boleto({"numeroCliente": 1, "linhaDigitavel": "123"})
+        assert "error" in r
+
+    def test_valida_sem_identificador(self, bv3: BankingSicoobV3) -> None:
+        r = bv3.segunda_via_boleto({"numeroCliente": 1, "codigoModalidade": 1})
+        assert "error" in r
+        assert "nossoNumero" in r["error"]
+
+    def test_nao_inclui_params_nulos_no_query(self, bv3: BankingSicoobV3) -> None:
+        """nossoNumero=None e codigoBarras=None não devem entrar no query.
+
+        httpx serializa None como string vazia, fazendo a API Sicoob ignorar
+        a linhaDigitavel fornecida e retornar erro de validação.
+        """
+        captured: dict = {}
+
+        def fake_get(path, **kwargs):
+            captured["params"] = kwargs.get("params", {})
+            resp = MagicMock()
+            resp.status_code = 200
+            resp.text = '{"resultado": {}}'
+            resp.raise_for_status = MagicMock()
+            return resp
+
+        bv3._client.get = fake_get
+        bv3.segunda_via_boleto({
+            "numeroCliente": 1,
+            "codigoModalidade": 1,
+            "linhaDigitavel": "75691311750119648950200038610044714520000036907",
+        })
+
+        params = captured["params"]
+        assert "linhaDigitavel" in params
+        assert "nossoNumero" not in params
+        assert "codigoBarras" not in params
+
+    def test_nosso_numero_cast_para_int(self, bv3: BankingSicoobV3) -> None:
+        captured: dict = {}
+
+        def fake_get(path, **kwargs):
+            captured["params"] = kwargs.get("params", {})
+            resp = MagicMock()
+            resp.status_code = 200
+            resp.text = '{"resultado": {}}'
+            resp.raise_for_status = MagicMock()
+            return resp
+
+        bv3._client.get = fake_get
+        bv3.segunda_via_boleto({
+            "numeroCliente": 1,
+            "codigoModalidade": 1,
+            "nossoNumero": "3861",
+        })
+
+        params = captured["params"]
+        assert params["nossoNumero"] == 3861
+        assert "linhaDigitavel" not in params
+        assert "codigoBarras" not in params
+
+
 # ── boleto/baixa ──────────────────────────────────────────────────────────────
 
 class TestBoletoBaixa:
