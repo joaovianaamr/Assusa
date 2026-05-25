@@ -1,232 +1,130 @@
-# Guia de Testes — Postman
+# Testes Postman — Webhook WhatsApp (Assusa)
 
-## 1. Pré-requisitos
-
-- Stack rodando: `docker compose up --build`
-- Node.js (bot) em `http://localhost:8080`
-- Microsserviço Python (Sicoob) em `http://localhost:8090`
-
-### Modo sandbox (sem certificados)
-
-Para testar sem as chaves e certificados reais do Sicoob, garanta que o `.env` tenha:
-
-```
-SICOOB_SANDBOX=true
-```
-
-Com isso o microsserviço usa token e client_id hardcoded do ambiente de testes do Sicoob e não exige nenhum arquivo de certificado. O valor padrão já é `true`, então se a variável não estiver no `.env` o sandbox já está ativo.
+Guia completo para simular mensagens do WhatsApp e testar os microsserviços
+enviando requisições via Postman, sem precisar de um celular conectado.
 
 ---
 
-## 2. Environment do Postman
+## Ambiente Postman
 
-Crie um Environment chamado **assusa-local** com as variáveis abaixo:
+Crie um **Environment** chamado `assusa-local` com as variáveis abaixo:
 
-| Variável | Valor de exemplo | Descrição |
+| Variável | Valor | Descrição |
 |---|---|---|
-| `BOT_URL` | `http://localhost:8080` | URL do bot Node.js |
-| `PYTHON_URL` | `http://localhost:8090` | URL do microsserviço Python |
-| `VERIFY_TOKEN` | mesmo valor do `.env` | Token de verificação do webhook |
-| `APP_SECRET` | mesmo valor do `.env` | Segredo para assinar requisições |
+| `NGROK_URL` | `https://icky-flame-machinist.ngrok-free.dev` | URL pública do ngrok (atualizar a cada reinício) |
+| `PYTHON_URL` | `http://localhost:8090` | Microsserviço Sicoob (acesso local direto) |
+| `PHONE_NUMBER_ID` | `<id do Meta Business>` | Meta Business → WhatsApp → Números de telefone |
+| `SENDER_PHONE` | `5531999999999` | Número do "usuário" simulado (E.164 sem `+`). Use sempre o mesmo dentro de um fluxo |
 | `INTERNAL_API_KEY` | `docker-dev-internal-key` | Chave interna Node → Python |
-| `PHONE_NUMBER_ID` | `123456789` | ID do número de telefone WhatsApp |
-| `USER_PHONE` | `5531999999999` | Número do usuário simulado |
-| `SICOOB_NUMERO_CLIENTE` | mesmo valor do `.env` | Número de cliente da Assusa no Sicoob (cedente) |
+| `SICOOB_NUMERO_CLIENTE` | `1964895` | Número de cliente da Assusa no Sicoob (cedente) |
+
+> **Assinatura HMAC:** o app valida `x-hub-signature-256` apenas se o header
+> estiver presente. Para testes locais, **omita o header** e a requisição passa
+> sem validação. Veja a seção [Assinatura HMAC](#assinatura-hmac) para gerar
+> o hash quando necessário.
 
 ---
 
-## 3. Assinatura HMAC-SHA256 (obrigatória no POST /webhook)
+## Estrutura base do payload (POST /webhook)
 
-O bot valida o header `x-hub-signature-256` em toda requisição POST. Adicione o script abaixo como **Pre-request Script** na coleção (ou em cada request POST):
+Todos os POSTs para `/webhook` seguem este envelope — só o bloco `messages` muda:
 
-```javascript
-const body = pm.request.body.raw;
-const secret = pm.environment.get('APP_SECRET');
-const hash = CryptoJS.HmacSHA256(body, secret);
-pm.request.headers.add({
-    key: 'x-hub-signature-256',
-    value: 'sha256=' + hash.toString(CryptoJS.enc.Hex)
-});
-```
-
-> O Postman já inclui `CryptoJS` nativamente — não precisa instalar nada.
-
----
-
-## 4. Coleção — Bot Node.js
-
-### 4.1 GET /webhook — Verificação do handshake
-
-Usado pela Meta para confirmar a URL do webhook. Só precisa rodar uma vez.
-
-```
-GET {{BOT_URL}}/webhook?hub.mode=subscribe&hub.verify_token={{VERIFY_TOKEN}}&hub.challenge=CHALLENGE_ACCEPTED
-```
-
-**Resposta esperada:** `200 CHALLENGE_ACCEPTED`
-
----
-
-### 4.2 POST /webhook — Payload base
-
-Todos os requests POST abaixo usam esta estrutura externa. Só o bloco `messages` muda.
-
-**Headers:**
-```
-Content-Type: application/json
-x-hub-signature-256: (gerado pelo pre-request script)
-```
-
-**Envelope comum:**
 ```json
 {
   "object": "whatsapp_business_account",
   "entry": [{
-    "id": "WBA_ID",
+    "id": "ACCOUNT_ID",
     "changes": [{
+      "field": "messages",
       "value": {
         "messaging_product": "whatsapp",
         "metadata": {
-          "display_phone_number": "3132000000",
+          "display_phone_number": "3131111111",
           "phone_number_id": "{{PHONE_NUMBER_ID}}"
         },
         "contacts": [{
           "profile": { "name": "Usuário Teste" },
-          "wa_id": "{{USER_PHONE}}"
+          "wa_id": "{{SENDER_PHONE}}"
         }],
-        "messages": [ <<SUBSTITUA AQUI>> ]
-      },
-      "field": "messages"
+        "messages": [ /* SUBSTITUIR */ ]
+      }
     }]
   }]
 }
 ```
 
+**Headers obrigatórios em todos os POSTs:**
+```
+Content-Type: application/json
+```
+
+**Resposta HTTP de todos os POSTs:** `200 OK` com body `EVENT_RECEIVED`.
+O processamento é assíncrono — a resposta do bot chega no WhatsApp, não no Postman.
+
 ---
 
-### 4.3 Mensagem desconhecida → exibe menu principal
+## 1. Verificação do webhook
 
-Simula o usuário mandando um texto qualquer sem estado ativo.
+### 1.1 Token correto → 200
+
+`GET {{NGROK_URL}}/webhook`
+
+| Query param | Valor |
+|---|---|
+| `hub.mode` | `subscribe` |
+| `hub.verify_token` | `JoaoVitorVianaCientistaDeDados` |
+| `hub.challenge` | `qualquer_string` |
+
+**Resposta:** `200 OK` — body igual ao valor de `hub.challenge`.
+
+---
+
+### 1.2 Token errado → 403
+
+`GET {{NGROK_URL}}/webhook`
+
+| Query param | Valor |
+|---|---|
+| `hub.mode` | `subscribe` |
+| `hub.verify_token` | `token_errado` |
+| `hub.challenge` | `qualquer_string` |
+
+**Resposta:** `403 Forbidden`.
+
+---
+
+## 2. Menu principal
+
+Qualquer mensagem de texto sem estado ativo no Redis exibe o menu.
+
+`POST {{NGROK_URL}}/webhook`
 
 ```json
 "messages": [{
-  "from": "{{USER_PHONE}}",
-  "id": "wamid.msg001",
-  "timestamp": "1699900000",
+  "from": "{{SENDER_PHONE}}",
+  "id": "wamid.test.001",
+  "timestamp": "1748000000",
   "type": "text",
-  "text": { "body": "oi" }
+  "text": { "body": "Oi" }
 }]
 ```
 
-**Resultado esperado:** bot responde com o menu de 3 botões (2ª via, Atendente, Horário).
+**Resposta no WhatsApp:** boas-vindas com 3 botões:
+- `2ª via de conta`
+- `Falar com atendente`
+- `Horário atendimento`
 
 ---
 
-### 4.4 Botão "2ª via de conta" → bot pede CPF
+## 3. Horário de atendimento
+
+`POST {{NGROK_URL}}/webhook`
 
 ```json
 "messages": [{
-  "from": "{{USER_PHONE}}",
-  "id": "wamid.msg002",
-  "timestamp": "1699900001",
-  "type": "interactive",
-  "interactive": {
-    "type": "button_reply",
-    "button_reply": {
-      "id": "assusa-segunda-via",
-      "title": "2ª via de conta"
-    }
-  }
-}]
-```
-
-**Resultado esperado:** bot responde pedindo o CPF + Redis grava `estado:<USER_PHONE> = aguardando_cpf`.
-
----
-
-### 4.5 Envio do CPF → bot lista boletos
-
-Deve ser enviado logo após o 4.4 (estado `aguardando_cpf` expira em 5 min).
-
-```json
-"messages": [{
-  "from": "{{USER_PHONE}}",
-  "id": "wamid.msg003",
-  "timestamp": "1699900002",
-  "type": "text",
-  "text": { "body": "12345678901" }
-}]
-```
-
-**Resultado esperado (sandbox ativo):** bot responde com botões de seleção de boleto, usando dados fictícios do ambiente de testes do Sicoob.
-
-**Resultado esperado (Python fora do ar):** bot responde com mensagem de serviço indisponível.
-
-> Em sandbox, use apenas CPFs cadastrados nos dados de teste do Sicoob. Se não tiver essa lista, solicite ao Sicoob ou à cooperativa da Assusa.
-
-**CPF inválido (menos de 11 dígitos):**
-```json
-"text": { "body": "123" }
-```
-**Resultado esperado:** bot responde com `MSG_SEGUNDA_VIA_ERRO` e mantém o estado.
-
----
-
-### 4.6 Seleção de boleto → bot envia PDF
-
-Deve ser enviado após o 4.5, enquanto o estado `aguardando_selecao_boleto` estiver ativo.
-
-```json
-"messages": [{
-  "from": "{{USER_PHONE}}",
-  "id": "wamid.msg004",
-  "timestamp": "1699900003",
-  "type": "interactive",
-  "interactive": {
-    "type": "button_reply",
-    "button_reply": {
-      "id": "boleto-0",
-      "title": "Venc. 2024-01-10"
-    }
-  }
-}]
-```
-
-> Troque `boleto-0` por `boleto-1` ou `boleto-2` para selecionar o segundo ou terceiro boleto.
-
-**Resultado esperado:** bot faz upload do PDF na Meta e envia como documento com caption (vencimento, valor, linha digitável, PIX).
-
----
-
-### 4.7 Botão "Falar com atendente"
-
-```json
-"messages": [{
-  "from": "{{USER_PHONE}}",
-  "id": "wamid.msg005",
-  "timestamp": "1699900004",
-  "type": "interactive",
-  "interactive": {
-    "type": "button_reply",
-    "button_reply": {
-      "id": "assusa-falar-atendente",
-      "title": "Falar com atendente"
-    }
-  }
-}]
-```
-
-**Resultado esperado:** bot responde com horário de atendimento e telefone.
-
----
-
-### 4.8 Botão "Horário atendimento"
-
-```json
-"messages": [{
-  "from": "{{USER_PHONE}}",
-  "id": "wamid.msg006",
-  "timestamp": "1699900005",
+  "from": "{{SENDER_PHONE}}",
+  "id": "wamid.test.002",
+  "timestamp": "1748000001",
   "type": "interactive",
   "interactive": {
     "type": "button_reply",
@@ -238,179 +136,360 @@ Deve ser enviado após o 4.5, enquanto o estado `aguardando_selecao_boleto` esti
 }]
 ```
 
-**Resultado esperado:** bot responde com os horários de funcionamento.
+**Resposta no WhatsApp:**
+> "Nosso atendimento funciona de segunda a sexta, das 8h às 18h, e aos sábados das 8h às 12h."
 
 ---
 
-## 5. Coleção — Microsserviço Python
+## 4. Falar com atendente
 
-Estes requests batem direto no Python, sem passar pelo bot.
+`POST {{NGROK_URL}}/webhook`
 
-### 5.1 GET /health
-
-```
-GET {{PYTHON_URL}}/health
-```
-
-**Resposta esperada:** `200 { "status": "ok" }`
-
----
-
-### 5.2 POST /internal/boleto/listar
-
-**Headers:**
-```
-Content-Type: application/json
-X-Internal-Api-Key: {{INTERNAL_API_KEY}}
-```
-
-**Body:**
 ```json
-{
-  "numeroCpfCnpj": "12345678901",
-  "numeroCliente": "{{SICOOB_NUMERO_CLIENTE}}",
-  "dataInicio": "2024-01-01",
-  "dataFim": "2026-05-07"
-}
-```
-
-> `numeroCliente` é o número de cliente da **Assusa** no Sicoob (o cedente), não o CPF do usuário. O bot preenche esse campo automaticamente via `SICOOB_NUMERO_CLIENTE` do `.env`.
-
-**Resposta esperada (sandbox):**
-```json
-{
-  "ok": true,
-  "result": {
-    "status": 200,
-    "response": { ... }
+"messages": [{
+  "from": "{{SENDER_PHONE}}",
+  "id": "wamid.test.003",
+  "timestamp": "1748000002",
+  "type": "interactive",
+  "interactive": {
+    "type": "button_reply",
+    "button_reply": {
+      "id": "assusa-falar-atendente",
+      "title": "Falar com atendente"
+    }
   }
-}
+}]
+```
+
+**Resposta no WhatsApp:**
+> "Nossos atendentes estão disponíveis de segunda a sexta, das 8h às 18h. Para falar com um atendente agora, ligue: (31)3624-8550."
+
+---
+
+## 5. Fluxo completo — Segunda via
+
+Execute as etapas **em ordem**. O estado entre etapas fica no Redis indexado
+pelo `SENDER_PHONE`. Use sempre o mesmo número ou limpe o Redis antes de
+recomeçar (ver seção [Redis](#redis)).
+
+---
+
+### 5.1 Clicar em "2ª via de conta"
+
+`POST {{NGROK_URL}}/webhook`
+
+```json
+"messages": [{
+  "from": "{{SENDER_PHONE}}",
+  "id": "wamid.test.010",
+  "timestamp": "1748000010",
+  "type": "interactive",
+  "interactive": {
+    "type": "button_reply",
+    "button_reply": {
+      "id": "assusa-segunda-via",
+      "title": "2ª via de conta"
+    }
+  }
+}]
+```
+
+**Resposta no WhatsApp:**
+> "Para emitir a 2ª via da sua conta, preciso do seu CPF ou número de contrato.
+> Por favor, envie apenas os números."
+
+**Estado no Redis após:** `aguardando_cpf`
+
+---
+
+### 5.2 Enviar CPF válido (com boletos)
+
+`POST {{NGROK_URL}}/webhook`
+
+```json
+"messages": [{
+  "from": "{{SENDER_PHONE}}",
+  "id": "wamid.test.011",
+  "timestamp": "1748000011",
+  "type": "text",
+  "text": { "body": "15421449149" }
+}]
+```
+
+> Em **sandbox** (`SICOOB_SANDBOX=true`), qualquer CPF com 11 dígitos retorna
+> o mesmo boleto fictício do Sicoob. Em **produção**, use um CPF real
+> de associado com boleto na Assusa.
+
+**Resposta no WhatsApp (boletos encontrados):**
+- Se total > 3: aviso com total e instrução para ligar para os demais
+- Mensagem `"Encontrei X boleto(s) em aberto. Selecione o que deseja pagar:"`
+  com botões `Venc. YYYY-MM-DD` (até 3, ordenados do mais antigo)
+
+**Estado no Redis após:** `aguardando_selecao_boleto` + boletos em cache
+
+---
+
+### 5.3 Selecionar um boleto
+
+`POST {{NGROK_URL}}/webhook`
+
+```json
+"messages": [{
+  "from": "{{SENDER_PHONE}}",
+  "id": "wamid.test.012",
+  "timestamp": "1748000012",
+  "type": "interactive",
+  "interactive": {
+    "type": "button_reply",
+    "button_reply": {
+      "id": "boleto-0",
+      "title": "Venc. 2026-05-20"
+    }
+  }
+}]
+```
+
+| `id` | Boleto |
+|---|---|
+| `boleto-0` | 1º da lista (mais antigo) |
+| `boleto-1` | 2º da lista |
+| `boleto-2` | 3º da lista |
+
+**Resposta no WhatsApp:** documento `boleto.pdf` com caption:
+```
+Vencimento: YYYY-MM-DD | Valor: R$ XXX.XX
+
+Linha digitável:
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+PIX copia e cola:
+00020101021226950014br.gov.bcb.pix...
+```
+
+**Estado no Redis após:** estado e boletos limpos.
+
+---
+
+## 6. Casos de erro
+
+### 6.1 CPF inválido (menos de 11 dígitos)
+
+Execute a etapa 5.1 primeiro (estado `aguardando_cpf`), depois:
+
+```json
+"messages": [{
+  "from": "{{SENDER_PHONE}}",
+  "id": "wamid.test.020",
+  "timestamp": "1748000020",
+  "type": "text",
+  "text": { "body": "123" }
+}]
+```
+
+**Resposta no WhatsApp:**
+> "Não encontrei uma conta ativa com esse CPF. Verifique os dados e tente
+> novamente, ou fale com nosso atendente."
+
+**Estado:** permanece `aguardando_cpf` (usuário pode tentar de novo).
+
+---
+
+### 6.2 CPF sem boletos
+
+Execute a etapa 5.1 primeiro, depois envie um CPF de 11 dígitos sem boletos
+na Assusa (em produção) ou qualquer CPF inválido que o Sicoob não encontre:
+
+```json
+"messages": [{
+  "from": "{{SENDER_PHONE}}",
+  "id": "wamid.test.021",
+  "timestamp": "1748000021",
+  "type": "text",
+  "text": { "body": "00000000191" }
+}]
+```
+
+**Resposta no WhatsApp:**
+> "Não encontrei boletos em aberto para este CPF. Se achar que é um engano,
+> fale com nosso atendente."
+
+**Estado:** limpo.
+
+---
+
+### 6.3 Seleção de boleto sem ter listado (estado inválido)
+
+Enviar `boleto-0` sem ter passado pelo fluxo de listagem:
+
+```json
+"messages": [{
+  "from": "{{SENDER_PHONE}}",
+  "id": "wamid.test.022",
+  "timestamp": "1748000022",
+  "type": "interactive",
+  "interactive": {
+    "type": "button_reply",
+    "button_reply": { "id": "boleto-0", "title": "Venc. 2026-05-20" }
+  }
+}]
+```
+
+**Resposta no WhatsApp:** menu principal (estado não é `aguardando_selecao_boleto`).
+
+---
+
+### 6.4 Microsserviço Sicoob indisponível
+
+```bash
+docker compose stop sicoob
+```
+
+Execute as etapas 5.1 → 5.2. 
+
+**Resposta no WhatsApp:**
+> "Nosso serviço está temporariamente indisponível. Tente novamente em alguns
+> instantes ou ligue: (31) 3624-8550."
+
+Restaurar: `docker compose start sicoob`
+
+---
+
+## 7. Microsserviço Sicoob (direto, sem bot)
+
+Estes requests batem direto no Python via `http://localhost:8090`.
+
+**Header obrigatório em todos:**
+```
+X-Internal-Api-Key: {{INTERNAL_API_KEY}}
+Content-Type: application/json
 ```
 
 ---
 
-### 5.3 POST /internal/boleto/segunda-via
+### 7.1 Health check
 
-**Headers:**
-```
-Content-Type: application/json
-X-Internal-Api-Key: {{INTERNAL_API_KEY}}
-```
+`GET {{PYTHON_URL}}/health`
 
-**Body:**
+**Resposta:** `{ "status": "ok" }`
+
+---
+
+### 7.2 Listar boletos por CPF
+
+`POST {{PYTHON_URL}}/internal/boleto/listar`
+
 ```json
 {
-  "numeroCliente": "{{SICOOB_NUMERO_CLIENTE}}",
+  "numeroCliente": 1964895,
+  "numeroCpfCnpj": "15421449149",
+  "dataInicio": "2026-04-20",
+  "dataFim": "2026-05-25"
+}
+```
+
+> **Limite:** período máximo de **35 dias** entre `dataInicio` e `dataFim`.
+> Períodos maiores retornam erro `5002` do Sicoob.
+
+---
+
+### 7.3 Consultar boleto por nosso número
+
+`POST {{PYTHON_URL}}/internal/boleto/consultar`
+
+```json
+{
+  "numeroCliente": 1964895,
   "codigoModalidade": 1,
-  "linhaDigitavel": "012345678901234567890123456789012345678901234567"
+  "nossoNumero": "3861"
 }
 ```
 
-> Use a `linhaDigitavel` retornada pelo `/listar` acima — não invente o valor.
-
-**Resposta esperada (sandbox):**
-```json
-{
-  "ok": true,
-  "result": {
-    "status": 200,
-    "data": {
-      "resultado": {
-        "pdfBoleto": "JVBERi0x...",
-        "linhaDigitavel": "...",
-        "qrCode": "...",
-        "dataVencimento": "2024-09-20",
-        "valor": 156.23
-      }
-    }
-  }
-}
-```
+Também aceita `linhaDigitavel` ou `codigoBarras` no lugar de `nossoNumero`
+(pelo menos um obrigatório).
 
 ---
 
-### 5.4 POST /interno/interacao — registrar evento manualmente
+### 7.4 Segunda via por linha digitável
 
-Grava uma interação diretamente no PostgreSQL, sem passar pelo bot.
+`POST {{PYTHON_URL}}/internal/boleto/segunda-via`
 
-**Headers:**
-```
-Content-Type: application/json
-X-Internal-Api-Key: {{INTERNAL_API_KEY}}
-```
-
-**Body:**
 ```json
 {
-  "telefone": "{{USER_PHONE}}",
-  "evento": "TESTE",
+  "numeroCliente": 1964895,
+  "codigoModalidade": 1,
+  "linhaDigitavel": "75691311750119648950200038610044714520000036907"
+}
+```
+
+> Use a `linhaDigitavel` retornada pelo `/listar` ou `/consultar` —
+> não invente o valor. A resposta inclui `pdfBoleto` em base64.
+
+---
+
+### 7.5 Faixas de nosso número disponíveis
+
+`GET {{PYTHON_URL}}/internal/boleto/faixas-nosso-numero`
+
+| Query param | Valor |
+|---|---|
+| `numeroCliente` | `1964895` |
+| `codigoModalidade` | `1` |
+| `quantidade` | `10` |
+
+> Em sandbox o Sicoob retorna `400` para este endpoint — limitação do
+> ambiente de testes deles. Funciona em produção.
+
+---
+
+### 7.6 Consultar webhooks cadastrados
+
+`GET {{PYTHON_URL}}/internal/webhook/consultar`
+
+Retorna todos os webhooks de cobrança cadastrados na conta.
+
+---
+
+### 7.7 Registrar interação manualmente
+
+`POST {{PYTHON_URL}}/interno/interacao`
+
+```json
+{
+  "telefone": "{{SENDER_PHONE}}",
+  "evento": "TESTE_MANUAL",
   "cpf": null,
-  "detalhes": null
+  "detalhes": { "origem": "postman" }
 }
 ```
 
-**Resposta esperada:**
-```json
-{ "ok": true }
-```
-
-> Os campos `cpf` e `detalhes` são opcionais. `detalhes` aceita qualquer objeto JSON.
+**Resposta:** `{ "ok": true }`
 
 ---
 
-### 5.5 GET /interno/interacoes — consultar interações
+### 7.8 Consultar interações
 
-Retorna interações gravadas com filtros opcionais.
+`GET {{PYTHON_URL}}/interno/interacoes`
 
-**Headers:**
-```
-X-Internal-Api-Key: {{INTERNAL_API_KEY}}
-```
+Query params (todos opcionais):
 
-**Query params (todos opcionais):**
-
-| Parâmetro | Exemplo | Descrição |
+| Param | Exemplo | Descrição |
 |---|---|---|
-| `telefone` | `5531999999999` | Filtra por número |
-| `cpf` | `12345678901` | Filtra por CPF |
-| `evento` | `PDF_ENTREGUE` | Filtra por tipo de evento |
-| `data_inicio` | `2026-01-01` | A partir desta data |
-| `data_fim` | `2026-12-31` | Até esta data |
-| `limite` | `50` | Máx. de registros (padrão 50, máx. 200) |
-
-**Exemplo:**
-```
-GET {{PYTHON_URL}}/interno/interacoes?telefone={{USER_PHONE}}&limite=20
-```
-
-**Resposta esperada:**
-```json
-{
-  "ok": true,
-  "result": [
-    {
-      "id": 1,
-      "telefone": "5531999999999",
-      "evento": "MENU_EXIBIDO",
-      "cpf": null,
-      "detalhes": null,
-      "criado_em": "2026-05-08T00:10:00Z"
-    }
-  ]
-}
-```
-
-> Resultados ordenados do mais recente para o mais antigo.
+| `telefone` | `5531999999999` | Filtrar por número |
+| `cpf` | `15421449149` | Filtrar por CPF |
+| `evento` | `PDF_ENTREGUE` | Filtrar por tipo |
+| `data_inicio` | `2026-01-01` | A partir de |
+| `data_fim` | `2026-12-31` | Até |
+| `limite` | `50` | Máx. registros (padrão 50, máx. 200) |
 
 **Eventos possíveis:**
 
-| Evento | Quando |
+| Evento | Quando ocorre |
 |---|---|
 | `MENU_EXIBIDO` | Mensagem desconhecida → menu enviado |
 | `SEGUNDA_VIA_INICIADA` | Usuário clicou em 2ª via |
 | `ATENDENTE_SOLICITADO` | Usuário clicou em falar com atendente |
 | `HORARIO_CONSULTADO` | Usuário clicou em horário |
-| `CPF_INVALIDO` | CPF com dígitos != 11 |
+| `CPF_INVALIDO` | CPF com dígitos ≠ 11 |
 | `NENHUM_BOLETO` | Sicoob retornou lista vazia |
 | `BOLETOS_LISTADOS` | Boletos exibidos como botões |
 | `BOLETO_SELECIONADO` | Usuário clicou em um boleto |
@@ -419,52 +498,68 @@ GET {{PYTHON_URL}}/interno/interacoes?telefone={{USER_PHONE}}&limite=20
 
 ---
 
-## 6. Fluxo completo passo a passo
-
-Execute nesta ordem para simular um atendimento real:
-
-```
-1. GET  /webhook                        → handshake (1x só)
-2. POST /webhook                        → msg 4.3 (texto qualquer) → confirma menu principal
-3. POST /webhook                        → msg 4.4 (botão 2ª via)   → confirma pedido de CPF
-4. POST /webhook                        → msg 4.5 (CPF válido)     → confirma lista de boletos
-5. POST /webhook                        → msg 4.6 (boleto-0)       → confirma envio do PDF
-6. GET  /interno/interacoes?telefone=…  → confirma todos os eventos gravados em ordem
-```
-
----
-
-## 7. Inspecionar o Redis entre os steps
-
-Para confirmar que o estado está sendo gravado corretamente:
+## Redis
 
 ```bash
-docker exec -it <container_redis> redis-cli
-
-# Ver estado do usuário
-GET estado:5531999999999
+# Ver estado atual do usuário simulado
+docker exec segunda-via-wpp-assusa-redis-1 redis-cli GET estado:5531999999999
 
 # Ver boletos em cache
-GET boletos:5531999999999
+docker exec segunda-via-wpp-assusa-redis-1 redis-cli GET boletos:5531999999999
+
+# Limpar estado para recomeçar um fluxo
+docker exec segunda-via-wpp-assusa-redis-1 redis-cli DEL estado:5531999999999 boletos:5531999999999
 
 # Listar todas as chaves ativas
-KEYS *
+docker exec segunda-via-wpp-assusa-redis-1 redis-cli KEYS "*"
 ```
-
-> O nome do container Redis pode ser consultado com `docker ps`.
 
 ---
 
-## 8. Erros comuns
+## Logs em tempo real
+
+```bash
+docker compose logs -f web sicoob
+```
+
+Cada mensagem recebida imprime:
+```
+web-1    | WhatsApp webhook POST { object: 'whatsapp_business_account', entryCount: 1 }
+sicoob-1 | INFO: 172.x.x.x - "POST /internal/boleto/listar HTTP/1.1" 200 OK
+```
+
+---
+
+## Erros comuns
 
 | Sintoma | Causa provável |
 |---|---|
-| `403 Forbidden` no POST /webhook | Header `x-hub-signature-256` ausente ou `APP_SECRET` errado no Environment |
-| Bot não responde nada | `ACCESS_TOKEN` inválido — a chamada à Meta falha silenciosamente |
-| `503` no Python | `INTERNAL_API_KEY` do Postman diferente do configurado no container |
-| Python falha ao subir com erro de certificado | `SICOOB_SANDBOX` não está `true` e nenhum certificado foi configurado |
-| `"nenhum boleto encontrado"` mesmo com CPF válido | CPF não está cadastrado nos dados de teste do sandbox do Sicoob |
-| Estado não persiste entre requests | Redis não está rodando ou `REDIS_HOST` aponta para endereço errado |
-| `numeroCliente` rejeitado pelo Python | Valor não é numérico — confirme que `SICOOB_NUMERO_CLIENTE` está preenchido no `.env` |
-| `GET /interno/interacoes` retorna `[]` | `DATABASE_URL` não configurado ou postgres não subiu — verifique `docker ps` |
-| `POST /interno/interacao` retorna 500 | Campo `telefone` ou `evento` ausente no body |
+| `403` no POST `/webhook` | Header `x-hub-signature-256` presente mas hash errado |
+| Bot não responde no WhatsApp | `ACCESS_TOKEN` expirado — gerar novo no Meta Business |
+| `401` no Python | `INTERNAL_API_KEY` diverge entre `.env` e o header do Postman |
+| `503` no Python | `SICOOB_SANDBOX=false` sem certificado configurado |
+| Erro `5002 "período maior que 35 dias"` | Reduzir o intervalo entre `dataInicio` e `dataFim` |
+| Erro `5002 "número do contrato"` | `numeroCliente` errado — usar `1964895`, não `1106591` |
+| Sandbox retorna sempre o mesmo boleto | Comportamento esperado — o sandbox do Sicoob é mock estático |
+| Estado não persiste entre requests | Redis fora do ar — verificar `docker compose ps` |
+| `GET /interno/interacoes` retorna `[]` | `DATABASE_URL` errado ou PostgreSQL não subiu |
+
+---
+
+## Assinatura HMAC
+
+Para testar a validação de assinatura (simula o comportamento real da Meta):
+
+**Pre-request Script no Postman:**
+```javascript
+const body = pm.request.body.raw;
+const secret = pm.environment.get("APP_SECRET");
+const hash = CryptoJS.HmacSHA256(body, secret);
+pm.request.headers.upsert({
+  key: "x-hub-signature-256",
+  value: "sha256=" + hash.toString(CryptoJS.enc.Hex)
+});
+```
+
+> O Postman inclui `CryptoJS` nativamente — não precisa instalar nada.
+> `APP_SECRET` está no `.env`. Se o hash não bater, o app retorna `400`.
