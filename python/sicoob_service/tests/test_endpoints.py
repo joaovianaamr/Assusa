@@ -150,7 +150,7 @@ class TestBoletoSegundaVia:
         bv3.segunda_via_boleto({
             "numeroCliente": 1,
             "codigoModalidade": 1,
-            "linhaDigitavel": "75691311750119648950200038610044714520000036907",
+            "linhaDigitavel": "00190000090314000260149530274008478660000010000",
         })
 
         params = captured["params"]
@@ -173,11 +173,11 @@ class TestBoletoSegundaVia:
         bv3.segunda_via_boleto({
             "numeroCliente": 1,
             "codigoModalidade": 1,
-            "nossoNumero": "3861",
+            "nossoNumero": "99999",
         })
 
         params = captured["params"]
-        assert params["nossoNumero"] == 3861
+        assert params["nossoNumero"] == 99999
         assert "linhaDigitavel" not in params
         assert "codigoBarras" not in params
 
