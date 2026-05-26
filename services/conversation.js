@@ -308,7 +308,7 @@ module.exports = class Conversation {
         break;
       default:
         interacao.registrar(message.senderPhoneNumber, "MENU_EXIBIDO");
-        sendMenuPrincipal(
+        await sendMenuPrincipal(
           message.id,
           senderPhoneNumberId,
           message.senderPhoneNumber,

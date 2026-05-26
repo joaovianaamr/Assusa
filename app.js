@@ -96,13 +96,17 @@ function createApp() {
 
             if (value.statuses) {
               value.statuses.forEach(status => {
-                Conversation.handleStatus(senderPhoneNumberId, status);
+                Conversation.handleStatus(senderPhoneNumberId, status).catch(err =>
+                  console.error('handleStatus error:', err?.message)
+                );
               });
             }
 
             if (value.messages) {
               value.messages.forEach(rawMessage => {
-                Conversation.handleMessage(senderPhoneNumberId, rawMessage);
+                Conversation.handleMessage(senderPhoneNumberId, rawMessage).catch(err =>
+                  console.error('handleMessage error:', err?.message)
+                );
               });
             }
           }
