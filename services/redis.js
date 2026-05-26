@@ -52,7 +52,7 @@ module.exports = class Cache {
 
     static async setEstado(phoneNumber, estado) {
         const key = `estado:${phoneNumber}`;
-        await client.set(key, estado, { EX: 300 });
+        await client.set(key, estado, { EX: 1800 });
     }
 
     static async getEstado(phoneNumber) {
@@ -67,7 +67,7 @@ module.exports = class Cache {
 
     static async setBoletos(phoneNumber, boletos) {
         const key = `boletos:${phoneNumber}`;
-        await client.set(key, JSON.stringify(boletos), { EX: 300 });
+        await client.set(key, JSON.stringify(boletos), { EX: 1800 });
     }
 
     static async getBoletos(phoneNumber) {
