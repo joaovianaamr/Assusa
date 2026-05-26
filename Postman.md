@@ -7,19 +7,19 @@ enviando requisições via Postman, sem precisar de um celular conectado.
 
 ## Ambiente Postman
 
-Crie um **Environment** chamado `assusa-local` com as variáveis abaixo:
+Crie um **Environment** chamado `assusa-vps` com as variáveis abaixo:
 
 | Variável | Valor | Descrição |
 |---|---|---|
-| `NGROK_URL` | `https://icky-flame-machinist.ngrok-free.dev` | URL pública do ngrok (atualizar a cada reinício) |
-| `PYTHON_URL` | `http://localhost:8090` | Microsserviço Sicoob (acesso local direto) |
+| `BASE_URL` | `https://assusaatende.com.br` | Domínio da VPS (nginx + SSL, proxy → porta 8080) |
+| `PYTHON_URL` | `http://2.25.131.33:8090` | Microsserviço Sicoob (porta exposta diretamente na VPS) |
 | `PHONE_NUMBER_ID` | `<id do Meta Business>` | Meta Business → WhatsApp → Números de telefone |
 | `SENDER_PHONE` | `5531999999999` | Número do "usuário" simulado (E.164 sem `+`). Use sempre o mesmo dentro de um fluxo |
 | `INTERNAL_API_KEY` | `docker-dev-internal-key` | Chave interna Node → Python |
 | `SICOOB_NUMERO_CLIENTE` | `1964895` | Número de cliente da Assusa no Sicoob (cedente) |
 
 > **Assinatura HMAC:** o app valida `x-hub-signature-256` apenas se o header
-> estiver presente. Para testes locais, **omita o header** e a requisição passa
+> estiver presente. Para testes, **omita o header** e a requisição passa
 > sem validação. Veja a seção [Assinatura HMAC](#assinatura-hmac) para gerar
 > o hash quando necessário.
 
@@ -67,7 +67,7 @@ O processamento é assíncrono — a resposta do bot chega no WhatsApp, não no 
 
 ### 1.1 Token correto → 200
 
-`GET {{NGROK_URL}}/webhook`
+`GET {{BASE_URL}}/webhook`
 
 | Query param | Valor |
 |---|---|
@@ -81,7 +81,7 @@ O processamento é assíncrono — a resposta do bot chega no WhatsApp, não no 
 
 ### 1.2 Token errado → 403
 
-`GET {{NGROK_URL}}/webhook`
+`GET {{BASE_URL}}/webhook`
 
 | Query param | Valor |
 |---|---|
@@ -97,7 +97,7 @@ O processamento é assíncrono — a resposta do bot chega no WhatsApp, não no 
 
 Qualquer mensagem de texto sem estado ativo no Redis exibe o menu.
 
-`POST {{NGROK_URL}}/webhook`
+`POST {{BASE_URL}}/webhook`
 
 ```json
 "messages": [{
@@ -118,7 +118,7 @@ Qualquer mensagem de texto sem estado ativo no Redis exibe o menu.
 
 ## 3. Horário de atendimento
 
-`POST {{NGROK_URL}}/webhook`
+`POST {{BASE_URL}}/webhook`
 
 ```json
 "messages": [{
@@ -143,7 +143,7 @@ Qualquer mensagem de texto sem estado ativo no Redis exibe o menu.
 
 ## 4. Falar com atendente
 
-`POST {{NGROK_URL}}/webhook`
+`POST {{BASE_URL}}/webhook`
 
 ```json
 "messages": [{
@@ -176,7 +176,7 @@ recomeçar (ver seção [Redis](#redis)).
 
 ### 5.1 Clicar em "2ª via de conta"
 
-`POST {{NGROK_URL}}/webhook`
+`POST {{BASE_URL}}/webhook`
 
 ```json
 "messages": [{
@@ -204,7 +204,7 @@ recomeçar (ver seção [Redis](#redis)).
 
 ### 5.2 Enviar CPF válido (com boletos)
 
-`POST {{NGROK_URL}}/webhook`
+`POST {{BASE_URL}}/webhook`
 
 ```json
 "messages": [{
@@ -231,7 +231,7 @@ recomeçar (ver seção [Redis](#redis)).
 
 ### 5.3 Selecionar um boleto
 
-`POST {{NGROK_URL}}/webhook`
+`POST {{BASE_URL}}/webhook`
 
 ```json
 "messages": [{
@@ -341,7 +341,7 @@ Enviar `boleto-0` sem ter passado pelo fluxo de listagem:
 ### 6.4 Microsserviço Sicoob indisponível
 
 ```bash
-docker compose stop sicoob
+docker stop assusa-sicoob-1
 ```
 
 Execute as etapas 5.1 → 5.2. 
@@ -350,7 +350,7 @@ Execute as etapas 5.1 → 5.2.
 > "Nosso serviço está temporariamente indisponível. Tente novamente em alguns
 > instantes ou ligue: (31) 3624-8550."
 
-Restaurar: `docker compose start sicoob`
+Restaurar: `docker start assusa-sicoob-1`
 
 ---
 
@@ -502,16 +502,16 @@ Query params (todos opcionais):
 
 ```bash
 # Ver estado atual do usuário simulado
-docker exec segunda-via-wpp-assusa-redis-1 redis-cli GET estado:5531999999999
+docker exec assusa-redis-1 redis-cli GET estado:5531999999999
 
 # Ver boletos em cache
-docker exec segunda-via-wpp-assusa-redis-1 redis-cli GET boletos:5531999999999
+docker exec assusa-redis-1 redis-cli GET boletos:5531999999999
 
 # Limpar estado para recomeçar um fluxo
-docker exec segunda-via-wpp-assusa-redis-1 redis-cli DEL estado:5531999999999 boletos:5531999999999
+docker exec assusa-redis-1 redis-cli DEL estado:5531999999999 boletos:5531999999999
 
 # Listar todas as chaves ativas
-docker exec segunda-via-wpp-assusa-redis-1 redis-cli KEYS "*"
+docker exec assusa-redis-1 redis-cli KEYS "*"
 ```
 
 ---
@@ -519,7 +519,7 @@ docker exec segunda-via-wpp-assusa-redis-1 redis-cli KEYS "*"
 ## Logs em tempo real
 
 ```bash
-docker compose logs -f web sicoob
+docker logs -f assusa-web-1 & docker logs -f assusa-sicoob-1
 ```
 
 Cada mensagem recebida imprime:

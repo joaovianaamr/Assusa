@@ -26,11 +26,15 @@ module.exports = class GraphApi {
           }
         };
 
-        await api.call(
-          'POST',
-          [`${senderPhoneNumberId}`, 'messages'],
-          typingBody
-        );
+        try {
+          await api.call(
+            'POST',
+            [`${senderPhoneNumberId}`, 'messages'],
+            typingBody
+          );
+        } catch (typingErr) {
+          console.warn('markAsRead/typing skipped:', typingErr?.message);
+        }
       }
 
 
