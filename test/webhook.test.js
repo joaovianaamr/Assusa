@@ -67,3 +67,35 @@ test("POST /webhook returns 200 without X-Hub-Signature-256", async () => {
 
   assert.equal(res.status, 200);
 });
+
+test("aguardando_cpf + button assusa-segunda-via reinicia o fluxo com MSG_SOLICITAR_CPF", async (t) => {
+  const Cache = require("../services/redis");
+  const GraphApi = require("../services/graph-api");
+  const interacao = require("../services/interacaoClient");
+  const Conversation = require("../services/conversation");
+  const constants = require("../services/constants");
+
+  t.mock.method(Cache, "getEstado", async () => "aguardando_cpf");
+  t.mock.method(Cache, "clearEstado", async () => {});
+  t.mock.method(Cache, "setEstado", async () => {});
+  t.mock.method(interacao, "registrar", () => {});
+  const mockText = t.mock.method(GraphApi, "messageWithText", async () => {});
+
+  await Conversation.handleMessage("phone-id-123", {
+    from: "5531999999999",
+    id: "wamid.test.001",
+    timestamp: "1748000010",
+    type: "interactive",
+    interactive: {
+      type: "button_reply",
+      button_reply: { id: "assusa-segunda-via", title: "2ª via de conta" }
+    }
+  });
+
+  assert.equal(mockText.mock.calls.length, 1, "messageWithText deve ser chamado uma vez");
+  assert.equal(
+    mockText.mock.calls[0].arguments[3],
+    constants.MSG_SOLICITAR_CPF,
+    "deve enviar MSG_SOLICITAR_CPF"
+  );
+});
