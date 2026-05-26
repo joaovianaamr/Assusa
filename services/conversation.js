@@ -106,6 +106,7 @@ async function handleCpfRecebido(senderPhoneNumberId, message) {
     (resultData?.status_code != null && resultData.status_code >= 400);
 
   if (hasServiceError) {
+    console.error('[listarBoletos] erro da API Sicoob:', JSON.stringify(resultData));
     interacao.registrar(message.senderPhoneNumber, "ERRO_SERVICO", cpfDigits, { etapa: "listar_boletos", detail: resultData });
     await GraphApi.messageWithText(
       message.id,
@@ -123,6 +124,7 @@ async function handleCpfRecebido(senderPhoneNumberId, message) {
     : [];
 
   if (!boletos.length) {
+    console.warn('[listarBoletos] resposta vazia da API Sicoob:', JSON.stringify(resultData));
     interacao.registrar(message.senderPhoneNumber, "NENHUM_BOLETO", cpfDigits);
     await GraphApi.messageWithText(
       message.id,
