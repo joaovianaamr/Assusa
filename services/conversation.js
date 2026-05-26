@@ -257,14 +257,27 @@ module.exports = class Conversation {
     const message = new Message(rawMessage);
     const estadoAtual = await Cache.getEstado(message.senderPhoneNumber);
 
+    const MENU_BUTTONS = [
+      constants.REPLY_SEGUNDA_VIA_ID,
+      constants.REPLY_FALAR_ATENDENTE_ID,
+      constants.REPLY_HORARIO_ID,
+    ];
+
     if (estadoAtual === "aguardando_cpf") {
-      await handleCpfRecebido(senderPhoneNumberId, message);
-      return;
+      if (!MENU_BUTTONS.includes(message.type)) {
+        await handleCpfRecebido(senderPhoneNumberId, message);
+        return;
+      }
+      await Cache.clearEstado(message.senderPhoneNumber);
     }
 
     if (estadoAtual === "aguardando_selecao_boleto") {
-      await handleSelecaoBoleto(senderPhoneNumberId, message);
-      return;
+      if (!MENU_BUTTONS.includes(message.type)) {
+        await handleSelecaoBoleto(senderPhoneNumberId, message);
+        return;
+      }
+      await Cache.clearEstado(message.senderPhoneNumber);
+      await Cache.clearBoletos(message.senderPhoneNumber);
     }
 
     switch (message.type) {
