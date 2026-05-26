@@ -288,22 +288,20 @@ module.exports = class Conversation {
         break;
       case constants.REPLY_FALAR_ATENDENTE_ID:
         interacao.registrar(message.senderPhoneNumber, "ATENDENTE_SOLICITADO");
-        await GraphApi.messageWithInteractiveReply(
+        await GraphApi.messageWithText(
           message.id,
           senderPhoneNumberId,
           message.senderPhoneNumber,
-          constants.MSG_REDIRECIONAMENTO_ATENDENTE,
-          []
+          constants.MSG_REDIRECIONAMENTO_ATENDENTE
         );
         break;
       case constants.REPLY_HORARIO_ID:
         interacao.registrar(message.senderPhoneNumber, "HORARIO_CONSULTADO");
-        await GraphApi.messageWithInteractiveReply(
+        await GraphApi.messageWithText(
           message.id,
           senderPhoneNumberId,
           message.senderPhoneNumber,
-          constants.MSG_HORARIO_FUNCIONAMENTO,
-          []
+          constants.MSG_HORARIO_FUNCIONAMENTO
         );
         break;
       default:
