@@ -50,12 +50,11 @@ function handleSolicitacaoSegundaVia(
   senderPhoneNumberId,
   recipientPhoneNumber
 ) {
-  return GraphApi.messageWithInteractiveReply(
+  return GraphApi.messageWithText(
     messageId,
     senderPhoneNumberId,
     recipientPhoneNumber,
-    constants.MSG_SOLICITAR_CPF,
-    []
+    constants.MSG_SOLICITAR_CPF
   );
 }
 
@@ -77,12 +76,11 @@ async function handleCpfRecebido(senderPhoneNumberId, message) {
 
   if (cpfDigits.length !== 11 || !cpfValido(cpfDigits)) {
     interacao.registrar(message.senderPhoneNumber, "CPF_INVALIDO", null, { cpf_recebido: cpfDigits });
-    await GraphApi.messageWithInteractiveReply(
+    await GraphApi.messageWithText(
       message.id,
       senderPhoneNumberId,
       message.senderPhoneNumber,
-      constants.MSG_SEGUNDA_VIA_ERRO,
-      []
+      constants.MSG_SEGUNDA_VIA_ERRO
     );
     return;
   }
@@ -92,12 +90,11 @@ async function handleCpfRecebido(senderPhoneNumberId, message) {
     resultado = await sicoobClient.listarBoletos({ numeroCpfCnpj: cpfDigits });
   } catch {
     interacao.registrar(message.senderPhoneNumber, "ERRO_SERVICO", cpfDigits, { etapa: "listar_boletos" });
-    await GraphApi.messageWithInteractiveReply(
+    await GraphApi.messageWithText(
       message.id,
       senderPhoneNumberId,
       message.senderPhoneNumber,
-      constants.MSG_SEGUNDA_VIA_ERRO_SERVICO,
-      []
+      constants.MSG_SEGUNDA_VIA_ERRO_SERVICO
     );
     await Cache.clearEstado(message.senderPhoneNumber);
     return;
@@ -110,12 +107,11 @@ async function handleCpfRecebido(senderPhoneNumberId, message) {
 
   if (hasServiceError) {
     interacao.registrar(message.senderPhoneNumber, "ERRO_SERVICO", cpfDigits, { etapa: "listar_boletos", detail: resultData });
-    await GraphApi.messageWithInteractiveReply(
+    await GraphApi.messageWithText(
       message.id,
       senderPhoneNumberId,
       message.senderPhoneNumber,
-      constants.MSG_SEGUNDA_VIA_ERRO_SERVICO,
-      []
+      constants.MSG_SEGUNDA_VIA_ERRO_SERVICO
     );
     await Cache.clearEstado(message.senderPhoneNumber);
     return;
@@ -128,12 +124,11 @@ async function handleCpfRecebido(senderPhoneNumberId, message) {
 
   if (!boletos.length) {
     interacao.registrar(message.senderPhoneNumber, "NENHUM_BOLETO", cpfDigits);
-    await GraphApi.messageWithInteractiveReply(
+    await GraphApi.messageWithText(
       message.id,
       senderPhoneNumberId,
       message.senderPhoneNumber,
-      constants.MSG_NENHUM_BOLETO,
-      []
+      constants.MSG_NENHUM_BOLETO
     );
     await Cache.clearEstado(message.senderPhoneNumber);
     return;
@@ -147,12 +142,11 @@ async function handleCpfRecebido(senderPhoneNumberId, message) {
 
   // Avisa se há mais de 3
   if (boletos.length > 3) {
-    await GraphApi.messageWithInteractiveReply(
+    await GraphApi.messageWithText(
       message.id,
       senderPhoneNumberId,
       message.senderPhoneNumber,
-      constants.MSG_AVISO_MUITOS_BOLETOS.replace("{TOTAL}", boletos.length),
-      []
+      constants.MSG_AVISO_MUITOS_BOLETOS.replace("{TOTAL}", boletos.length)
     );
   }
 
@@ -182,12 +176,11 @@ async function handleSelecaoBoleto(senderPhoneNumberId, message) {
   const boletos = await Cache.getBoletos(message.senderPhoneNumber);
 
   if (!boletos || isNaN(idx) || !boletos[idx]) {
-    await GraphApi.messageWithInteractiveReply(
+    await GraphApi.messageWithText(
       message.id,
       senderPhoneNumberId,
       message.senderPhoneNumber,
-      constants.MSG_SEGUNDA_VIA_ERRO_SERVICO,
-      []
+      constants.MSG_SEGUNDA_VIA_ERRO_SERVICO
     );
     await Cache.clearEstado(message.senderPhoneNumber);
     await Cache.clearBoletos(message.senderPhoneNumber);
@@ -210,12 +203,11 @@ async function handleSelecaoBoleto(senderPhoneNumberId, message) {
 
   if (!resultado?.pdfBoleto) {
     interacao.registrar(message.senderPhoneNumber, "ERRO_SERVICO", null, { etapa: "segunda_via" });
-    await GraphApi.messageWithInteractiveReply(
+    await GraphApi.messageWithText(
       message.id,
       senderPhoneNumberId,
       message.senderPhoneNumber,
-      constants.MSG_SEGUNDA_VIA_ERRO_SERVICO,
-      []
+      constants.MSG_SEGUNDA_VIA_ERRO_SERVICO
     );
   } else {
     const caption = constants.MSG_BOLETO_DETALHES
@@ -238,12 +230,11 @@ async function handleSelecaoBoleto(senderPhoneNumberId, message) {
       interacao.registrar(message.senderPhoneNumber, "PDF_ENTREGUE", null, { dataVencimento: resultado.dataVencimento, valor: resultado.valor });
     } catch {
       // upload falhou — envia só o texto como fallback
-      await GraphApi.messageWithInteractiveReply(
+      await GraphApi.messageWithText(
         message.id,
         senderPhoneNumberId,
         message.senderPhoneNumber,
-        caption,
-        []
+        caption
       );
     }
   }
