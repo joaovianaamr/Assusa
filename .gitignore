@@ -32,7 +32,7 @@ python/sicoob_service/**/*.egg-info/
 certificados/
 
 # dados sensíveis de teste
-boleto.md
+docs/boleto.md
 
 # Claude Code
 .claude/
