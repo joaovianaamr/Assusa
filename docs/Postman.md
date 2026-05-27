@@ -109,14 +109,22 @@ Qualquer mensagem de texto sem estado ativo no Redis exibe o menu.
 }]
 ```
 
-**Resposta no WhatsApp:** boas-vindas com 3 botões:
+**Resposta no WhatsApp:** boas-vindas com **2 botões**:
 - `2ª via de conta`
 - `Falar com atendente`
-- `Horário atendimento`
+
+O texto da mensagem inclui instrução de saída em negrito:
+> "A qualquer momento, digite **menu**, **sair** ou **voltar** para retornar ao início."
+
+> O botão "Horário atendimento" foi removido do menu. O handler ainda existe no
+> código para compatibilidade com mensagens em trânsito — ver seção 3.
 
 ---
 
-## 3. Horário de atendimento
+## 3. Horário de atendimento (botão legado)
+
+Este botão **não aparece mais no menu principal**, mas o handler ainda funciona.
+Use para verificar compatibilidade com mensagens antigas.
 
 `POST {{BASE_URL}}/webhook`
 
@@ -195,8 +203,13 @@ recomeçar (ver seção [Redis](#redis)).
 ```
 
 **Resposta no WhatsApp:**
-> "Para emitir a 2ª via da sua conta, preciso do seu CPF ou número de contrato.
-> Por favor, envie apenas os números."
+> "Para enviar sua 2ª via, preciso do seu CPF.
+>
+> Digite os 11 números do CPF. Pode enviar com ou sem pontos.
+>
+> Exemplos válidos:
+> **123.456.789-00**
+> **12345678900**"
 
 **Estado no Redis após:** `aguardando_cpf`
 
@@ -220,10 +233,21 @@ recomeçar (ver seção [Redis](#redis)).
 > o mesmo boleto fictício do Sicoob. Em **produção**, use um CPF real
 > de associado com boleto na Assusa.
 
-**Resposta no WhatsApp (boletos encontrados):**
-- Se total > 3: aviso com total e instrução para ligar para os demais
-- Mensagem `"Encontrei X boleto(s) em aberto. Selecione o que deseja pagar:"`
-  com botões `Venc. YYYY-MM-DD` (até 3, ordenados do mais antigo)
+**Resposta no WhatsApp (sequência de mensagens):**
+
+1. Mensagem de loading:
+   > "Aguarde, estou consultando seus boletos..."
+
+2. Se total > 3: aviso com total e instrução para ligar para os demais
+
+3. Mensagem com botões (até 3, ordenados do mais antigo):
+   > "Encontrei X boleto(s) em aberto no período dos últimos 35 dias.
+   >
+   > Selecione o que deseja pagar:"
+
+   Botões com status de vencimento:
+   - `Vence DD/MM` — boleto ainda a vencer
+   - `! Vencido DD/MM` — boleto já vencido
 
 **Estado no Redis após:** `aguardando_selecao_boleto` + boletos em cache
 
@@ -243,11 +267,14 @@ recomeçar (ver seção [Redis](#redis)).
     "type": "button_reply",
     "button_reply": {
       "id": "boleto-0",
-      "title": "Venc. 2026-05-20"
+      "title": "Vence 20/05"
     }
   }
 }]
 ```
+
+> O `title` não é processado pelo bot — apenas o `id` importa.
+> Use `boleto-0`, `boleto-1` ou `boleto-2` conforme o botão exibido.
 
 | `id` | Boleto |
 |---|---|
@@ -255,9 +282,9 @@ recomeçar (ver seção [Redis](#redis)).
 | `boleto-1` | 2º da lista |
 | `boleto-2` | 3º da lista |
 
-**Resposta no WhatsApp:** documento `boleto.pdf` com caption:
+**Resposta no WhatsApp:** documento `boleto.pdf` com caption no formato:
 ```
-Vencimento: YYYY-MM-DD | Valor: R$ XXX.XX
+Vencimento: DD/MM/YYYY | Valor: R$ X.XXX,XX
 
 Linha digitável:
 XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -266,16 +293,20 @@ PIX copia e cola:
 00020101021226950014br.gov.bcb.pix...
 ```
 
+> Datas em `DD/MM/YYYY` e valores em formato BR com vírgula decimal.
+> Se o upload do PDF falhar, a caption é enviada como texto simples.
+
 **Estado no Redis após:** estado e boletos limpos.
 
 ---
 
 ## 6. Casos de erro
 
-### 6.1 CPF inválido (menos de 11 dígitos)
+### 6.1 CPF inválido
 
 Execute a etapa 5.1 primeiro (estado `aguardando_cpf`), depois:
 
+**Menos de 11 dígitos:**
 ```json
 "messages": [{
   "from": "{{SENDER_PHONE}}",
@@ -286,7 +317,18 @@ Execute a etapa 5.1 primeiro (estado `aguardando_cpf`), depois:
 }]
 ```
 
-**Resposta no WhatsApp:**
+**CPF com dígitos verificadores errados (11 dígitos, formato correto, mas inválido):**
+```json
+"messages": [{
+  "from": "{{SENDER_PHONE}}",
+  "id": "wamid.test.020b",
+  "timestamp": "1748000020",
+  "type": "text",
+  "text": { "body": "12345678900" }
+}]
+```
+
+**Resposta no WhatsApp (ambos os casos):**
 > "Não encontrei uma conta ativa com esse CPF. Verifique os dados e tente
 > novamente, ou fale com nosso atendente."
 
@@ -296,8 +338,7 @@ Execute a etapa 5.1 primeiro (estado `aguardando_cpf`), depois:
 
 ### 6.2 CPF sem boletos
 
-Execute a etapa 5.1 primeiro, depois envie um CPF de 11 dígitos sem boletos
-na Assusa (em produção) ou qualquer CPF inválido que o Sicoob não encontre:
+Execute a etapa 5.1 primeiro, depois envie um CPF válido sem boletos na Assusa:
 
 ```json
 "messages": [{
@@ -317,7 +358,39 @@ na Assusa (em produção) ou qualquer CPF inválido que o Sicoob não encontre:
 
 ---
 
-### 6.3 Seleção de boleto sem ter listado (estado inválido)
+### 6.3 Cancelar fluxo com palavra-chave
+
+Execute a etapa 5.1 (estado `aguardando_cpf`), depois envie qualquer palavra-chave:
+
+```json
+"messages": [{
+  "from": "{{SENDER_PHONE}}",
+  "id": "wamid.test.023",
+  "timestamp": "1748000023",
+  "type": "text",
+  "text": { "body": "menu" }
+}]
+```
+
+Palavras aceitas (case-insensitive, com ou sem acento): `menu` · `sair` · `voltar` · `cancelar` · `inicio` / `início`
+
+**Resposta no WhatsApp:** menu principal com 2 botões.
+
+**Estado no Redis:** limpo (`nil`).
+
+Verificar:
+```bash
+docker exec assusa-redis-1 redis-cli GET estado:5531999999999
+# deve retornar (nil)
+```
+
+**Interação gravada:** `FLUXO_CANCELADO`
+
+> Funciona também no estado `aguardando_selecao_boleto`.
+
+---
+
+### 6.4 Seleção de boleto sem ter listado (estado inválido)
 
 Enviar `boleto-0` sem ter passado pelo fluxo de listagem:
 
@@ -329,7 +402,7 @@ Enviar `boleto-0` sem ter passado pelo fluxo de listagem:
   "type": "interactive",
   "interactive": {
     "type": "button_reply",
-    "button_reply": { "id": "boleto-0", "title": "Venc. 2026-05-20" }
+    "button_reply": { "id": "boleto-0", "title": "Vence 20/05" }
   }
 }]
 ```
@@ -338,15 +411,18 @@ Enviar `boleto-0` sem ter passado pelo fluxo de listagem:
 
 ---
 
-### 6.4 Microsserviço Sicoob indisponível
+### 6.5 Microsserviço Sicoob indisponível
 
 ```bash
 docker stop assusa-sicoob-1
 ```
 
-Execute as etapas 5.1 → 5.2. 
+Execute as etapas 5.1 → 5.2.
 
 **Resposta no WhatsApp:**
+> "Aguarde, estou consultando seus boletos..."
+
+Seguida de:
 > "Nosso serviço está temporariamente indisponível. Tente novamente em alguns
 > instantes ou ligue: (31) 3624-8550."
 
@@ -382,13 +458,16 @@ Content-Type: application/json
 {
   "numeroCliente": 1964895,
   "numeroCpfCnpj": "15421449149",
-  "dataInicio": "2026-04-20",
-  "dataFim": "2026-05-25"
+  "dataInicio": "2026-04-26",
+  "dataFim": "2026-05-31"
 }
 ```
 
 > **Limite:** período máximo de **35 dias** entre `dataInicio` e `dataFim`.
 > Períodos maiores retornam erro `5002` do Sicoob.
+>
+> O bot usa automaticamente a janela de **-30 dias a +5 dias a partir de hoje** (UTC),
+> que cabe dentro do limite de 35 dias.
 
 ---
 
@@ -489,13 +568,14 @@ Query params (todos opcionais):
 | `MENU_EXIBIDO` | Mensagem desconhecida → menu enviado |
 | `SEGUNDA_VIA_INICIADA` | Usuário clicou em 2ª via |
 | `ATENDENTE_SOLICITADO` | Usuário clicou em falar com atendente |
-| `HORARIO_CONSULTADO` | Usuário clicou em horário |
-| `CPF_INVALIDO` | CPF com dígitos ≠ 11 |
+| `HORARIO_CONSULTADO` | Usuário clicou em horário (botão legado) |
+| `CPF_INVALIDO` | CPF com formato ou dígitos verificadores inválidos |
 | `NENHUM_BOLETO` | Sicoob retornou lista vazia |
 | `BOLETOS_LISTADOS` | Boletos exibidos como botões |
 | `BOLETO_SELECIONADO` | Usuário clicou em um boleto |
 | `PDF_ENTREGUE` | PDF enviado com sucesso |
 | `ERRO_SERVICO` | Falha na chamada ao Python/Sicoob |
+| `FLUXO_CANCELADO` | Usuário digitou palavra-chave de saída |
 
 ---
 
@@ -514,6 +594,9 @@ docker exec assusa-redis-1 redis-cli DEL estado:5531999999999 boletos:5531999999
 # Listar todas as chaves ativas
 docker exec assusa-redis-1 redis-cli KEYS "*"
 ```
+
+> TTL das chaves: **600 segundos (10 minutos)** — após esse tempo o estado expira
+> e o usuário volta ao início automaticamente.
 
 ---
 
@@ -544,6 +627,7 @@ sicoob-1 | INFO: 172.x.x.x - "POST /internal/boleto/listar HTTP/1.1" 200 OK
 | Sandbox retorna sempre o mesmo boleto | Comportamento esperado — o sandbox do Sicoob é mock estático |
 | Estado não persiste entre requests | Redis fora do ar — verificar `docker compose ps` |
 | `GET /interno/interacoes` retorna `[]` | `DATABASE_URL` errado ou PostgreSQL não subiu |
+| Bot exibe menu em vez de processar CPF | TTL do Redis expirou (10 min) — reiniciar fluxo pela seção 5.1 |
 
 ---
 
