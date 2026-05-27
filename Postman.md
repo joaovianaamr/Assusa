@@ -15,7 +15,7 @@ Crie um **Environment** chamado `assusa-vps` com as variáveis abaixo:
 | `PYTHON_URL` | `http://2.25.131.33:8090` | Microsserviço Sicoob (porta exposta diretamente na VPS) |
 | `PHONE_NUMBER_ID` | `1170317646154505` | Meta Business → WhatsApp → Números de telefone |
 | `SENDER_PHONE` | `5531999999999` | Número do "usuário" simulado (E.164 sem `+`). Use sempre o mesmo dentro de um fluxo |
-| `INTERNAL_API_KEY` | `assusa-internal-key-prod` | Chave interna Node → Python |
+| `INTERNAL_API_KEY` | `<chave-definida-no-env-da-vps>` | Chave interna Node → Python — **nunca commite o valor real** |
 | `SICOOB_NUMERO_CLIENTE` | `1964895` | Número de cliente da Assusa no Sicoob (cedente) |
 
 > **Assinatura HMAC:** o app valida `x-hub-signature-256` apenas se o header
@@ -436,8 +436,9 @@ Também aceita `linhaDigitavel` ou `codigoBarras` no lugar de `nossoNumero`
 | `codigoModalidade` | `1` |
 | `quantidade` | `10` |
 
-> Em sandbox o Sicoob retorna `400` para este endpoint — limitação do
-> ambiente de testes deles. Funciona em produção.
+> **Produção:** retorna `404` — o contrato atual da Assusa não inclui este serviço.
+> Verificar com o Sicoob se o serviço de faixas está habilitado para o `numeroCliente`.
+> Em sandbox retorna `400` — limitação do ambiente de testes deles.
 
 ---
 

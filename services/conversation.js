@@ -212,11 +212,12 @@ async function handleSelecaoBoleto(senderPhoneNumberId, message) {
       constants.MSG_SEGUNDA_VIA_ERRO_SERVICO
     );
   } else {
+    const pixText = resultado.qrCode || "PIX não disponível para este boleto";
     const caption = constants.MSG_BOLETO_DETALHES
       .replace("{DATA}", resultado.dataVencimento ?? "—")
       .replace("{VALOR}", resultado.valor ?? "—")
       .replace("{LINHA_DIGITAVEL}", resultado.linhaDigitavel ?? "—")
-      .replace("{QR_CODE}", resultado.qrCode ?? "—");
+      .replace("{QR_CODE}", pixText);
 
     try {
       const pdfBuffer = Buffer.from(resultado.pdfBoleto, "base64");
