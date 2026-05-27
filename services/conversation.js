@@ -187,7 +187,7 @@ async function handleCpfRecebido(senderPhoneNumberId, message) {
     const dataCurta = formatarDataCurta(b.dataVencimento);
     return {
       id: `${constants.REPLY_BOLETO_PREFIX}${i}`,
-      title: vencido ? `! Vencido ${dataCurta}` : `Vence ${dataCurta}`
+      title: vencido ? `⚠ Vencido ${dataCurta}` : `Vence ${dataCurta}`
     };
   });
 
