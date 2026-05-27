@@ -64,16 +64,17 @@ async function listarBoletos({ numeroCpfCnpj }) {
   }
 
   const hoje = new Date();
-  const trintaECincoDiasAtras = new Date(hoje);
-  trintaECincoDiasAtras.setDate(hoje.getDate() - 35);
+  const dataInicio = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), hoje.getUTCDate() - 30));
+  const dataFim = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), hoje.getUTCDate() + 5));
   const fmt = d => d.toISOString().slice(0, 10);
 
   const payload = {
     numeroCpfCnpj,
     numeroCliente: Number(config.sicoobNumeroCliente),
-    dataInicio: fmt(trintaECincoDiasAtras),
-    dataFim: fmt(hoje),
+    dataInicio: fmt(dataInicio),
+    dataFim: fmt(dataFim),
   };
+  console.log('Sicoob listar params:', { dataInicio: fmt(dataInicio), dataFim: fmt(dataFim), numeroCpfCnpj });
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
