@@ -12,14 +12,14 @@ module.exports = Object.freeze({
   USER_START_MESSAGE: "Tap send to get started",
 
   // Response messages
-  APP_DEFAULT_MESSAGE: "Olá! Bem-vindo à Assusa Distribuidora de Água. Como podemos te ajudar hoje?",
+  APP_DEFAULT_MESSAGE: "Olá! Bem-vindo à Assusa Distribuidora de Água. Como podemos te ajudar hoje?\n\nA qualquer momento, digite *menu*, *sair* ou *voltar* para retornar ao início.",
   APP_TRY_ANOTHER_MESSAGE: "Posso te ajudar com mais alguma coisa?",
   MSG_REDIRECIONAMENTO_ATENDENTE:
     "Nossos atendentes estão disponíveis de segunda a sexta, das 8h às 18h. Para falar com um atendente agora, ligue: (31)3624-8550.",
   MSG_HORARIO_FUNCIONAMENTO:
     "Nosso atendimento funciona de segunda a sexta, das 8h às 18h, e aos sábados das 8h às 12h.",
   MSG_SOLICITAR_CPF:
-    "Para emitir a 2ª via da sua conta, preciso do seu CPF ou número de contrato. Por favor, envie apenas os números.",
+    "Para enviar sua 2ª via, preciso do seu CPF.\n\nDigite os 11 números do CPF. Pode enviar com ou sem pontos.\n\nExemplos válidos:\n*123.456.789-00*\n*12345678900*",
   MSG_SEGUNDA_VIA_SUCESSO:
     "Aqui está a sua 2ª via. O vencimento é {DATA}. Você pode pagar pelo código de barras abaixo ou pelo PIX.",
   MSG_SEGUNDA_VIA_ERRO:
@@ -27,7 +27,9 @@ module.exports = Object.freeze({
   MSG_NENHUM_BOLETO:
     "Não encontrei boletos em aberto para este CPF. Se achar que é um engano, fale com nosso atendente.",
   MSG_SELECIONAR_BOLETO:
-    "Encontrei {TOTAL} boleto(s) em aberto. Selecione o que deseja pagar:",
+    "Encontrei {TOTAL} boleto(s) em aberto no período dos últimos 35 dias.\n\nSelecione o que deseja pagar:",
+  MSG_CONSULTANDO_BOLETOS:
+    "Aguarde, estou consultando seus boletos...",
   MSG_AVISO_MUITOS_BOLETOS:
     "Você possui {TOTAL} boletos em aberto. Exibindo os 3 mais antigos — para os demais, fale com nosso atendente: (31) 3624-8550.",
   MSG_BOLETO_DETALHES:
