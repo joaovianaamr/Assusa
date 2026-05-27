@@ -463,11 +463,13 @@ Content-Type: application/json
 }
 ```
 
-> **Limite:** período máximo de **35 dias** entre `dataInicio` e `dataFim`.
-> Períodos maiores retornam erro `5002` do Sicoob.
+> **Limite da API Sicoob:** período máximo de **35 dias** por requisição.
+> Períodos maiores retornam erro `5002 — "O período informado não pode ser maior que 35 dias"`.
 >
-> O bot usa automaticamente a janela de **-30 dias a +5 dias a partir de hoje** (UTC),
-> que cabe dentro do limite de 35 dias.
+> Este endpoint Python atende **1 janela por vez**. Quem orquestra a busca em múltiplas
+> janelas é o Node (`services/sicoobClient.js`): ele dispara **6 chamadas paralelas de
+> 30 dias cada** (configurável via `SICOOB_NUM_JANELAS`), cobrindo 6 meses de histórico.
+> Use datas dentro de 35 dias ao chamar esta rota diretamente.
 
 ---
 
