@@ -17,6 +17,26 @@ const sicoobClient = require('./sicoobClient');
 const interacao = require('./interacaoClient');
 
 
+function formatarData(iso) {
+  if (!iso || typeof iso !== "string") return "—";
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+function formatarDataCurta(iso) {
+  if (!iso || typeof iso !== "string") return "—";
+  const [, m, d] = iso.split("-");
+  return `${d}/${m}`;
+}
+
+function formatarBRL(valor) {
+  if (valor === null || valor === undefined || isNaN(valor)) return "—";
+  return Number(valor).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
 function sendMenuPrincipal(
   messageId,
   senderPhoneNumberId,
@@ -37,10 +57,6 @@ function sendMenuPrincipal(
         id: constants.REPLY_FALAR_ATENDENTE_ID,
         title: constants.REPLY_FALAR_ATENDENTE_CTA,
       },
-      {
-        id: constants.REPLY_HORARIO_ID,
-        title: constants.REPLY_HORARIO_CTA,
-      }
     ]
   );
 }
@@ -84,6 +100,13 @@ async function handleCpfRecebido(senderPhoneNumberId, message) {
     );
     return;
   }
+
+  await GraphApi.messageWithText(
+    message.id,
+    senderPhoneNumberId,
+    message.senderPhoneNumber,
+    constants.MSG_CONSULTANDO_BOLETOS
+  );
 
   let resultado;
   try {
@@ -156,10 +179,17 @@ async function handleCpfRecebido(senderPhoneNumberId, message) {
   await Cache.setBoletos(message.senderPhoneNumber, exibir);
   await Cache.setEstado(message.senderPhoneNumber, "aguardando_selecao_boleto");
 
-  const botoes = exibir.map((b, i) => ({
-    id: `${constants.REPLY_BOLETO_PREFIX}${i}`,
-    title: `Venc. ${b.dataVencimento}`
-  }));
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+
+  const botoes = exibir.map((b, i) => {
+    const vencido = new Date(b.dataVencimento) < hoje;
+    const dataCurta = formatarDataCurta(b.dataVencimento);
+    return {
+      id: `${constants.REPLY_BOLETO_PREFIX}${i}`,
+      title: vencido ? `! Vencido ${dataCurta}` : `Vence ${dataCurta}`
+    };
+  });
 
   await GraphApi.messageWithInteractiveReply(
     message.id,
@@ -214,8 +244,8 @@ async function handleSelecaoBoleto(senderPhoneNumberId, message) {
   } else {
     const pixText = resultado.qrCode || "PIX não disponível para este boleto";
     const caption = constants.MSG_BOLETO_DETALHES
-      .replace("{DATA}", resultado.dataVencimento ?? "—")
-      .replace("{VALOR}", resultado.valor ?? "—")
+      .replace("{DATA}", formatarData(resultado.dataVencimento))
+      .replace("{VALOR}", formatarBRL(resultado.valor))
       .replace("{LINHA_DIGITAVEL}", resultado.linhaDigitavel ?? "—")
       .replace("{QR_CODE}", pixText);
 
@@ -265,6 +295,22 @@ module.exports = class Conversation {
       constants.REPLY_FALAR_ATENDENTE_ID,
       constants.REPLY_HORARIO_ID,
     ];
+
+    const PALAVRAS_SAIDA = ["menu", "sair", "voltar", "cancelar", "inicio"];
+    const normalize = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+
+    if (message.type === "unknown" && PALAVRAS_SAIDA.includes(normalize(message.text || ""))) {
+      await Cache.clearEstado(message.senderPhoneNumber);
+      await Cache.clearBoletos(message.senderPhoneNumber);
+      interacao.registrar(message.senderPhoneNumber, "FLUXO_CANCELADO");
+      await sendMenuPrincipal(
+        message.id,
+        senderPhoneNumberId,
+        message.senderPhoneNumber,
+        constants.APP_DEFAULT_MESSAGE
+      );
+      return;
+    }
 
     if (estadoAtual === "aguardando_cpf") {
       if (!MENU_BUTTONS.includes(message.type)) {
