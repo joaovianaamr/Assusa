@@ -33,6 +33,17 @@ module.exports = Object.freeze({
   redisPort: process.env.REDIS_PORT || 6379,
   sicoobNumeroCliente: process.env.SICOOB_NUMERO_CLIENTE,
 
+  // Janela em que a lista de boletos permanece clicável (sliding TTL no Redis)
+  estadoTtlSeconds: Number(process.env.ESTADO_TTL_SECONDS) || 1800,
+
+  // Notificação de atendente por e-mail (SMTP)
+  smtpHost: process.env.SMTP_HOST,
+  smtpPort: Number(process.env.SMTP_PORT) || 587,
+  smtpUser: process.env.SMTP_USER,
+  smtpPass: process.env.SMTP_PASS,
+  smtpFrom: process.env.SMTP_FROM,
+  atendenteEmailTo: process.env.ATENDENTE_EMAIL_TO,
+
   checkEnvVariables: function () {
     ENV_VARS.forEach(function (key) {
       if (!process.env[key]) {

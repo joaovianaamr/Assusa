@@ -18,22 +18,35 @@ module.exports = Object.freeze({
     "Nossos atendentes estão disponíveis de segunda a sexta, das 8h às 18h. Para falar com um atendente agora, ligue: (31)3624-8550.",
   MSG_HORARIO_FUNCIONAMENTO:
     "Nosso atendimento funciona de segunda a sexta, das 8h às 18h, e aos sábados das 8h às 12h.",
-  MSG_SOLICITAR_CPF:
-    "Para enviar sua 2ª via, preciso do seu CPF.\n\nDigite os 11 números do CPF. Pode enviar com ou sem pontos.\n\nExemplos válidos:\n*123.456.789-00*\n*12345678900*",
+  MSG_SOLICITAR_CPF_1:
+    "Digite o CPF do titular da conta:",
+  MSG_SOLICITAR_CPF_2:
+    "Exemplo: 12345678900 | 123.456.789-10",
   MSG_SEGUNDA_VIA_SUCESSO:
     "Aqui está a sua 2ª via. O vencimento é {DATA}. Você pode pagar pelo código de barras abaixo ou pelo PIX.",
   MSG_SEGUNDA_VIA_ERRO:
     "Não encontrei uma conta ativa com esse CPF. Verifique os dados e tente novamente, ou fale com nosso atendente.",
   MSG_NENHUM_BOLETO:
     "Não encontrei boletos em aberto para este CPF. Se achar que é um engano, fale com nosso atendente.",
+  // Cabeçalho da listagem. {TOTAL} = nº de contas; {LISTA} = linhas enumeradas.
   MSG_SELECIONAR_BOLETO:
-    "Encontrei {TOTAL} boleto(s) em aberto no período dos últimos 35 dias.\n\nSelecione o que deseja pagar:",
+    "Encontrei {TOTAL} conta(s) em aberto. O valor já está atualizado para pagamento hoje.\n\n{LISTA}\n\nToque no botão da conta que deseja pagar:",
+  // Linha de cada conta na listagem. {N}=número, {DATA}=vencimento original, {VALOR}=valor atualizado.
+  MSG_SELECIONAR_BOLETO_ITEM:
+    "{N}) Conta de {DATA} — R$ {VALOR}",
   MSG_CONSULTANDO_BOLETOS:
     "Aguarde, estou consultando seus boletos...",
   MSG_AVISO_MUITOS_BOLETOS:
     "Você possui {TOTAL} boletos em aberto. Exibindo os 3 mais antigos — para os demais, fale com nosso atendente: (31) 3624-8550.",
-  MSG_BOLETO_DETALHES:
-    "Vencimento: {DATA} | Valor: R$ {VALOR}\n\nLinha digitável:\n{LINHA_DIGITAVEL}\n\nPIX copia e cola:\n{QR_CODE}",
+  // Entrega do boleto (mensagens separadas para facilitar a cópia).
+  MSG_BOLETO_CAPTION:
+    "✅ Sua 2ª via\n\nPague até {DATA}\nValor: R$ {VALOR}",
+  MSG_LABEL_LINHA_DIGITAVEL:
+    "Linha digitável do boleto:",
+  MSG_LABEL_PIX:
+    "PIX copia e cola:",
+  MSG_PIX_INDISPONIVEL:
+    "PIX não disponível para este boleto.",
   MSG_SEGUNDA_VIA_ERRO_SERVICO:
     "Nosso serviço está temporariamente indisponível. Tente novamente em alguns instantes ou ligue: (31) 3624-8550.",
 
