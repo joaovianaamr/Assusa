@@ -93,6 +93,42 @@ O processamento é assíncrono — a resposta do bot chega no WhatsApp, não no 
 
 ---
 
+### 1.3 Status de entrega (delivered)
+
+`POST {{BASE_URL}}/webhook`
+
+```json
+{
+  "object": "whatsapp_business_account",
+  "entry": [{
+    "id": "ACCOUNT_ID",
+    "changes": [{
+      "field": "messages",
+      "value": {
+        "messaging_product": "whatsapp",
+        "metadata": {
+          "display_phone_number": "3131111111",
+          "phone_number_id": "{{PHONE_NUMBER_ID}}"
+        },
+        "statuses": [{
+          "id": "wamid.test.001",
+          "status": "delivered",
+          "timestamp": "1748000000",
+          "recipient_id": "{{SENDER_PHONE}}"
+        }]
+      }
+    }]
+  }]
+}
+```
+
+> Usa o campo `statuses` em vez de `messages` — testa o caminho `handleStatus` no `app.js`.
+> O id `wamid.test.001` não está no cache Redis → `handleStatus` ignora silenciosamente.
+
+**Resposta HTTP:** `200 EVENT_RECEIVED` (sem mensagem no WhatsApp).
+
+---
+
 ## 2. Menu principal
 
 Qualquer mensagem de texto sem estado ativo no Redis exibe o menu.
@@ -172,6 +208,12 @@ Use para verificar compatibilidade com mensagens antigas.
 **Resposta no WhatsApp:**
 > "Nossos atendentes estão disponíveis de segunda a sexta, das 8h às 18h. Para falar com um atendente agora, ligue: (31)3624-8550."
 
+> **Notificação por e-mail:** ao clicar neste botão, o bot dispara um e-mail para
+> `ATENDENTE_EMAIL_TO` (via SMTP) com o número do cliente, CPF (se já informado) e
+> data/hora. O envio é *fire-and-forget*: se o SMTP não estiver configurado ou falhar,
+> o cliente ainda recebe a resposta normalmente. Continua gravando `ATENDENTE_SOLICITADO`
+> no Postgres.
+
 ---
 
 ## 5. Fluxo completo — Segunda via
@@ -202,14 +244,9 @@ recomeçar (ver seção [Redis](#redis)).
 }]
 ```
 
-**Resposta no WhatsApp:**
-> "Para enviar sua 2ª via, preciso do seu CPF.
->
-> Digite os 11 números do CPF. Pode enviar com ou sem pontos.
->
-> Exemplos válidos:
-> **123.456.789-00**
-> **12345678900**"
+**Resposta no WhatsApp (duas mensagens, em sequência):**
+> 1. "Digite o CPF do titular da conta:"
+> 2. "Exemplo: 12345678900 | 123.456.789-10"
 
 **Estado no Redis após:** `aguardando_cpf`
 
@@ -240,16 +277,47 @@ recomeçar (ver seção [Redis](#redis)).
 
 2. Se total > 3: aviso com total e instrução para ligar para os demais
 
-3. Mensagem com botões (até 3, ordenados do mais antigo):
-   > "Encontrei X boleto(s) em aberto no período dos últimos 35 dias.
+3. Mensagem com botões (até 3, ordenados do mais antigo), com o corpo enumerando
+   cada conta pelo **vencimento original** e o **valor já atualizado para hoje**:
+   > "Encontrei X conta(s) em aberto. O valor já está atualizado para pagamento hoje.
    >
-   > Selecione o que deseja pagar:"
+   > 1) Conta de 16/05/2026 — R$ 76,97
+   > 2) Conta de 20/05/2026 — R$ 379,89
+   > 3) Conta de 16/06/2026 — R$ 76,25
+   >
+   > Toque no botão da conta que deseja pagar:"
 
-   Botões com status de vencimento:
-   - `Vence DD/MM` — boleto ainda a vencer
-   - `! Vencido DD/MM` — boleto já vencido
+   Botões (título limitado a 20 caracteres):
+   - `1 - Conta DD/MM`, `2 - Conta DD/MM`, ...
 
-**Estado no Redis após:** `aguardando_selecao_boleto` + boletos em cache
+> **Por que o vencimento original?** A listagem (`/listar`) traz o vencimento e o valor
+> **originais** de cada boleto; a 2ª via (`/segunda-via`) **recalcula** para pagamento hoje
+> com juros/multa. O bot enriquece cada item chamando a 2ª via (sem PDF) no momento da
+> listagem, então a lista mostra o **valor atualizado** e o PDF entregue mostra "pague até
+> hoje" — sem o conflito de datas que existia antes (botão "16/05" vs PDF "17/06").
+
+**Estado no Redis após:** `aguardando_selecao_boleto` + boletos em cache (TTL 30 min,
+renovado a cada interação)
+
+---
+
+### 5.2b Enviar CPF com pontuação
+
+`POST {{BASE_URL}}/webhook`
+
+```json
+"messages": [{
+  "from": "{{SENDER_PHONE}}",
+  "id": "wamid.test.011b",
+  "timestamp": "1748000015",
+  "type": "text",
+  "text": { "body": "154.214.491-49" }
+}]
+```
+
+> O código faz `replace(/\D/g, "")` antes de validar — `"154.214.491-49"` vira `"15421449149"`.
+
+**Resposta no WhatsApp:** igual ao 5.2 (loading + botões com boletos).
 
 ---
 
@@ -282,21 +350,52 @@ recomeçar (ver seção [Redis](#redis)).
 | `boleto-1` | 2º da lista |
 | `boleto-2` | 3º da lista |
 
-**Resposta no WhatsApp:** documento `boleto.pdf` com caption no formato:
+**Resposta no WhatsApp — agora em mensagens separadas** (facilita copiar no celular):
+1. Documento `boleto.pdf` com caption:
+   ```
+   ✅ Sua 2ª via
+
+   Pague até DD/MM/YYYY
+   Valor: R$ X.XXX,XX
+   ```
+2. Texto: `Linha digitável do boleto:`
+3. Texto: `<linha digitável>` (sozinha, fácil de copiar)
+4. Texto: `PIX copia e cola:`
+5. Texto: `<pix copia e cola>` (sozinho, fácil de copiar)
+
+> A data e o valor da caption vêm da 2ª via (vencimento = hoje, valor atualizado).
+> Se não houver PIX, no lugar dos passos 4-5 é enviado "PIX não disponível para este boleto."
+> Se o upload do PDF falhar, a caption é enviada como texto e os blocos 2-5 seguem normalmente.
+
+**Estado no Redis após:** **mantido** em `aguardando_selecao_boleto` com os boletos em cache
+(TTL renovado). O cliente pode tocar em **outro** botão para receber outra conta **sem
+redigitar o CPF**, até o TTL de 30 min expirar.
+
+---
+
+### 5.3b Selecionar segundo boleto
+
+`POST {{BASE_URL}}/webhook`
+
+```json
+"messages": [{
+  "from": "{{SENDER_PHONE}}",
+  "id": "wamid.test.012b",
+  "timestamp": "1748000013",
+  "type": "interactive",
+  "interactive": {
+    "type": "button_reply",
+    "button_reply": {
+      "id": "boleto-1",
+      "title": "⚠ Vencido 20/05"
+    }
+  }
+}]
 ```
-Vencimento: DD/MM/YYYY | Valor: R$ X.XXX,XX
 
-Linha digitável:
-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+**Pré-requisito:** executar 5.1 → 5.2 (estado `aguardando_selecao_boleto`).
 
-PIX copia e cola:
-00020101021226950014br.gov.bcb.pix...
-```
-
-> Datas em `DD/MM/YYYY` e valores em formato BR com vírgula decimal.
-> Se o upload do PDF falhar, a caption é enviada como texto simples.
-
-**Estado no Redis após:** estado e boletos limpos.
+**Resposta no WhatsApp:** PDF do segundo boleto (índice `[1]` do cache Redis).
 
 ---
 
@@ -411,7 +510,89 @@ Enviar `boleto-0` sem ter passado pelo fluxo de listagem:
 
 ---
 
-### 6.5 Microsserviço Sicoob indisponível
+### 6.5 Escape via botão de menu (estado aguardando_cpf)
+
+**Pré-requisito:** executar 5.1 (estado `aguardando_cpf`).
+
+`POST {{BASE_URL}}/webhook`
+
+```json
+"messages": [{
+  "from": "{{SENDER_PHONE}}",
+  "id": "wamid.test.025",
+  "timestamp": "1748000025",
+  "type": "interactive",
+  "interactive": {
+    "type": "button_reply",
+    "button_reply": {
+      "id": "assusa-segunda-via",
+      "title": "2ª via de conta"
+    }
+  }
+}]
+```
+
+O bot detecta que é um botão de menu (`MENU_BUTTON`), limpa o estado e reinicia o fluxo.
+
+**Resposta no WhatsApp:** `"Para enviar sua 2ª via, preciso do seu CPF..."`
+
+**Estado no Redis:** `aguardando_cpf` (reiniciado).
+
+---
+
+### 6.6 Escape via botão de menu (estado aguardando_selecao_boleto)
+
+**Pré-requisito:** executar 5.1 → 5.2 (estado `aguardando_selecao_boleto`).
+
+`POST {{BASE_URL}}/webhook`
+
+```json
+"messages": [{
+  "from": "{{SENDER_PHONE}}",
+  "id": "wamid.test.026",
+  "timestamp": "1748000026",
+  "type": "interactive",
+  "interactive": {
+    "type": "button_reply",
+    "button_reply": {
+      "id": "assusa-falar-atendente",
+      "title": "Falar com atendente"
+    }
+  }
+}]
+```
+
+O bot detecta o botão de menu, limpa estado e boletos do Redis, e processa normalmente.
+
+**Resposta no WhatsApp:** `"Nossos atendentes estão disponíveis..."`
+
+**Estado no Redis:** `nil`. Boletos no Redis: `nil`.
+
+---
+
+### 6.7 Mensagem de áudio ou imagem (sem estado)
+
+`POST {{BASE_URL}}/webhook`
+
+```json
+"messages": [{
+  "from": "{{SENDER_PHONE}}",
+  "id": "wamid.test.027",
+  "timestamp": "1748000027",
+  "type": "audio",
+  "audio": { "id": "audio-fake-id" }
+}]
+```
+
+Qualquer `type` diferente de `text` e `interactive` é tratado como desconhecido. Sem estado ativo → menu principal.
+
+**Resposta no WhatsApp:** menu principal com 2 botões.
+
+> **Atenção:** se o usuário estiver em `aguardando_cpf` e mandar áudio, o bot trata como CPF inválido (`text = undefined` → `cpfDigits = ""`).
+
+---
+
+### 6.8 Microsserviço Sicoob indisponível
 
 ```bash
 docker stop assusa-sicoob-1
@@ -454,12 +635,14 @@ Content-Type: application/json
 
 `POST {{PYTHON_URL}}/internal/boleto/listar`
 
+O pre-request script do Postman calcula as datas automaticamente (hoje − 30 dias → hoje):
+
 ```json
 {
   "numeroCliente": 1964895,
-  "numeroCpfCnpj": "15421449149",
-  "dataInicio": "2026-04-26",
-  "dataFim": "2026-05-31"
+  "numeroCpfCnpj": "{{CPF-TESTE-MAURI}}",
+  "dataInicio": "{{DATA_INICIO}}",
+  "dataFim": "{{DATA_FIM}}"
 }
 ```
 
@@ -470,6 +653,25 @@ Content-Type: application/json
 > janelas é o Node (`services/sicoobClient.js`): ele dispara **6 chamadas paralelas de
 > 30 dias cada** (configurável via `SICOOB_NUM_JANELAS`), cobrindo 6 meses de histórico.
 > Use datas dentro de 35 dias ao chamar esta rota diretamente.
+
+---
+
+### 7.2b Listar boletos — período > 35 dias (erro 5002)
+
+`POST {{PYTHON_URL}}/internal/boleto/listar`
+
+```json
+{
+  "numeroCliente": 1964895,
+  "numeroCpfCnpj": "{{CPF-TESTE-MAURI}}",
+  "dataInicio": "2024-05-27",
+  "dataFim": "2026-05-27"
+}
+```
+
+Período de 2 anos → deve retornar erro `5002` do Sicoob: _"O período informado não pode ser maior que 35 dias"_.
+
+Confirma que o limite está ativo em produção (o sandbox não aplica esse limite).
 
 ---
 
@@ -597,8 +799,10 @@ docker exec assusa-redis-1 redis-cli DEL estado:5531999999999 boletos:5531999999
 docker exec assusa-redis-1 redis-cli KEYS "*"
 ```
 
-> TTL das chaves: **600 segundos (10 minutos)** — após esse tempo o estado expira
-> e o usuário volta ao início automaticamente.
+> TTL das chaves: **1800 segundos (30 minutos)** por padrão, configurável via
+> `ESTADO_TTL_SECONDS`. É **deslizante**: cada interação (envio de CPF, seleção de
+> boleto) renova o TTL. Após esse tempo sem interação o estado expira e o usuário
+> volta ao início automaticamente.
 
 ---
 
@@ -629,7 +833,7 @@ sicoob-1 | INFO: 172.x.x.x - "POST /internal/boleto/listar HTTP/1.1" 200 OK
 | Sandbox retorna sempre o mesmo boleto | Comportamento esperado — o sandbox do Sicoob é mock estático |
 | Estado não persiste entre requests | Redis fora do ar — verificar `docker compose ps` |
 | `GET /interno/interacoes` retorna `[]` | `DATABASE_URL` errado ou PostgreSQL não subiu |
-| Bot exibe menu em vez de processar CPF | TTL do Redis expirou (10 min) — reiniciar fluxo pela seção 5.1 |
+| Bot exibe menu em vez de processar CPF | TTL do Redis expirou (30 min sem interação) — reiniciar fluxo pela seção 5.1 |
 
 ---
 
