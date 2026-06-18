@@ -1,0 +1,608 @@
+{
+  "info": {
+    "_postman_id": "b99b2296-1dc9-4816-b90c-0095ee257665",
+    "name": "Assusa VPS",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "51980208",
+    "_collection_link": "https://go.postman.co/collection/51980208-b99b2296-1dc9-4816-b90c-0095ee257665?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "1.1 Verificação Webhook - token correto",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/webhook?hub.mode=subscribe&hub.verify_token=JoaoVitorVianaCientistaDeDados&hub.challenge=teste123",
+          "host": ["{{BASE_URL}}"],
+          "path": ["webhook"],
+          "query": [
+            { "key": "hub.mode", "value": "subscribe", "type": "text" },
+            { "key": "hub.verify_token", "value": "JoaoVitorVianaCientistaDeDados", "type": "text" },
+            { "key": "hub.challenge", "value": "teste123", "type": "text" }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "1.2 Verificação Webhook - token errado",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/webhook?hub.mode=subscribe&hub.verify_token=token_errado&hub.challenge=teste123",
+          "host": ["{{BASE_URL}}"],
+          "path": ["webhook"],
+          "query": [
+            { "key": "hub.mode", "value": "subscribe" },
+            { "key": "hub.verify_token", "value": "token_errado" },
+            { "key": "hub.challenge", "value": "teste123" }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "1.3 Status webhook (delivered)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [{\n    \"id\": \"ACCOUNT_ID\",\n    \"changes\": [{\n      \"field\": \"messages\",\n      \"value\": {\n        \"messaging_product\": \"whatsapp\",\n        \"metadata\": {\n          \"display_phone_number\": \"3131111111\",\n          \"phone_number_id\": \"{{PHONE_NUMBER_ID}}\"\n        },\n        \"statuses\": [{\n          \"id\": \"wamid.test.001\",\n          \"status\": \"delivered\",\n          \"timestamp\": \"1748000000\",\n          \"recipient_id\": \"{{SENDER_PHONE}}\"\n        }]\n      }\n    }]\n  }]\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/webhook",
+          "host": ["{{BASE_URL}}"],
+          "path": ["webhook"]
+        },
+        "description": "Testa o caminho value.statuses → handleStatus no app.js.\nUsa o campo 'statuses' em vez de 'messages'.\n\nO id 'wamid.test.001' não está no cache Redis → handleStatus ignora silenciosamente.\nResposta HTTP: 200 EVENT_RECEIVED (assíncrono — sem mensagem no WhatsApp).\n\nPara testar o follow-up real, seria necessário marcar uma mensagem com markMessageForFollowUp() — atualmente inativo no código."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Menu Principal",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [{\n    \"id\": \"ACCOUNT_ID\",\n    \"changes\": [{\n      \"field\": \"messages\",\n      \"value\": {\n        \"messaging_product\": \"whatsapp\",\n        \"metadata\": {\n          \"display_phone_number\": \"3131111111\",\n          \"phone_number_id\": \"{{PHONE_NUMBER_ID}}\"\n        },\n        \"contacts\": [{\n          \"profile\": { \"name\": \"Usuário Teste\" },\n          \"wa_id\": \"{{SENDER_PHONE}}\"\n        }],\n        \"messages\": [{\n          \"from\": \"{{SENDER_PHONE}}\",\n          \"id\": \"wamid.test.001\",\n          \"timestamp\": \"1748000000\",\n          \"type\": \"text\",\n          \"text\": { \"body\": \"Oi\" }\n        }]\n      }\n    }]\n  }]\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/webhook",
+          "host": ["{{BASE_URL}}"],
+          "path": ["webhook"]
+        },
+        "description": "Resposta esperada: 2 botões (2ª via de conta + Falar com atendente).\nO texto inclui instruções de saída em negrito (*menu*, *sair*, *voltar*).\n\nNOTA: o botão Horário de atendimento foi removido do menu."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Horário de atendimento (legado)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [{\n    \"id\": \"ACCOUNT_ID\",\n    \"changes\": [{\n      \"field\": \"messages\",\n      \"value\": {\n        \"messaging_product\": \"whatsapp\",\n        \"metadata\": {\n          \"display_phone_number\": \"3131111111\",\n          \"phone_number_id\": \"{{PHONE_NUMBER_ID}}\"\n        },\n        \"contacts\": [{\n          \"profile\": { \"name\": \"Usuário Teste\" },\n          \"wa_id\": \"{{SENDER_PHONE}}\"\n        }],\n        \"messages\": [{\n          \"from\": \"{{SENDER_PHONE}}\",\n          \"id\": \"wamid.test.002\",\n          \"timestamp\": \"1748000001\",\n          \"type\": \"interactive\",\n          \"interactive\": {\n            \"type\": \"button_reply\",\n            \"button_reply\": {\n              \"id\": \"assusa-horario-funcionamento\",\n              \"title\": \"Horário atendimento\"\n            }\n          }\n        }]\n      }\n    }]\n  }]\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/webhook",
+          "host": ["{{BASE_URL}}"],
+          "path": ["webhook"]
+        },
+        "description": "LEGADO — botão removido do menu principal, mas o handler ainda existe no código.\nUsar para verificar compatibilidade com mensagens antigas em trânsito."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Falar com atendente",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [{\n    \"id\": \"ACCOUNT_ID\",\n    \"changes\": [{\n      \"field\": \"messages\",\n      \"value\": {\n        \"messaging_product\": \"whatsapp\",\n        \"metadata\": {\n          \"display_phone_number\": \"3131111111\",\n          \"phone_number_id\": \"{{PHONE_NUMBER_ID}}\"\n        },\n        \"contacts\": [{\n          \"profile\": { \"name\": \"Usuário Teste\" },\n          \"wa_id\": \"{{SENDER_PHONE}}\"\n        }],\n        \"messages\": [{\n          \"from\": \"{{SENDER_PHONE}}\",\n          \"id\": \"wamid.test.003\",\n          \"timestamp\": \"1748000002\",\n          \"type\": \"interactive\",\n          \"interactive\": {\n            \"type\": \"button_reply\",\n            \"button_reply\": {\n              \"id\": \"assusa-falar-atendente\",\n              \"title\": \"Falar com atendente\"\n            }\n          }\n        }]\n      }\n    }]\n  }]\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/webhook",
+          "host": ["{{BASE_URL}}"],
+          "path": ["webhook"]
+        },
+        "description": "Resposta no WhatsApp: mensagem de redirecionamento ao atendente.\n\nAlém disso, o bot dispara um e-mail para ATENDENTE_EMAIL_TO (via SMTP) com o número do cliente, CPF (se informado) e data/hora. Envio fire-and-forget: se o SMTP não estiver configurado ou falhar, o cliente ainda recebe a resposta. Continua gravando ATENDENTE_SOLICITADO no Postgres."
+      },
+      "response": []
+    },
+    {
+      "name": "5.1 Segunda via - iniciar",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [{\n    \"id\": \"ACCOUNT_ID\",\n    \"changes\": [{\n      \"field\": \"messages\",\n      \"value\": {\n        \"messaging_product\": \"whatsapp\",\n        \"metadata\": {\n          \"display_phone_number\": \"3131111111\",\n          \"phone_number_id\": \"{{PHONE_NUMBER_ID}}\"\n        },\n        \"contacts\": [{\n          \"profile\": { \"name\": \"Usuário Teste\" },\n          \"wa_id\": \"{{SENDER_PHONE}}\"\n        }],\n        \"messages\": [{\n          \"from\": \"{{SENDER_PHONE}}\",\n          \"id\": \"wamid.test.010\",\n          \"timestamp\": \"1748000010\",\n          \"type\": \"interactive\",\n          \"interactive\": {\n            \"type\": \"button_reply\",\n            \"button_reply\": {\n              \"id\": \"assusa-segunda-via\",\n              \"title\": \"2ª via de conta\"\n            }\n          }\n        }]\n      }\n    }]\n  }]\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/webhook",
+          "host": ["{{BASE_URL}}"],
+          "path": ["webhook"]
+        },
+        "description": "Resposta esperada (DUAS mensagens, em sequência):\n1. \"Digite o CPF do titular da conta:\"\n2. \"Exemplo: 12345678900 | 123.456.789-10\"\n\nEstado Redis após: aguardando_cpf"
+      },
+      "response": []
+    },
+    {
+      "name": "5.2 Enviar CPF VÁLIDO",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [{\n    \"id\": \"ACCOUNT_ID\",\n    \"changes\": [{\n      \"field\": \"messages\",\n      \"value\": {\n        \"messaging_product\": \"whatsapp\",\n        \"metadata\": {\n          \"display_phone_number\": \"3131111111\",\n          \"phone_number_id\": \"{{PHONE_NUMBER_ID}}\"\n        },\n        \"contacts\": [{\n          \"profile\": { \"name\": \"Usuário Teste\" },\n          \"wa_id\": \"{{SENDER_PHONE}}\"\n        }],\n        \"messages\": [{\n          \"from\": \"{{SENDER_PHONE}}\",\n          \"id\": \"wamid.test.011\",\n          \"timestamp\": \"1748000011\",\n          \"type\": \"text\",\n          \"text\": { \"body\": \"{{CPF-TESTE-MAURI}}\" }\n        }]\n      }\n    }]\n  }]\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/webhook",
+          "host": ["{{BASE_URL}}"],
+          "path": ["webhook"]
+        },
+        "description": "Sequência de respostas no WhatsApp:\n1. \"Aguarde, estou consultando seus boletos...\"\n2. (se total > 3) Aviso com total\n3. Mensagem com o corpo enumerando cada conta pelo vencimento ORIGINAL e o valor ATUALIZADO (pague hoje):\n   1) Conta de DD/MM/AAAA — R$ X,XX\n   ...\n   Botões: \"1 - Conta DD/MM\", \"2 - Conta DD/MM\", ...\n\nObs.: a listagem (/listar) traz vencimento/valor originais; o bot enriquece cada item chamando a 2ª via (sem PDF) para mostrar o valor atualizado. Por isso a lista e o PDF entregue passam a ser coerentes.\n\nVerificar nos logs do container:\n[listarBoletos] CPF=... janelas_ok=6/6 total_bruto=X unicos=X\n\nEstado Redis após: aguardando_selecao_boleto (TTL 30 min, deslizante)"
+      },
+      "response": []
+    },
+    {
+      "name": "5.2b Enviar CPF com pontuação",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [{\n    \"id\": \"ACCOUNT_ID\",\n    \"changes\": [{\n      \"field\": \"messages\",\n      \"value\": {\n        \"messaging_product\": \"whatsapp\",\n        \"metadata\": {\n          \"display_phone_number\": \"3131111111\",\n          \"phone_number_id\": \"{{PHONE_NUMBER_ID}}\"\n        },\n        \"contacts\": [{\n          \"profile\": { \"name\": \"Usuário Teste\" },\n          \"wa_id\": \"{{SENDER_PHONE}}\"\n        }],\n        \"messages\": [{\n          \"from\": \"{{SENDER_PHONE}}\",\n          \"id\": \"wamid.test.011b\",\n          \"timestamp\": \"1748000015\",\n          \"type\": \"text\",\n          \"text\": { \"body\": \"154.214.491-49\" }\n        }]\n      }\n    }]\n  }]\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/webhook",
+          "host": ["{{BASE_URL}}"],
+          "path": ["webhook"]
+        },
+        "description": "PRÉ-REQUISITO: executar 5.1 antes (estado aguardando_cpf).\n\nVerifica que o bot aceita CPF formatado com pontos e traço.\nO código faz replace(/\\D/g, \"\") antes de validar → \"154.214.491-49\" vira \"15421449149\".\n\nResposta esperada: igual ao 5.2 (loading + botões com boletos)."
+      },
+      "response": []
+    },
+    {
+      "name": "5.3  segunda via - Selecionar boleto-0",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [{\n    \"id\": \"ACCOUNT_ID\",\n    \"changes\": [{\n      \"field\": \"messages\",\n      \"value\": {\n        \"messaging_product\": \"whatsapp\",\n        \"metadata\": {\n          \"display_phone_number\": \"3131111111\",\n          \"phone_number_id\": \"{{PHONE_NUMBER_ID}}\"\n        },\n        \"contacts\": [{\n          \"profile\": { \"name\": \"Usuário Teste\" },\n          \"wa_id\": \"{{SENDER_PHONE}}\"\n        }],\n        \"messages\": [{\n          \"from\": \"{{SENDER_PHONE}}\",\n          \"id\": \"wamid.test.012\",\n          \"timestamp\": \"1748000012\",\n          \"type\": \"interactive\",\n          \"interactive\": {\n            \"type\": \"button_reply\",\n            \"button_reply\": {\n              \"id\": \"boleto-0\",\n              \"title\": \"1 - Conta 16/05\"\n            }\n          }\n        }]\n      }\n    }]\n  }]\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/webhook",
+          "host": ["{{BASE_URL}}"],
+          "path": ["webhook"]
+        },
+        "description": "O title não é processado pelo bot — apenas o id importa.\n\nResposta esperada (mensagens SEPARADAS, para facilitar a cópia):\n1. PDF boleto.pdf com caption: \"✅ Sua 2ª via | Pague até DD/MM/AAAA | Valor: R$ X,XX\"\n2. \"Linha digitável do boleto:\"\n3. <linha digitável> (sozinha)\n4. \"PIX copia e cola:\"\n5. <pix> (sozinho)\n\nSe não houver PIX, no lugar dos itens 4-5: \"PIX não disponível para este boleto.\"\n\nEstado Redis após: MANTIDO em aguardando_selecao_boleto (TTL renovado). Pode-se selecionar outro boleto sem redigitar o CPF até o TTL de 30 min expirar."
+      },
+      "response": []
+    },
+    {
+      "name": "5.3b segunda via - Selecionar boleto-1",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [{\n    \"id\": \"ACCOUNT_ID\",\n    \"changes\": [{\n      \"field\": \"messages\",\n      \"value\": {\n        \"messaging_product\": \"whatsapp\",\n        \"metadata\": {\n          \"display_phone_number\": \"3131111111\",\n          \"phone_number_id\": \"{{PHONE_NUMBER_ID}}\"\n        },\n        \"contacts\": [{\n          \"profile\": { \"name\": \"Usuário Teste\" },\n          \"wa_id\": \"{{SENDER_PHONE}}\"\n        }],\n        \"messages\": [{\n          \"from\": \"{{SENDER_PHONE}}\",\n          \"id\": \"wamid.test.012b\",\n          \"timestamp\": \"1748000013\",\n          \"type\": \"interactive\",\n          \"interactive\": {\n            \"type\": \"button_reply\",\n            \"button_reply\": {\n              \"id\": \"boleto-1\",\n              \"title\": \"2 - Conta 20/05\"\n            }\n          }\n        }]\n      }\n    }]\n  }]\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/webhook",
+          "host": ["{{BASE_URL}}"],
+          "path": ["webhook"]
+        },
+        "description": "PRÉ-REQUISITO: executar 5.1 → 5.2 antes (estado aguardando_selecao_boleto).\n\nSeleciona o 2º boleto da lista. Verifica que o índice [1] é lido do cache Redis E que a lista continua válida após uma seleção anterior (5.3) — NÃO é preciso redigitar o CPF.\n\nResposta esperada: mesma entrega em partes do 5.3, para o segundo boleto."
+      },
+      "response": []
+    },
+    {
+      "name": "6.1 - CPF inválido (< 11 dígitos)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [{\n    \"id\": \"ACCOUNT_ID\",\n    \"changes\": [{\n      \"field\": \"messages\",\n      \"value\": {\n        \"messaging_product\": \"whatsapp\",\n        \"metadata\": {\n          \"display_phone_number\": \"3131111111\",\n          \"phone_number_id\": \"{{PHONE_NUMBER_ID}}\"\n        },\n        \"contacts\": [{\n          \"profile\": { \"name\": \"Usuário Teste\" },\n          \"wa_id\": \"{{SENDER_PHONE}}\"\n        }],\n        \"messages\": [{\n          \"from\": \"{{SENDER_PHONE}}\",\n          \"id\": \"wamid.test.020\",\n          \"timestamp\": \"1748000020\",\n          \"type\": \"text\",\n          \"text\": { \"body\": \"{{CPF_INVALIDO}}\" }\n        }]\n      }\n    }]\n  }]\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/webhook",
+          "host": ["{{BASE_URL}}"],
+          "path": ["webhook"]
+        },
+        "description": "Rode o 5.1 antes, para ativar o redis.\n\nResposta: \"Não encontrei uma conta ativa com esse CPF...\"\nEstado: permanece aguardando_cpf (pode tentar de novo)."
+      },
+      "response": []
+    },
+    {
+      "name": "6.1b - CPF verificadores errados",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [{\n    \"id\": \"ACCOUNT_ID\",\n    \"changes\": [{\n      \"field\": \"messages\",\n      \"value\": {\n        \"messaging_product\": \"whatsapp\",\n        \"metadata\": {\n          \"display_phone_number\": \"3131111111\",\n          \"phone_number_id\": \"{{PHONE_NUMBER_ID}}\"\n        },\n        \"contacts\": [{\n          \"profile\": { \"name\": \"Usuário Teste\" },\n          \"wa_id\": \"{{SENDER_PHONE}}\"\n        }],\n        \"messages\": [{\n          \"from\": \"{{SENDER_PHONE}}\",\n          \"id\": \"wamid.test.020b\",\n          \"timestamp\": \"1748000021\",\n          \"type\": \"text\",\n          \"text\": { \"body\": \"12345678900\" }\n        }]\n      }\n    }]\n  }]\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/webhook",
+          "host": ["{{BASE_URL}}"],
+          "path": ["webhook"]
+        },
+        "description": "Rode o 5.1 antes, para ativar o redis.\n\nCPF 12345678900 tem 11 dígitos mas dígitos verificadores errados\n(o correto seria 12345678909). O bot valida os dois dígitos verificadores\npelo algoritmo módulo 11.\n\nResposta: \"Não encontrei uma conta ativa com esse CPF...\"\nEstado: permanece aguardando_cpf."
+      },
+      "response": []
+    },
+    {
+      "name": "6.2 - CPF sem boletos",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [{\n    \"id\": \"ACCOUNT_ID\",\n    \"changes\": [{\n      \"field\": \"messages\",\n      \"value\": {\n        \"messaging_product\": \"whatsapp\",\n        \"metadata\": {\n          \"display_phone_number\": \"3131111111\",\n          \"phone_number_id\": \"{{PHONE_NUMBER_ID}}\"\n        },\n        \"contacts\": [{\n          \"profile\": { \"name\": \"Usuário Teste\" },\n          \"wa_id\": \"{{SENDER_PHONE}}\"\n        }],\n        \"messages\": [{\n          \"from\": \"{{SENDER_PHONE}}\",\n          \"id\": \"wamid.test.021\",\n          \"timestamp\": \"1748000022\",\n          \"type\": \"text\",\n          \"text\": { \"body\": \"{{CPF-VALIDO-SEM-BOLETOS}}\" }\n        }]\n      }\n    }]\n  }]\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/webhook",
+          "host": ["{{BASE_URL}}"],
+          "path": ["webhook"]
+        },
+        "description": "Rode o 5.1 antes, para ativar o redis.\n\nResposta: \"Não encontrei boletos em aberto para este CPF...\"\nEstado: limpo."
+      },
+      "response": []
+    },
+    {
+      "name": "6.3 - Cancelar com palavra-chave",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [{\n    \"id\": \"ACCOUNT_ID\",\n    \"changes\": [{\n      \"field\": \"messages\",\n      \"value\": {\n        \"messaging_product\": \"whatsapp\",\n        \"metadata\": {\n          \"display_phone_number\": \"3131111111\",\n          \"phone_number_id\": \"{{PHONE_NUMBER_ID}}\"\n        },\n        \"contacts\": [{\n          \"profile\": { \"name\": \"Usuário Teste\" },\n          \"wa_id\": \"{{SENDER_PHONE}}\"\n        }],\n        \"messages\": [{\n          \"from\": \"{{SENDER_PHONE}}\",\n          \"id\": \"wamid.test.023\",\n          \"timestamp\": \"1748000023\",\n          \"type\": \"text\",\n          \"text\": { \"body\": \"menu\" }\n        }]\n      }\n    }]\n  }]\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/webhook",
+          "host": ["{{BASE_URL}}"],
+          "path": ["webhook"]
+        },
+        "description": "Rode o 5.1 ou 5.2 antes (qualquer estado ativo no Redis).\n\nPalavras aceitas (case-insensitive, ignora acentos):\nmenu · sair · voltar · cancelar · inicio · início\n\nResposta: menu principal com 2 botões.\nEstado Redis: nil — verificar:\ndocker exec assusa-redis-1 redis-cli GET estado:{{SENDER_PHONE}}\nInteração gravada: FLUXO_CANCELADO"
+      },
+      "response": []
+    },
+    {
+      "name": "6.4 Seleção sem estado",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [{\n    \"id\": \"ACCOUNT_ID\",\n    \"changes\": [{\n      \"field\": \"messages\",\n      \"value\": {\n        \"messaging_product\": \"whatsapp\",\n        \"metadata\": {\n          \"display_phone_number\": \"3131111111\",\n          \"phone_number_id\": \"{{PHONE_NUMBER_ID}}\"\n        },\n        \"contacts\": [{\n          \"profile\": { \"name\": \"Usuário Teste\" },\n          \"wa_id\": \"{{SENDER_PHONE}}\"\n        }],\n        \"messages\": [{\n          \"from\": \"{{SENDER_PHONE}}\",\n          \"id\": \"wamid.test.024\",\n          \"timestamp\": \"1748000024\",\n          \"type\": \"interactive\",\n          \"interactive\": {\n            \"type\": \"button_reply\",\n            \"button_reply\": {\n              \"id\": \"boleto-0\",\n              \"title\": \"1 - Conta 20/05\"\n            }\n          }\n        }]\n      }\n    }]\n  }]\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/webhook",
+          "host": ["{{BASE_URL}}"],
+          "path": ["webhook"]
+        },
+        "description": "Enviar boleto-0 sem ter passado pelo fluxo de listagem.\nEstado não é aguardando_selecao_boleto → cai no dispatch.\n\nResposta: menu principal com 2 botões."
+      },
+      "response": []
+    },
+    {
+      "name": "6.5 - Escape via botão de menu (aguardando_cpf)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [{\n    \"id\": \"ACCOUNT_ID\",\n    \"changes\": [{\n      \"field\": \"messages\",\n      \"value\": {\n        \"messaging_product\": \"whatsapp\",\n        \"metadata\": {\n          \"display_phone_number\": \"3131111111\",\n          \"phone_number_id\": \"{{PHONE_NUMBER_ID}}\"\n        },\n        \"contacts\": [{\n          \"profile\": { \"name\": \"Usuário Teste\" },\n          \"wa_id\": \"{{SENDER_PHONE}}\"\n        }],\n        \"messages\": [{\n          \"from\": \"{{SENDER_PHONE}}\",\n          \"id\": \"wamid.test.025\",\n          \"timestamp\": \"1748000025\",\n          \"type\": \"interactive\",\n          \"interactive\": {\n            \"type\": \"button_reply\",\n            \"button_reply\": {\n              \"id\": \"assusa-segunda-via\",\n              \"title\": \"2ª via de conta\"\n            }\n          }\n        }]\n      }\n    }]\n  }]\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/webhook",
+          "host": ["{{BASE_URL}}"],
+          "path": ["webhook"]
+        },
+        "description": "PRÉ-REQUISITO: executar 5.1 (estado aguardando_cpf).\n\nEnvia o botão assusa-segunda-via enquanto aguardando_cpf está ativo.\nO código detecta que é um MENU_BUTTON, limpa o estado e cai no switch →\nreinicia o fluxo (setEstado aguardando_cpf + MSG_SOLICITAR_CPF).\n\nResposta esperada: \"Para enviar sua 2ª via, preciso do seu CPF...\"\nEstado Redis: aguardando_cpf (reiniciado)"
+      },
+      "response": []
+    },
+    {
+      "name": "6.6 - Escape via botão de menu (aguardando_selecao_boleto)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [{\n    \"id\": \"ACCOUNT_ID\",\n    \"changes\": [{\n      \"field\": \"messages\",\n      \"value\": {\n        \"messaging_product\": \"whatsapp\",\n        \"metadata\": {\n          \"display_phone_number\": \"3131111111\",\n          \"phone_number_id\": \"{{PHONE_NUMBER_ID}}\"\n        },\n        \"contacts\": [{\n          \"profile\": { \"name\": \"Usuário Teste\" },\n          \"wa_id\": \"{{SENDER_PHONE}}\"\n        }],\n        \"messages\": [{\n          \"from\": \"{{SENDER_PHONE}}\",\n          \"id\": \"wamid.test.026\",\n          \"timestamp\": \"1748000026\",\n          \"type\": \"interactive\",\n          \"interactive\": {\n            \"type\": \"button_reply\",\n            \"button_reply\": {\n              \"id\": \"assusa-falar-atendente\",\n              \"title\": \"Falar com atendente\"\n            }\n          }\n        }]\n      }\n    }]\n  }]\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/webhook",
+          "host": ["{{BASE_URL}}"],
+          "path": ["webhook"]
+        },
+        "description": "PRÉ-REQUISITO: executar 5.1 → 5.2 (estado aguardando_selecao_boleto).\n\nEnvia assusa-falar-atendente enquanto aguardando_selecao_boleto está ativo.\nO código detecta que é um MENU_BUTTON, limpa estado E boletos do Redis,\ncai no switch → resposta normal do atendente.\n\nResposta esperada: \"Nossos atendentes estão disponíveis...\"\nEstado Redis: nil, boletos Redis: nil"
+      },
+      "response": []
+    },
+    {
+      "name": "6.7 - Mensagem de áudio/imagem (sem estado)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [{\n    \"id\": \"ACCOUNT_ID\",\n    \"changes\": [{\n      \"field\": \"messages\",\n      \"value\": {\n        \"messaging_product\": \"whatsapp\",\n        \"metadata\": {\n          \"display_phone_number\": \"3131111111\",\n          \"phone_number_id\": \"{{PHONE_NUMBER_ID}}\"\n        },\n        \"contacts\": [{\n          \"profile\": { \"name\": \"Usuário Teste\" },\n          \"wa_id\": \"{{SENDER_PHONE}}\"\n        }],\n        \"messages\": [{\n          \"from\": \"{{SENDER_PHONE}}\",\n          \"id\": \"wamid.test.027\",\n          \"timestamp\": \"1748000027\",\n          \"type\": \"audio\",\n          \"audio\": { \"id\": \"audio-fake-id\" }\n        }]\n      }\n    }]\n  }]\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/webhook",
+          "host": ["{{BASE_URL}}"],
+          "path": ["webhook"]
+        },
+        "description": "Simula mensagem de voz/áudio enviada por usuário sem estado ativo.\n\nO Message.js trata qualquer type != 'interactive' como type='unknown' e text=undefined.\nSem estado → cai no default do switch → menu principal.\n\nResposta esperada: menu principal com 2 botões.\nInteração gravada: MENU_EXIBIDO\n\nIMPORTANTE: se o usuário estiver em aguardando_cpf e mandar áudio,\no bot trata como CPF inválido (text=undefined → cpfDigits='')."
+      },
+      "response": []
+    },
+    {
+      "name": "7.1 Health check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{PYTHON_URL}}/health",
+          "host": ["{{PYTHON_URL}}"],
+          "path": ["health"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "7.2 listar boletos por CPF",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "const hoje = new Date();",
+              "const fim = hoje.toISOString().slice(0, 10);",
+              "const inicio = new Date(hoje);",
+              "inicio.setDate(inicio.getDate() - 30);",
+              "pm.variables.set('DATA_INICIO', inicio.toISOString().slice(0, 10));",
+              "pm.variables.set('DATA_FIM', fim);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" },
+          { "key": "X-Internal-Api-Key", "value": "{{INTERNAL_API_KEY}}", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"numeroCliente\": 1964895,\n  \"numeroCpfCnpj\": \"{{CPF-TESTE-MAURI}}\",\n  \"dataInicio\": \"{{DATA_INICIO}}\",\n  \"dataFim\": \"{{DATA_FIM}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{PYTHON_URL}}/internal/boleto/listar",
+          "host": ["{{PYTHON_URL}}"],
+          "path": ["internal", "boleto", "listar"]
+        },
+        "description": "Datas calculadas automaticamente pelo pre-request script (hoje - 30 dias → hoje).\nLimite da API Sicoob: máx. 35 dias por chamada.\n\nO bot dispara 6 chamadas paralelas de 30 dias (SICOOB_NUM_JANELAS=6),\ncada uma atendida por este endpoint."
+      },
+      "response": []
+    },
+    {
+      "name": "7.2b listar boletos - período > 35 dias (erro 5002)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" },
+          { "key": "X-Internal-Api-Key", "value": "{{INTERNAL_API_KEY}}", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"numeroCliente\": 1964895,\n  \"numeroCpfCnpj\": \"{{CPF-TESTE-MAURI}}\",\n  \"dataInicio\": \"2024-05-27\",\n  \"dataFim\": \"2026-05-27\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{PYTHON_URL}}/internal/boleto/listar",
+          "host": ["{{PYTHON_URL}}"],
+          "path": ["internal", "boleto", "listar"]
+        },
+        "description": "Período de 2 anos → deve retornar erro 5002 do Sicoob:\n\"O período informado não pode ser maior que 35 dias.\"\n\nConfirma que o limite da API está ativo em produção (não apenas no sandbox)."
+      },
+      "response": []
+    },
+    {
+      "name": "7.3 consultar boleto nosso número",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" },
+          { "key": "X-Internal-Api-Key", "value": "{{INTERNAL_API_KEY}}", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"numeroCliente\": 1964895,\n  \"codigoModalidade\": 1,\n  \"nossoNumero\": \"3861\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{PYTHON_URL}}/internal/boleto/consultar",
+          "host": ["{{PYTHON_URL}}"],
+          "path": ["internal", "boleto", "consultar"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "7.4 Segunda via",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" },
+          { "key": "X-Internal-Api-Key", "value": "{{INTERNAL_API_KEY}}", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"numeroCliente\": 1964895,\n  \"codigoModalidade\": 1,\n  \"linhaDigitavel\": \"75691311750119648950200038610044714520000036907\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{PYTHON_URL}}/internal/boleto/segunda-via",
+          "host": ["{{PYTHON_URL}}"],
+          "path": ["internal", "boleto", "segunda-via"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "7.5 Faixas nosso número",
+      "protocolProfileBehavior": { "disableBodyPruning": true },
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" },
+          { "key": "X-Internal-Api-Key", "value": "{{INTERNAL_API_KEY}}", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"numeroCliente\": 1964895,\n  \"codigoModalidade\": 1,\n  \"linhaDigitavel\": \"75691311750119648950200038610044714520000036907\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{PYTHON_URL}}/internal/boleto/faixas-nosso-numero?numeroCliente=1964895&codigoModalidade=1&quantidade=10",
+          "host": ["{{PYTHON_URL}}"],
+          "path": ["internal", "boleto", "faixas-nosso-numero"],
+          "query": [
+            { "key": "numeroCliente", "value": "1964895" },
+            { "key": "codigoModalidade", "value": "1" },
+            { "key": "quantidade", "value": "10" }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "7.6 Consultar webhooks",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" },
+          { "key": "X-Internal-Api-Key", "value": "{{INTERNAL_API_KEY}}", "type": "text" }
+        ],
+        "url": {
+          "raw": "{{PYTHON_URL}}/internal/webhook/consultar",
+          "host": ["{{PYTHON_URL}}"],
+          "path": ["internal", "webhook", "consultar"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "7.7 registrar interação manualmente",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" },
+          { "key": "X-Internal-Api-Key", "value": "{{INTERNAL_API_KEY}}", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"telefone\": \"{{SENDER_PHONE}}\",\n  \"evento\": \"TESTE_MANUAL\",\n  \"cpf\": null,\n  \"detalhes\": { \"origem\": \"postman\" }\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{PYTHON_URL}}/interno/interacao",
+          "host": ["{{PYTHON_URL}}"],
+          "path": ["interno", "interacao"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "7.8 Consultar interações",
+      "protocolProfileBehavior": { "disableBodyPruning": true },
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Content-Type", "value": "application/json", "type": "text" },
+          { "key": "X-Internal-Api-Key", "value": "{{INTERNAL_API_KEY}}", "type": "text" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"telefone\": \"{{SENDER_PHONE}}\",\n  \"evento\": \"TESTE_MANUAL\",\n  \"cpf\": null,\n  \"detalhes\": { \"origem\": \"postman\" }\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{PYTHON_URL}}/interno/interacoes?telefone={{SENDER_PHONE}}",
+          "host": ["{{PYTHON_URL}}"],
+          "path": ["interno", "interacoes"],
+          "query": [
+            { "key": "telefone", "value": "{{SENDER_PHONE}}", "type": "text" }
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
