@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Exclusão de Dados — Assusa Atendimento</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:ital,wght@0,600;1,400&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink:    #1a1a2e;
+      --mid:    #4a4a6a;
+      --muted:  #8888aa;
+      --rule:   #e2e2ee;
+      --accent: #2d6a4f;
+      --bg:     #f8f8fc;
+      --white:  #ffffff;
+      --danger: #c0392b;
+      --danger-bg: #fdf2f2;
+    }
+
+    html { font-size: 16px; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    header {
+      background: var(--white);
+      border-bottom: 1px solid var(--rule);
+      padding: 0 2rem;
+    }
+    .header-inner {
+      max-width: 680px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      height: 60px;
+    }
+    .logo-mark {
+      width: 32px; height: 32px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .logo-mark svg { width: 18px; height: 18px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; }
+    .logo-text { font-size: 0.9rem; font-weight: 600; color: var(--ink); }
+    .logo-text span { color: var(--accent); }
+
+    .hero {
+      background: var(--white);
+      border-bottom: 1px solid var(--rule);
+      padding: 3.5rem 2rem 2.5rem;
+    }
+    .hero-inner { max-width: 680px; margin: 0 auto; }
+    .eyebrow {
+      font-size: 0.72rem; font-weight: 600;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--danger); margin-bottom: 1rem;
+    }
+    h1 {
+      font-family: 'Lora', Georgia, serif;
+      font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+      font-weight: 600; line-height: 1.25;
+      color: var(--ink); margin-bottom: 0.75rem;
+    }
+    .hero-sub { font-size: 0.95rem; color: var(--mid); max-width: 520px; }
+
+    main { max-width: 680px; margin: 0 auto; padding: 3rem 2rem 5rem; }
+
+    .info-box {
+      background: var(--danger-bg);
+      border: 1px solid #f5c6c2;
+      border-left: 3px solid var(--danger);
+      border-radius: 0 8px 8px 0;
+      padding: 1.1rem 1.4rem;
+      margin-bottom: 2rem;
+      font-size: 0.9rem;
+      color: var(--mid);
+    }
+
+    label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--mid); margin-bottom: 0.4rem; letter-spacing: 0.03em; }
+
+    input[type="text"], input[type="email"] {
+      width: 100%;
+      padding: 0.7rem 1rem;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      color: var(--ink);
+      background: var(--white);
+      outline: none;
+      transition: border-color 0.15s;
+      margin-bottom: 1.25rem;
+    }
+    input:focus { border-color: var(--accent); }
+
+    .field-group { margin-bottom: 0.25rem; }
+
+    button[type="submit"] {
+      background: var(--danger);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0.75rem 2rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-top: 0.5rem;
+    }
+    button[type="submit"]:hover { background: #a93226; }
+
+    .success {
+      display: none;
+      background: #f0faf4;
+      border: 1px solid #b7dfc8;
+      border-radius: 10px;
+      padding: 1.5rem;
+      text-align: center;
+      margin-top: 1.5rem;
+    }
+    .success p { color: var(--mid); font-size: 0.92rem; margin: 0; }
+    .success strong { display: block; color: var(--accent); font-size: 1.05rem; margin-bottom: 0.4rem; }
+
+    .divider { border: none; border-top: 1px solid var(--rule); margin: 2.5rem 0; }
+
+    .note { font-size: 0.85rem; color: var(--muted); }
+    .note a { color: var(--accent); text-decoration: none; }
+    .note a:hover { text-decoration: underline; }
+
+    footer {
+      border-top: 1px solid var(--rule);
+      padding: 2rem;
+      text-align: center;
+    }
+    footer p { font-size: 0.8rem; color: var(--muted); margin: 0; }
+
+    @media (max-width: 600px) {
+      .hero { padding: 2.5rem 1.25rem 2rem; }
+      main { padding: 2rem 1.25rem 4rem; }
+      header { padding: 0 1.25rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-inner">
+      <div class="logo-mark">
+        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <div class="logo-text">Assusa <span>Atendimento</span></div>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="hero-inner">
+      <div class="eyebrow">Direito LGPD</div>
+      <h1>Solicitar exclusão de dados</h1>
+      <p class="hero-sub">Você pode solicitar a exclusão de todos os dados associados ao seu número de telefone e CPF em nossos sistemas.</p>
+    </div>
+  </div>
+
+  <main>
+    <div class="info-box">
+      Após o envio, seus dados serão removidos em até <strong>72 horas</strong>. O histórico de conversas e sessões ativas serão apagados permanentemente.
+    </div>
+
+    <form id="deletion-form">
+      <div class="field-group">
+        <label for="phone">Número de WhatsApp (com DDD)</label>
+        <input type="text" id="phone" name="phone" placeholder="Ex: 11999999999" required />
+      </div>
+      <div class="field-group">
+        <label for="cpf">CPF</label>
+        <input type="text" id="cpf" name="cpf" placeholder="Ex: 000.000.000-00" required />
+      </div>
+      <div class="field-group">
+        <label for="email">E-mail para confirmação (opcional)</label>
+        <input type="email" id="email" name="email" placeholder="seu@email.com" />
+      </div>
+      <button type="submit">Solicitar exclusão</button>
+    </form>
+
+    <div class="success" id="success-msg">
+      <strong>Solicitação recebida</strong>
+      <p>Seus dados serão excluídos em até 72 horas. Se informou um e-mail, você receberá uma confirmação.</p>
+    </div>
+
+    <hr class="divider" />
+
+    <p class="note">
+      Para dúvidas, entre em contato via <a href="mailto:contato@assusa.tech">contato@assusa.tech</a>.
+      Leia nossa <a href="/privacy">Política de Privacidade</a>.
+    </p>
+  </main>
+
+  <footer>
+    <p>© 2026 Assusa · <a href="/privacy" style="color:inherit">Privacidade</a></p>
+  </footer>
+
+  <script>
+    document.getElementById('deletion-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const body = {
+        phone: document.getElementById('phone').value,
+        cpf: document.getElementById('cpf').value,
+        email: document.getElementById('email').value,
+      };
+      try {
+        await fetch('/data-deletion', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+      } catch (_) {}
+      this.style.display = 'none';
+      document.getElementById('success-msg').style.display = 'block';
+    });
+  </script>
+
+</body>
+</html>
