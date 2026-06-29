@@ -45,6 +45,12 @@ function createApp() {
 
   app.use(json({ verify: verifyRequestSignature }));
 
+  app.use(express.static(require("path").join(__dirname, "public")));
+
+  app.get("/privacy", (_req, res) => {
+    res.sendFile(require("path").join(__dirname, "public", "privacy.html"));
+  });
+
   // uso único para verificar a conexão com o whatsapp (handshake)
   app.get("/webhook", function (req, res) {
     const mode = req.query["hub.mode"];
