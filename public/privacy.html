@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Política de Privacidade — Assusa Atendimento</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:ital,wght@0,600;1,400&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink:     #1a1a2e;
+      --mid:     #4a4a6a;
+      --muted:   #8888aa;
+      --rule:    #e2e2ee;
+      --accent:  #2d6a4f;
+      --accent2: #40916c;
+      --bg:      #f8f8fc;
+      --white:   #ffffff;
+    }
+
+    html { font-size: 16px; scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--white);
+      border-bottom: 1px solid var(--rule);
+      padding: 0 2rem;
+    }
+    .header-inner {
+      max-width: 760px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      height: 60px;
+    }
+    .logo-mark {
+      width: 32px;
+      height: 32px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .logo-mark svg { width: 18px; height: 18px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; }
+    .logo-text {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+    }
+    .logo-text span { color: var(--accent); }
+
+    /* ── Hero ── */
+    .hero {
+      background: var(--white);
+      padding: 4rem 2rem 3rem;
+      border-bottom: 1px solid var(--rule);
+    }
+    .hero-inner {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+    .eyebrow {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 1rem;
+    }
+    h1 {
+      font-family: 'Lora', Georgia, serif;
+      font-size: clamp(1.8rem, 4vw, 2.5rem);
+      font-weight: 600;
+      line-height: 1.2;
+      color: var(--ink);
+      margin-bottom: 1rem;
+    }
+    .hero-sub {
+      font-size: 1rem;
+      color: var(--mid);
+      max-width: 560px;
+    }
+    .meta {
+      margin-top: 1.75rem;
+      display: flex;
+      gap: 2rem;
+      flex-wrap: wrap;
+    }
+    .meta-item { font-size: 0.8rem; color: var(--muted); }
+    .meta-item strong { color: var(--mid); font-weight: 500; }
+
+    /* ── Content ── */
+    main {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 3rem 2rem 5rem;
+    }
+
+    section { margin-bottom: 3rem; }
+
+    h2 {
+      font-family: 'Lora', Georgia, serif;
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--accent);
+      display: inline-block;
+    }
+
+    p { color: var(--mid); margin-bottom: 0.9rem; font-size: 0.95rem; }
+    p:last-child { margin-bottom: 0; }
+
+    ul {
+      list-style: none;
+      margin: 0.5rem 0 0.9rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    ul li {
+      font-size: 0.95rem;
+      color: var(--mid);
+      padding-left: 1.25rem;
+      position: relative;
+    }
+    ul li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.55em;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent2);
+    }
+
+    .highlight-box {
+      background: var(--white);
+      border: 1px solid var(--rule);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 8px 8px 0;
+      padding: 1.25rem 1.5rem;
+      margin: 1.25rem 0;
+    }
+    .highlight-box p { margin: 0; font-size: 0.9rem; }
+
+    /* ── Contact card ── */
+    .contact-card {
+      background: var(--white);
+      border: 1px solid var(--rule);
+      border-radius: 12px;
+      padding: 1.75rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .contact-card .label { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+    .contact-card a { color: var(--accent); text-decoration: none; font-weight: 500; font-size: 0.95rem; }
+    .contact-card a:hover { text-decoration: underline; }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--rule);
+      padding: 2rem;
+      text-align: center;
+    }
+    footer p { font-size: 0.8rem; color: var(--muted); margin: 0; }
+
+    @media (max-width: 600px) {
+      .hero { padding: 2.5rem 1.25rem 2rem; }
+      main { padding: 2rem 1.25rem 4rem; }
+      header { padding: 0 1.25rem; }
+      footer { padding: 1.5rem 1.25rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-inner">
+      <div class="logo-mark">
+        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <div class="logo-text">Assusa <span>Atendimento</span></div>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="hero-inner">
+      <div class="eyebrow">Documento legal</div>
+      <h1>Política de Privacidade</h1>
+      <p class="hero-sub">Como coletamos, usamos e protegemos as informações trocadas com nosso assistente pelo WhatsApp.</p>
+      <div class="meta">
+        <div class="meta-item"><strong>Versão</strong> 1.0</div>
+        <div class="meta-item"><strong>Vigência</strong> 29 de junho de 2026</div>
+        <div class="meta-item"><strong>Serviço</strong> Bot de Segunda Via · WhatsApp</div>
+      </div>
+    </div>
+  </div>
+
+  <main>
+
+    <section>
+      <h2>1. Quem somos</h2>
+      <p>A <strong>Assusa</strong> oferece atendimento automatizado via WhatsApp para que clientes possam solicitar a segunda via de boletos bancários emitidos pelo Sicoob, sem necessidade de ligação ou deslocamento.</p>
+      <p>Este documento descreve como tratamos as informações coletadas durante esse atendimento, em conformidade com a Lei Geral de Proteção de Dados (LGPD — Lei nº 13.709/2018).</p>
+    </section>
+
+    <section>
+      <h2>2. Dados que coletamos</h2>
+      <p>Para localizar e enviar sua segunda via, coletamos apenas o mínimo necessário:</p>
+      <ul>
+        <li><strong>Número de telefone</strong> — identificado automaticamente pelo WhatsApp.</li>
+        <li><strong>CPF</strong> — informado por você durante a conversa, para localizar seus boletos.</li>
+        <li><strong>Histórico de interações</strong> — mensagens trocadas com o assistente, para manter o contexto da conversa.</li>
+      </ul>
+      <div class="highlight-box">
+        <p>Não coletamos senhas, dados bancários completos, documentos de identidade físicos ou qualquer informação além do necessário para a consulta de boletos.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>3. Como usamos seus dados</h2>
+      <p>Os dados coletados são usados exclusivamente para:</p>
+      <ul>
+        <li>Consultar e retornar boletos vinculados ao seu CPF na API do Sicoob.</li>
+        <li>Manter o contexto da sessão ativa para que você não precise redigitar o CPF a cada mensagem (sessão de até 30 minutos).</li>
+        <li>Registrar interações para fins de histórico interno e melhoria do serviço.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>4. Armazenamento e retenção</h2>
+      <p>O estado da conversa é mantido temporariamente em memória (Redis) pelo prazo de <strong>30 minutos</strong> após a última interação. Após esse período, a sessão é encerrada automaticamente.</p>
+      <p>O histórico de interações é armazenado em banco de dados seguro (PostgreSQL) para fins de suporte e auditoria interna. Você pode solicitar a exclusão a qualquer momento pelo canal de contato abaixo.</p>
+    </section>
+
+    <section>
+      <h2>5. Compartilhamento de dados</h2>
+      <p>Seus dados são compartilhados apenas com:</p>
+      <ul>
+        <li><strong>Sicoob</strong> — exclusivamente para consulta dos boletos vinculados ao seu CPF, via API segura com autenticação mTLS.</li>
+        <li><strong>Meta (WhatsApp)</strong> — a plataforma de mensagens utilizada para o atendimento, sujeita à própria política de privacidade da Meta.</li>
+      </ul>
+      <p>Não vendemos, alugamos ou compartilhamos seus dados com terceiros para fins comerciais.</p>
+    </section>
+
+    <section>
+      <h2>6. Segurança</h2>
+      <p>Adotamos as seguintes medidas técnicas para proteger suas informações:</p>
+      <ul>
+        <li>Comunicação com a API do Sicoob via certificado mTLS (autenticação mútua).</li>
+        <li>Tráfego entre o WhatsApp e nossos servidores protegido por HTTPS (TLS 1.2+).</li>
+        <li>Validação de assinatura de cada requisição recebida do WhatsApp (HMAC-SHA256).</li>
+        <li>Chaves de API internas não expostas publicamente.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>7. Seus direitos (LGPD)</h2>
+      <p>Conforme a LGPD, você tem direito a:</p>
+      <ul>
+        <li>Confirmar a existência de tratamento dos seus dados.</li>
+        <li>Acessar os dados que temos sobre você.</li>
+        <li>Solicitar a correção de dados incompletos ou incorretos.</li>
+        <li>Solicitar a eliminação dos dados coletados.</li>
+        <li>Revogar o consentimento de uso dos seus dados a qualquer momento.</li>
+      </ul>
+      <p>Para exercer qualquer um desses direitos, entre em contato conosco pelo canal abaixo.</p>
+    </section>
+
+    <section>
+      <h2>8. Alterações nesta política</h2>
+      <p>Podemos atualizar esta Política de Privacidade periodicamente. A data de vigência no topo da página sempre refletirá a versão mais recente. Mudanças significativas serão comunicadas pelo próprio assistente no WhatsApp.</p>
+    </section>
+
+    <section>
+      <h2>9. Contato</h2>
+      <p>Para dúvidas, solicitações ou exercício dos seus direitos, fale conosco:</p>
+      <div class="contact-card">
+        <span class="label">E-mail</span>
+        <a href="mailto:contato@assusa.tech">contato@assusa.tech</a>
+        <span class="label" style="margin-top:0.75rem">Site</span>
+        <a href="https://assusa.tech" target="_blank" rel="noopener">assusa.tech</a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>© 2026 Assusa. Esta página está disponível em <strong>assusa.tech/privacy</strong>.</p>
+  </footer>
+
+</body>
+</html>
