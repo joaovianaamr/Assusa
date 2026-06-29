@@ -51,6 +51,17 @@ function createApp() {
     res.sendFile(require("path").join(__dirname, "public", "privacy.html"));
   });
 
+  app.get("/data-deletion", (_req, res) => {
+    res.sendFile(require("path").join(__dirname, "public", "data-deletion.html"));
+  });
+
+  // TODO: implementar deleção real (remover do postgres e encerrar sessão Redis)
+  app.post("/data-deletion", (req, res) => {
+    const { phone, cpf } = req.body || {};
+    console.log(`[data-deletion] solicitação recebida — phone: ${phone}, cpf: ${cpf}`);
+    res.json({ status: "received", message: "Solicitação registrada. Dados serão excluídos em até 72 horas." });
+  });
+
   // uso único para verificar a conexão com o whatsapp (handshake)
   app.get("/webhook", function (req, res) {
     const mode = req.query["hub.mode"];
