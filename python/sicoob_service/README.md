@@ -36,7 +36,7 @@ Ou, após `pip install -e .`:
 sicoob-service
 ```
 
-Variáveis: ver `src/sicoob_service/settings.py`. Contrato HTTP com o Node: [docs/NODE_PYTHON_CONTRACT.md](../../docs/NODE_PYTHON_CONTRACT.md).
+Variáveis: ver `src/sicoob_service/settings.py`. Contrato HTTP com o Node: [docs/sicoob/NODE_PYTHON_CONTRACT.md](../../docs/sicoob/NODE_PYTHON_CONTRACT.md).
 
 ## Código fonte PHP original
 

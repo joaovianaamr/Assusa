@@ -1,5 +1,8 @@
 # Mapa mental e fluxo lógico do projeto
 
+> Índice de toda a documentação: [docs/README.md](README.md). Para o contexto de negócio
+> (o que é a ASSUSA, glossário do domínio) em vez de mapa de arquivos, ver [project-context.md](project-context.md).
+
 Este repositório tem **dois processos** independentes: o **servidor Node (Express + WhatsApp)** na raiz e o **microsserviço FastAPI (Sicoob)** em [`python/sicoob_service/`](../python/sicoob_service/). O Node só **consulta** o Python no arranque (`checkPythonHealth`); a função [`segundaViaBoleto`](../services/sicoobClient.js) está pronta para integração futura mas **não** entra no fluxo atual de mensagens.
 
 ---
@@ -12,7 +15,7 @@ mindmap
     raiz
       package.json
       app.js
-      .sample.env
+      .env.sample
     services
       config.js
       constants.js
@@ -47,7 +50,7 @@ mindmap
 
 **Papel de cada pasta**
 
-- **Raiz**: ponto de entrada Node ([`app.js`](../app.js)), dependências ([`package.json`](../package.json)), variáveis de exemplo ([`.sample.env`](../.sample.env)).
+- **Raiz**: ponto de entrada Node ([`app.js`](../app.js)), dependências ([`package.json`](../package.json)), variáveis de exemplo ([`.env.sample`](../.env.sample)).
 - **[`services/`](../services/)**: toda a lógica do webhook WhatsApp (conversa, Graph API, Redis, config) e cliente HTTP para o Python.
 - **[`python/sicoob_service/`](../python/sicoob_service/)**: API interna Sicoob (uvicorn/FastAPI), certificados, testes.
 - **[`docs/`](.)**: contexto e contratos (não faz parte do runtime do servidor).
