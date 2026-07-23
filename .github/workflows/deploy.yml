@@ -1,0 +1,48 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Configurar SSH
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Disparar deploy (forced command roda scripts/deploy.sh)
+        run: |
+          ssh -i ~/.ssh/id_deploy -o IdentitiesOnly=yes \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" true
+
+      - name: Verificar publicamente
+        run: |
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://assusa.tech/)
+            if [ "$code" = "200" ]; then
+              echo "OK: https://assusa.tech/ respondeu 200"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "public health check falhou (ultimo status: $code)"
+          exit 1
