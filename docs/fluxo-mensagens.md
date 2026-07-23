@@ -7,7 +7,8 @@ recebimento de uma mensagem até a resposta final ao usuário.
 
 ## Visão geral — Máquina de estados
 
-O bot mantém um estado por número de telefone no Redis (TTL = 600 s / 10 min).
+O bot mantém um estado por número de telefone no Redis (TTL = 1800 s / 30 min por
+padrão, configurável via `ESTADO_TTL_SECONDS`, deslizante — renovado a cada interação).
 Toda mensagem recebida é processada de acordo com o estado atual do remetente.
 
 ```

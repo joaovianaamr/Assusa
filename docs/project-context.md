@@ -1,5 +1,8 @@
 # Contexto do projeto
 
+> Índice de toda a documentação: [docs/README.md](README.md). Para mapa de pastas/arquivos
+> e fluxo técnico de inicialização, ver [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Visão geral
 
 Bot de atendimento no **WhatsApp** (via **Cloud API** da Meta) que atende solicitações de **segunda via** no contexto da **ASSUSA**. O processamento da segunda via ocorre no **back-end do Sicoob**, acessado por este serviço mediante **chamadas HTTP** (cliente REST ou equivalente); o bot orquestra o diálogo no WhatsApp e dispara essas requisições quando for preciso emitir ou consultar segunda via.
@@ -46,7 +49,7 @@ Documentar chaves necessárias (sem colar segredos no repositório):
 | Segredo do app / validação de assinatura | Conferir `X-Hub-Signature-256` nos POST do webhook, quando aplicável. |
 | URL base / credenciais Sicoob | Base URL e credenciais das **chamadas HTTP** ao back-end de segunda via (homologação/produção). |
 
-Variáveis do sample Meta: ver `.sample.env` e README.
+Variáveis do sample Meta: ver `.env.sample` e README.
 
 ## Glossário
 
@@ -58,6 +61,6 @@ Variáveis do sample Meta: ver `.sample.env` e README.
 
 ## Notas
 
-- Manter [project-context.md](project-context.md) (nesta pasta `docs/meta/`) alinhado a mudanças de escopo, versão da API do WhatsApp ou do contrato com o Sicoob.
+- Manter este documento alinhado a mudanças de escopo, versão da API do WhatsApp ou do contrato com o Sicoob.
 - Tratar idempotência e duplicidade de eventos do webhook (a Meta pode reenviar o mesmo evento).
 - O `origin` do Git pode ainda apontar para o repositório da Meta; ao publicar o projeto da ASSUSA, configure o remoto para o seu próprio repositório.
