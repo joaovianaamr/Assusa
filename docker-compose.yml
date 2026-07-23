@@ -81,7 +81,10 @@ services:
     ports:
       - "${WEB_PUBLISH_PORT:-8080}:8080"
     environment:
-      PORT: "8080"
+      # TESTE PROPOSITAL DE ROLLBACK — porta interna != porta publicada (8080).
+      # Confirma que o deploy.sh detecta indisponibilidade real e reverte sozinho.
+      # Reverter logo em seguida.
+      PORT: "8081"
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       SICOOB_SERVICE_URL: http://sicoob:8090
