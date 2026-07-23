@@ -11,8 +11,8 @@ Crie um **Environment** chamado `assusa-vps` com as variáveis abaixo:
 
 | Variável | Valor | Descrição |
 |---|---|---|
-| `BASE_URL` | `https://assusaatende.com.br` | Domínio da VPS (nginx + SSL, proxy → porta 8080) |
-| `PYTHON_URL` | `http://2.25.131.33:8090` | Microsserviço Sicoob (porta exposta diretamente na VPS) |
+| `BASE_URL` | `https://assusa.tech` | Domínio da VPS (nginx + SSL, proxy → porta 8080) |
+| `PYTHON_URL` | `http://187.127.39.44:8090` | Microsserviço Sicoob (porta exposta diretamente na VPS) |
 | `PHONE_NUMBER_ID` | `1170317646154505` | Meta Business → WhatsApp → Números de telefone |
 | `SENDER_PHONE` | `5531999999999` | Número do "usuário" simulado (E.164 sem `+`). Use sempre o mesmo dentro de um fluxo |
 | `INTERNAL_API_KEY` | `<chave-definida-no-env-da-vps>` | Chave interna Node → Python — **nunca commite o valor real** |

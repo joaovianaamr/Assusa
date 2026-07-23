@@ -36,3 +36,9 @@ docs/boleto.md
 
 # Claude Code
 .claude/
+
+# Prints de configuração da API Meta (podem conter fragmentos de token)
+docs/meta/image/
+
+# Material bruto de gravação/prints do setup no painel Meta (não versionado — vídeo/imagens genéricas)
+diretrizes/

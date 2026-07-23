@@ -36,6 +36,8 @@ mindmap
     docs
       meta
       sicoob
+      postman
+      prompts
 ```
 
 **Papel de cada pasta**
