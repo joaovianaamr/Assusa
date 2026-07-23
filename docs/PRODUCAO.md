@@ -4,6 +4,30 @@ Passos ordenados por prioridade. Os bloqueadores impedem o funcionamento do sist
 
 ---
 
+## Deploy — agora é automático, não edite a VPS à mão
+
+Desde 2026-07-23 existe CI/CD (`.github/workflows/ci.yml` + `deploy.yml`): todo push em
+`main` roda os testes (Node + Python) e o build Docker; se passar, `scripts/deploy.sh` é
+disparado sozinho na VPS via uma chave SSH restrita (só executa esse script) e faz
+`git pull --ff-only` + rebuild + health check, com rollback automático se o health check
+falhar.
+
+**Nunca edite `app.js`, `Dockerfile` ou qualquer arquivo versionado direto na VPS.**
+Isso já aconteceu uma vez e causou drift entre a VPS e o git — o `git pull` passou a
+falhar, e um arquivo espúrio (`public/app.js`, uma cópia do código-fonte do servidor)
+ficou exposto publicamente por semanas até ser encontrado. Qualquer mudança deve entrar
+por commit em `main`; a VPS só deve ser tocada manualmente para depuração pontual
+(`docker compose logs`, `docker compose ps`) ou para editar `.env`/`certificados/`
+(gitignored, únicos arquivos que legitimamente só existem lá).
+
+Rollback manual, se o automático falhar (usa a chave pessoal, não a de CI):
+```bash
+ssh -i ~/.ssh/id_ed25519_vps_nova root@187.127.39.44 \
+  'cd /root/segunda-via-wpp-assusa && git reset --hard <sha-bom> && docker compose up -d --build'
+```
+
+---
+
 ## 🔴 Bloqueadores
 
 ### 1. Preencher as variáveis obrigatórias no `.env`
