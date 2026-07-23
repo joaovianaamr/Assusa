@@ -6,6 +6,8 @@ Passos ordenados por prioridade. Os bloqueadores impedem o funcionamento do sist
 
 ## Deploy — agora é automático, não edite a VPS à mão
 
+Fluxo completo, secrets, rotação de chave e troubleshooting: [deploy.md](deploy.md).
+
 Desde 2026-07-23 existe CI/CD (`.github/workflows/ci.yml` + `deploy.yml`): todo push em
 `main` roda os testes (Node + Python) e o build Docker; se passar, `scripts/deploy.sh` é
 disparado sozinho na VPS via uma chave SSH restrita (só executa esse script) e faz

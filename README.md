@@ -137,6 +137,12 @@ You should see the webhook called in the ngrok terminal tab, and in your applica
 
 If you see a response to your message in WhatsApp, you have fully set up your app! Voilà!
 
+## Deploy
+
+Todo push em `main` roda testes automaticamente e, se passar, faz deploy sozinho na VPS
+de produção. Fluxo completo, secrets e troubleshooting: [docs/deploy.md](docs/deploy.md).
+Checklist de produção: [docs/PRODUCAO.md](docs/PRODUCAO.md).
+
 ## License
 
 This project includes code derived from the Jasper's Market sample, which is Apache 2.0 licensed, as found in the LICENSE file.
