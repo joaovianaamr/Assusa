@@ -1,14 +1,14 @@
-# Documentação e meta (fora da raiz)
+# Configuração do app na Meta (WhatsApp Cloud API)
 
-Ficheiros movidos da raiz do repositório para manter o topo do projeto focado no **Node** (`app.js`, `services/`, `package.json`) e na configuração mínima.
+Referência de configuração do app/WABA no painel da Meta — não faz parte do runtime.
 
 | Ficheiro | Nota |
 | -------- | ---- |
-| [project-context.md](project-context.md) | Contexto ASSUSA / WhatsApp / Sicoob. |
-| [conversion-php-python.md](conversion-php-python.md) | Guia de migração PHP → Python (agente). |
-| [CHANGELOG.md](CHANGELOG.md) | Histórico de alterações. |
-| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Código de conduta (template Meta). |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribuição (template Meta). |
-| [template.sh](template.sh) | Script auxiliar de templates WhatsApp. |
+| [info.md](info.md) | IDs de App/Business/WABA, números cadastrados, diagnóstico e migração SMB → Cloud API. |
+| [permissoes/whatsapp_business_management.md](permissoes/whatsapp_business_management.md) | Justificativa de uso da permissão (App Review). |
+| [permissoes/whatsapp_business_messaging.md](permissoes/whatsapp_business_messaging.md) | Justificativa de uso da permissão (App Review). |
 
-Contrato Node ↔ microsserviço Python: [../NODE_PYTHON_CONTRACT.md](../NODE_PYTHON_CONTRACT.md).
+`image/` guarda os prints usados em `info.md` — **fora do git** (`.gitignore`), porque alguns
+comandos curl exibidos no painel mostram fragmentos do `ACCESS_TOKEN`.
+
+Contrato Node ↔ microsserviço Python: [../sicoob/NODE_PYTHON_CONTRACT.md](../sicoob/NODE_PYTHON_CONTRACT.md).
