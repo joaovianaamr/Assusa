@@ -105,6 +105,34 @@ ssh -i ~/.ssh/id_ed25519_vps_nova root@187.127.39.44 \
 Achar o SHA bom: `git log --oneline` local, ou `gh run list` para ver qual commit tinha
 Deploy verde.
 
+## Rollback automático — validado em produção
+
+Testado de propósito em 2026-07-23 (commits `4c3d918` → `e7b1856`), não só por leitura do
+código. Quebra usada: `PORT: "8081"` no ambiente do serviço `web` em `docker-compose.yml`,
+mantendo a porta publicada em `8080:8080` — o container sobe sem erro, mas nada escuta na
+porta exposta. Invisível ao smoke test do CI (que roda `docker run` direto na imagem, sem
+`docker-compose.yml`), então o CI passou e o Deploy dessa mudança quebrada disparou de
+verdade contra a VPS.
+
+Log real do job (`gh run view --log`):
+```
+23:16:53  deploy: current=4e90683ba7ee098e32d31958877f9e1a5a66584f
+23:17:12  container web sobe com a config quebrada
+          web-1 | The app is listening on port 8081
+23:18:42  deploy: HEALTH FAILED — rolling back to 4e90683ba7ee098e32d31958877f9e1a5a66584f
+23:19:00  container web sobe de novo, com a config revertida
+23:19:02  deploy: rolled back to 4e90683ba7ee098e32d31958877f9e1a5a66584f
+          exit code 1 (correto — marca o run como failure mesmo tendo se recuperado)
+```
+
+Resultado observado por fora (monitor de `https://assusa.tech/` rodando em paralelo,
+independente do log do deploy): `200 → 502` no início da quebra, `502 → 200` em +160s,
+sem nenhuma ação manual. VPS terminou no SHA correto (`4e90683`), confirmado via SSH com
+a chave pessoal — canal separado do que a pipeline usou.
+
+Conclusão: o rollback automático não é só teoria — foi provado sob uma falha real (site
+fora do ar, não simulado) e se recuperou sozinho.
+
 ## Diagnosticar um deploy que falhou
 
 1. `gh run list --repo joaovianaamr/Assusa --limit 5` — ver se CI ou Deploy falharam
