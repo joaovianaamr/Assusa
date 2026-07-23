@@ -38,6 +38,11 @@ mindmap
       sicoob
       postman
       prompts
+    .github_workflows
+      ci.yml
+      deploy.yml
+    scripts
+      deploy.sh
 ```
 
 **Papel de cada pasta**
@@ -46,6 +51,7 @@ mindmap
 - **[`services/`](../services/)**: toda a lógica do webhook WhatsApp (conversa, Graph API, Redis, config) e cliente HTTP para o Python.
 - **[`python/sicoob_service/`](../python/sicoob_service/)**: API interna Sicoob (uvicorn/FastAPI), certificados, testes.
 - **[`docs/`](.)**: contexto e contratos (não faz parte do runtime do servidor).
+- **[`.github/workflows/`](../.github/workflows/) + [`scripts/deploy.sh`](../scripts/deploy.sh)**: CI/CD — testa e deploya sozinho todo push em `main`. Fluxo completo em [deploy.md](deploy.md).
 
 ---
 
