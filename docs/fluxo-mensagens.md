@@ -233,6 +233,10 @@ Ativado após o usuário clicar em "2ª via de conta". O bot aguarda CPF.
 > uma frase com o número dentro ("meu cpf e 111.444.777-35") passa. Os três formatos
 > citados em `MSG_SOLICITAR_CPF_2` são exemplos, não uma lista fechada — o caso da frase
 > ficou fora da mensagem de propósito, para não confundir o cliente.
+>
+> O marcador `•` é **literal**, não a sintaxe de lista `- ` do WhatsApp: o app trata a
+> lista como bloco e insere uma linha em branco depois dela, que sobra no fim da
+> mensagem. Com o bullet no texto o visual é o mesmo, sem a sobra.
 
 ---
 
@@ -399,7 +403,7 @@ permanece no código.
 | `APP_TRY_ANOTHER_MESSAGE` | "Posso te ajudar com mais alguma coisa?" |
 | `MSG_HORARIO_FUNCIONAMENTO` | "Nosso atendimento funciona de segunda a sexta, das 8h às 18h, e aos sábados das 8h às 12h." |
 | `MSG_SOLICITAR_CPF_1` | "Digite o CPF cadastrado na ASSUSA (titular da conta)" |
-| `MSG_SOLICITAR_CPF_2` | "Pode digitar do jeito que for mais fácil. Exemplos:\n- 12345678900\n- 123.456.789-00\n- 123 456 789 00" |
+| `MSG_SOLICITAR_CPF_2` | "Pode digitar do jeito que for mais fácil. Exemplos:\n• 12345678900\n• 123.456.789-00\n• 123 456 789 00" |
 | `MSG_CPF_INVALIDO` | "Esse CPF parece incompleto ou incorreto.\n\nConfira os 11 números e envie de novo." |
 | `MSG_CLIENTE_EM_DIA` | "Boa notícia: não há contas em aberto no CPF {CPF}.\n\nVocê está em dia com a Assusa. 😊" |
 | `MSG_CPF_NAO_ENCONTRADO` | "Não localizei esse CPF no cadastro da Assusa.\n\nConfira se digitou o CPF do *titular* da conta de água. Se estiver certo, ligue para (31) 3624-8550." |

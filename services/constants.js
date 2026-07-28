@@ -27,8 +27,12 @@ module.exports = Object.freeze({
   // Sempre o MESMO CPF nas três grafias — números diferentes fariam parecer que
   // cada linha é um caso distinto. De propósito não há exemplo com frase solta
   // ("meu cpf e ..."), embora funcione: confundiria mais do que ajudaria.
+  //
+  // O marcador "•" é literal, e não a sintaxe de lista "- " do WhatsApp: o app
+  // trata a lista como um bloco e acrescenta uma linha em branco depois dela.
+  // Com o bullet no texto o visual é o mesmo, sem a sobra no fim da mensagem.
   MSG_SOLICITAR_CPF_2:
-    "Pode digitar do jeito que for mais fácil. Exemplos:\n- 12345678900\n- 123.456.789-00\n- 123 456 789 00",
+    "Pode digitar do jeito que for mais fácil. Exemplos:\n• 12345678900\n• 123.456.789-00\n• 123 456 789 00",
 
   // ── Quatro desfechos distintos da consulta por CPF ────────────────────────
   // 1) o número digitado não é um CPF válido

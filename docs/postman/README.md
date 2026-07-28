@@ -230,7 +230,7 @@ recomeçar (ver seção [Redis](#redis)).
 
 **Resposta no WhatsApp (duas mensagens, em sequência):**
 > 1. "Digite o CPF cadastrado na ASSUSA (titular da conta)"
-> 2. "Pode digitar do jeito que for mais fácil. Exemplos:" + lista com `- 12345678900`, `- 123.456.789-00` e `- 123 456 789 00` (renderizada em tópicos pelo WhatsApp)
+> 2. "Pode digitar do jeito que for mais fácil. Exemplos:" + três linhas com bullet literal (`• 12345678900`, `• 123.456.789-00`, `• 123 456 789 00`)
 
 **Estado no Redis após:** `aguardando_cpf`
 
