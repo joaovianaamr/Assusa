@@ -5,6 +5,27 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+/**
+ * Adapter da porta Notificador — tudo que sai daqui para o cliente no WhatsApp.
+ *
+ * Camada infrastructure: implementa `portas.NOTIFICADOR`. Os casos de uso
+ * recebem isto como `notificador` e não sabem que existe Meta do outro lado —
+ * é o que permite trocar a peça em teste sem tocar em produção.
+ *
+ * Limites da Meta que as mensagens interativas impõem, e que o domínio
+ * (`api/domain/boleto.js`) respeita ao montar o conteúdo:
+ *   botões: no máximo 3, título ≤ 20 caracteres
+ *   lista:  no máximo 10 linhas, título ≤ 24 e descrição ≤ 72
+ *   corpo:  ≤ 1024 caracteres em qualquer uma delas
+ * Estourar qualquer um faz a Meta recusar a mensagem INTEIRA com HTTP 400 — daí
+ * as quedas para texto simples em `application/`.
+ *
+ * Herdado do sample Jasper's Market da Meta: `messageWithUtilityTemplate`,
+ * `messageWithLimitedTimeOfferTemplate` e `messageWithMediaCardCarousel` não são
+ * usados pelo bot. Ficam porque documentam como enviar template aprovado, o
+ * único caminho para iniciar conversa fora da janela de 24 h.
+ */
+
 "use strict";
 
 const { FacebookAdsApi } = require('facebook-nodejs-business-sdk');
@@ -70,6 +91,7 @@ class GraphApi {
     }
   }
 
+  /** Mensagem com até 3 botões. Acima disso, use `messageWithInteractiveList`. */
   static async messageWithInteractiveReply(messageId, senderPhoneNumberId, recipientPhoneNumber, messageText, replyCTAs) {
     const requestBody = {
       messaging_product: "whatsapp",
@@ -140,6 +162,7 @@ class GraphApi {
     return this.#makeApiCall(messageId, senderPhoneNumberId, requestBody);
   }
 
+  /** Texto puro — também o plano B quando a Meta recusa uma mensagem interativa. */
   static async messageWithText(messageId, senderPhoneNumberId, recipientPhoneNumber, text) {
     const requestBody = {
       messaging_product: "whatsapp",
@@ -150,6 +173,7 @@ class GraphApi {
     return this.#makeApiCall(messageId, senderPhoneNumberId, requestBody);
   }
 
+  /** Herdado do sample; não usado pelo bot. Ver a nota no topo do arquivo. */
   static async messageWithUtilityTemplate(messageId, senderPhoneNumberId, recipientPhoneNumber, options) {
     const { templateName, locale, imageLink } = options;
     const requestBody = {
@@ -181,6 +205,7 @@ class GraphApi {
     return this.#makeApiCall(messageId, senderPhoneNumberId, requestBody);
   }
 
+  /** Herdado do sample; não usado pelo bot. */
   static async messageWithLimitedTimeOfferTemplate(messageId, senderPhoneNumberId, recipientPhoneNumber, options) {
 
     const { templateName, locale, imageLink, offerCode } = options;
@@ -239,6 +264,10 @@ class GraphApi {
     return this.#makeApiCall(messageId, senderPhoneNumberId, requestBody);
   }
 
+  /**
+   * Sobe o PDF do boleto e devolve o `media_id` usado por `messageWithDocument`.
+   * Vai por `fetch` direto, e não pelo SDK, porque exige multipart/form-data.
+   */
   static async uploadMedia(senderPhoneNumberId, pdfBuffer) {
     const formData = new FormData();
     formData.append("messaging_product", "whatsapp");
@@ -266,6 +295,7 @@ class GraphApi {
     return await res.json();
   }
 
+  /** Envia o PDF já carregado por `uploadMedia`, com legenda. */
   static async messageWithDocument(messageId, senderPhoneNumberId, recipientPhoneNumber, mediaId, filename, caption) {
     const requestBody = {
       messaging_product: "whatsapp",
@@ -277,6 +307,7 @@ class GraphApi {
     return this.#makeApiCall(messageId, senderPhoneNumberId, requestBody);
   }
 
+  /** Herdado do sample; não usado pelo bot. */
   static async messageWithMediaCardCarousel(messageId, senderPhoneNumberId, recipientPhoneNumber, options) {
     const { templateName, locale, imageLinks } = options;
     const requestBody = {

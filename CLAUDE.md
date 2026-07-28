@@ -7,9 +7,11 @@ consultando o back-end do **Sicoob**. Código-base derivado do sample *Jasper's 
 
 ## Arquitetura em uma frase
 
-Dois processos independentes: **Node/Express** na raiz (webhook WhatsApp, máquina de estados
-no Redis) e **FastAPI** em `python/sicoob_service/` (cliente mTLS da API bancária Sicoob).
-O Node fala com o Python por HTTP interno (`SICOOB_SERVICE_URL` + header `X-Internal-Api-Key`).
+Três componentes isolados: **API** (`api/` + `app.js` — Node/Express em camadas, webhook do
+WhatsApp e máquina de estados no Redis), **processamento Sicoob** (`python/sicoob_service/` —
+FastAPI, cliente mTLS da API bancária) e **frontend** (`web/` — HTML estático). São dois
+processos: o Node fala com o Python por HTTP interno (`SICOOB_SERVICE_URL` + header
+`X-Internal-Api-Key`), e o frontend é servido pela API.
 
 - `app.js` — rotas: `GET/POST /webhook`, `GET /` (página institucional), `GET /status` (diagnóstico
   JSON), `/privacy`, `/data-deletion`, `/logo-assusa.png`. Exporta `createApp()` para os testes; só
@@ -51,10 +53,6 @@ CI procura `ASSUSA` na raiz e `Servidor ativo` em `/status` — mover uma dessas
 esteira, e o `deploy.yml` só roda se o CI passar. Os health checks do `Dockerfile` e do
 `scripts/deploy.sh` olham apenas o código 200 da raiz.
 
-**Arquivos de `public/` são servidos por rota explícita, nunca por `express.static`.** Cada um
-tem seu `app.get(...)` com `sendFile`. Expor o diretório inteiro é justamente o que deixou uma
-cópia do código-fonte pública por semanas.
-
 **Nunca edite arquivos versionados direto na VPS.** Já causou drift que quebrou o `git pull`.
 Toda mudança entra por commit em `main`. Na VPS só se toca em `.env` e `certificados/`
 (gitignored, legitimamente só existem lá).
@@ -62,6 +60,27 @@ Toda mudança entra por commit em `main`. Na VPS só se toca em `.env` e `certif
 **Push em `main` = deploy automático em produção.** `ci.yml` roda testes Node + Python + build
 Docker; se passar, `deploy.yml` dispara `scripts/deploy.sh` na VPS (pull, rebuild, health check,
 **rollback automático** se o health falhar). Não faça push em `main` sem intenção de publicar.
+
+**Deploy falhando com `ssh: connect to host *** port 22: Connection timed out` costuma ser
+transitório — espere e repita antes de investigar infraestrutura.** Em 28/07/2026 duas
+tentativas seguidas falharam assim (19:49 e 19:54), inclusive um `gh run rerun` imediato. Meia
+hora depois o mesmo deploy passou sozinho, sem nenhuma mudança de configuração. Foi janela de
+indisponibilidade de rede entre os runners e a VPS.
+
+O que esse episódio ensinou, para não repetir o desperdício:
+
+- **Não há firewall na VPS** — `ufw` inativo, `iptables INPUT` com policy ACCEPT e sem regras.
+  Não procure bloqueio ali, e não vá mexer no painel do provedor por causa disso.
+- O sintoma é enganoso: `journalctl -u ssh` **não registra tentativa nenhuma** durante a falha,
+  o que parece prova de bloqueio de rede permanente. Não é — pacote perdido no caminho produz
+  exatamente o mesmo silêncio.
+- Diagnóstico rápido, nesta ordem: `curl -sI https://assusa.tech` (a VPS está viva?), depois
+  `ssh` na VPS a partir da sua máquina (a porta 22 responde de outra origem?). Se as duas
+  passarem, é transitório: **espere ~30 min e re-rode o workflow**.
+- Só depois disso vale suspeitar de rede/provedor. E existe a saída manual: rodar
+  `bash scripts/deploy.sh` direto na VPS faz exatamente o que o runner faria.
+- A unit do SSH aqui chama-se **`ssh.service`**, não `sshd.service` — vale para `journalctl` e
+  para configurar qualquer coisa que leia esse log.
 
 **A conexão com o Redis é preguiçosa — importar não faz I/O.** Era o contrário: o adapter
 chamava `client.connect()` no topo, então importar a cadeia da conversa abria socket sem pedir.
@@ -92,14 +111,14 @@ de uso novo, siga o padrão: `module.exports = function criar({ ... }) { ... }`.
 
 **Mensagem de botões da Meta aceita no máximo 3 botões; lista interativa, 10 linhas.**
 Por isso a listagem de contas bifurca em `apresentarBoletos` (`≤ 3` → botões, `≥ 4` → lista) e
-o teto de contas exibidas é 10. Toda resposta interativa é normalizada em `services/message.js`,
+o teto de contas exibidas é 10. Toda resposta interativa é normalizada em `api/interface/payloadWhatsApp.js`,
 que lê `button_reply` **e** `list_reply` — clique de botão e toque em item chegam com o mesmo
 id `boleto-N`. Ler só `button_reply` derruba o handler do webhook com `TypeError`.
 
 **A busca de boletos filtra por data de VENCIMENTO, não por "está em aberto hoje".**
 `codigoSituacao=1` (Em Aberto) e `dataInicio`/`dataFim` são filtros independentes: um boleto
 registrado agora com vencimento em duas semanas já está em aberto, mas fica fora do recorte se
-a janela terminar em `hoje`. Por isso `montarJanelas` (`services/sicoobClient.js`) começa em
+a janela terminar em `hoje`. Por isso `montarJanelas` (`api/infrastructure/sicoobHttp.js`) começa em
 `hoje + SICOOB_DIAS_FUTURO`. As janelas precisam ser contíguas e nunca passar de 35 dias — o
 Sicoob recusa com `5002`. `test/janelasBusca.test.js` trava as três coisas.
 
@@ -142,6 +161,24 @@ Ao documentar algo novo com identificador real, mova o valor para `.env` e deixe
 nome da variável no doc — foi o que o commit `8f5d413` fez.
 
 `docs/capturas/` está fora do git e portanto **sem backup** (ver `docs/capturas.md`).
+
+**SSH da VPS: só chave, sem senha.** Aplicado em 28/07/2026, depois de 498 tentativas de brute
+force vindas de 8+ IPs (nenhuma bem-sucedida). Configuração em
+`/etc/ssh/sshd_config.d/00-hardening.conf`: `PasswordAuthentication no` e `PermitRootLogin
+prohibit-password`, mais `fail2ban` no jail `sshd`.
+
+Duas pegadinhas que custaram tempo e vão se repetir em qualquer ajuste ali:
+
+- **O `Include` está na linha 12 do `sshd_config` e o primeiro valor lido vence.** Por isso
+  `50-cloud-init.conf` (`PasswordAuthentication yes`) derrotava silenciosamente o
+  `60-cloudimg-settings.conf` (`no`). O arquivo de hardening começa com `00-` justamente para
+  vir antes de todos. Sempre confira o resultado com `sshd -T`, nunca lendo um arquivo só.
+- **O `fail2ban` instala apontando para `sshd.service`, mas a unit aqui é `ssh.service`** — sem
+  o `journalmatch` explícito no `jail.local` ele não lê nada e dá falsa sensação de proteção.
+  Para validar de verdade: `fail2ban-regex <log> /etc/fail2ban/filter.d/sshd.conf`.
+
+O deploy do CI entra como `root` por chave. Migrar para um usuário sem privilégio é o próximo
+passo de endurecimento — exige trocar `VPS_USER`/`VPS_SSH_KEY` nos secrets e testar.
 
 ## Estado no Redis
 

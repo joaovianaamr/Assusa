@@ -14,7 +14,7 @@ sequenceDiagram
     participant VPS as VPS (<VPS_HOST>)
 
     Dev->>CI: push em main (ou pull_request)
-    CI->>CI: job node — npm test
+    CI->>CI: job node — npm test + boundary_lint (fronteiras de camada)
     CI->>CI: job python — pytest + ruff
     CI->>CI: job docker — build web/sicoob + smoke test
     CI-->>Deploy: workflow_run (conclusion)
@@ -42,12 +42,33 @@ loopback nunca veria).
 
 | Arquivo | Gatilho | O que faz |
 |---|---|---|
-| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | `push` em `main`, `pull_request` | 3 jobs em paralelo: `node` (`npm test`), `python` (`pytest` + `ruff check --exit-zero`), `docker` (build das 2 imagens + sobe o container `web` e confere `GET /` e `GET /app.js`) |
+| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | `push` em `main`, `pull_request` | 3 jobs em paralelo: `node` (`npm test` + `boundary_lint.py`), `python` (`pytest` + `ruff check --exit-zero`), `docker` (build das 2 imagens + smoke test do container — ver abaixo) |
 | [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | `workflow_run` do CI (só roda se `conclusion == success` e `head_branch == main`), ou `workflow_dispatch` manual | SSH até a VPS com a chave restrita → dispara `scripts/deploy.sh` → confere `https://assusa.tech/` publicamente |
 | [`scripts/deploy.sh`](../scripts/deploy.sh) | executado pelo Deploy (ou à mão na VPS) | `git pull --ff-only` → `docker compose up -d --build` → health loop → rollback automático (`git reset --hard` + rebuild) se falhar |
 
 `ruff` roda como baseline não bloqueante (`--exit-zero`) — hoje aponta 9 avisos, nenhum
 travando o CI. Torná-lo bloqueante é uma mudança deliberada futura, não acidental.
+
+### O que cada verificação do CI protege
+
+Nenhuma delas está ali por praxe; cada uma nasceu de um problema real.
+
+| Verificação | Job | Existe porque |
+|---|---|---|
+| `npm test` | node | 103 testes, rodando **sem Redis** — a suíte precisa continuar assim |
+| `boundary_lint.py --root api` | node | as camadas de `api/` só valem se alguém reprovar quando uma seta apontar para fora. Falha o build, não avisa |
+| `pytest` | python | 48 testes do cliente Sicoob |
+| `ruff --exit-zero` | python | baseline de estilo, deliberadamente não bloqueante |
+| `find web -name '*.js'` | docker | uma cópia do código-fonte já ficou pública por semanas a partir do diretório estático |
+| `curl / \| grep ASSUSA` | docker | a raiz precisa servir a **página**, não JSON |
+| `curl /status \| grep "Servidor ativo"` | docker | o diagnóstico legível por máquina mudou de endereço quando a página ocupou a raiz |
+| `curl /logo-assusa.png` = 200 | docker | a página referencia a logo; sem rota explícita ela daria 404 |
+| `curl /app.js` = 404 | docker | o código-fonte não pode ser servido — mesma origem do item de `web/` |
+
+O smoke test do `docker` roda `docker run` **sem `--env-file`**: o container precisa subir sem
+nenhuma variável de ambiente. Foi essa verificação que pegou o adapter da Meta construindo o
+cliente do SDK no import (`new FacebookAdsApi(undefined)` lança), e é ela que continua guardando
+a propriedade junto com `test/arranqueSemEnv.test.js`.
 
 ## Secrets (GitHub → Settings → Secrets and variables → Actions)
 
@@ -141,6 +162,36 @@ fora do ar, não simulado) e se recuperou sozinho.
    `docker compose logs --tail 100 web` e `docker compose ps` — o rollback automático já
    deve ter revertido, mas os logs explicam o motivo original
 4. Conferir se a VPS está no SHA esperado: `git -C /root/segunda-via-wpp-assusa rev-parse --short HEAD`
+
+### `ssh: connect to host *** port 22: Connection timed out`
+
+**Costuma ser transitório. Espere ~30 min e re-rode antes de investigar infraestrutura.**
+
+Em 28/07/2026 duas tentativas seguidas falharam assim (19:49 e 19:54), incluindo um
+`gh run rerun` imediato — e meia hora depois o mesmo deploy passou sozinho, sem nenhuma
+mudança de configuração. Foi janela de indisponibilidade de rede entre os runners e a VPS.
+
+O sintoma engana: durante a falha o `journalctl -u ssh` na VPS **não registra tentativa
+nenhuma**, o que parece prova de bloqueio permanente. Não é — pacote perdido no caminho produz
+exatamente o mesmo silêncio. E **não há firewall na VPS** (`ufw` inativo, `iptables INPUT` com
+policy ACCEPT e sem regras), então não adianta procurar bloqueio ali nem no painel do provedor.
+
+Ordem de diagnóstico:
+
+```bash
+curl -sI https://assusa.tech            # a VPS está viva?
+ssh <VPS_USER>@<VPS_HOST> true          # a porta 22 responde de outra origem?
+# as duas passaram? é transitório: espere e re-rode o workflow
+```
+
+Se precisar publicar sem esperar, a saída manual faz exatamente o que o runner faria:
+
+```bash
+ssh <VPS_USER>@<VPS_HOST> 'cd /root/segunda-via-wpp-assusa && bash scripts/deploy.sh'
+```
+
+> A unit do SSH na VPS chama-se **`ssh.service`**, não `sshd.service` — vale para o
+> `journalctl` e para qualquer ferramenta que leia esse log.
 
 ## Disparo manual (sem esperar push)
 

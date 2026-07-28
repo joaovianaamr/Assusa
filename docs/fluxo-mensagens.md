@@ -246,7 +246,7 @@ Ativado após o usuário clicar em "2ª via de conta". O bot aguarda CPF.
 
 Ativado após listar boletos com sucesso. O bot aguarda a escolha de uma conta —
 clique em botão (até 3 contas) ou toque em item da lista (4 ou mais). Os dois
-chegam com o mesmo `message.type` (`boleto-N`), resolvido em `services/message.js`.
+chegam com o mesmo `message.type` (`boleto-N`), resolvido em `api/interface/payloadWhatsApp.js`.
 
 | Condição | Resultado |
 |---|---|
@@ -265,7 +265,7 @@ chegam com o mesmo `message.type` (`boleto-N`), resolvido em `services/message.j
 ## Formatação e limites de apresentação
 
 Os valores são formatados no padrão brasileiro antes de enviar ao usuário
-(`services/boletoView.js`):
+(`api/domain/boleto.js`):
 
 | Campo | Formato | Exemplo |
 |---|---|---|
@@ -389,7 +389,7 @@ Antes era preciso *digitar* "menu" — barreira real para o público idoso. O bo
 interativo, o texto ainda é enviado (`enviarComBotaoMenu`).
 
 O botão "Falar com atendente" foi removido do fluxo — junto com seu handler, suas
-constantes e a notificação por e-mail (o antigo `services/mailer.js`). O telefone
+constantes e a notificação por e-mail (o antigo `services/mailer.js`, já removido). O telefone
 (31) 3624-8550 continua nas mensagens de erro como canal humano.
 
 O botão `assusa-horario-funcionamento` nunca foi exibido no menu, mas seu handler

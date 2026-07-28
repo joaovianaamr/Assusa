@@ -121,7 +121,7 @@ Valores de desenvolvimento (`assusa-dev`, `docker-dev-internal-key`) não devem 
 
 Hoje só verifica se tem 11 dígitos — CPFs inválidos como `00000000000` ou `11111111111` passam e causam erros na API Sicoob.
 
-- [ ] Implementar função `cpfValido(cpf)` em `services/conversation.js` com o algoritmo dos dois dígitos verificadores:
+- [ ] Implementar função `cpfValido(cpf)` em `api/interface/webhookRouter.js` com o algoritmo dos dois dígitos verificadores:
   1. Calcular primeiro dígito: soma dos 9 primeiros dígitos ponderados (10 a 2), resto por 11; se < 2 → 0, senão 11 − resto
   2. Calcular segundo dígito: soma dos 10 primeiros dígitos ponderados (11 a 2), mesma regra
   3. Comparar os dois dígitos calculados com os dois últimos do CPF
@@ -134,7 +134,7 @@ Hoje só verifica se tem 11 dígitos — CPFs inválidos como `00000000000` ou `
 
 O campo `resultado.valor` chega cru da API (ex: `"150.50"`) e `resultado.dataVencimento` pode vir como `"2025-06-01"`. O usuário recebe isso sem formatação.
 
-- [ ] Adicionar função de formatação de moeda em `services/conversation.js`:
+- [ ] Adicionar função de formatação de moeda em `api/interface/webhookRouter.js`:
   ```js
   function formatarBRL(valor) {
     return Number(valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });

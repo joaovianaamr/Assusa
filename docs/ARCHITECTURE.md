@@ -2,155 +2,164 @@
 
 > Índice de toda a documentação: [docs/README.md](README.md). Para o contexto de negócio
 > (o que é a ASSUSA, glossário do domínio) em vez de mapa de arquivos, ver [project-context.md](project-context.md).
+> Para o fluxo de conversa estado a estado: [fluxo-mensagens.md](fluxo-mensagens.md).
+> Para o histórico da migração em camadas: [arquitetura-isolamento.md](arquitetura-isolamento.md).
 
-Este repositório tem **dois processos** independentes: o **servidor Node (Express + WhatsApp)** na raiz e o **microsserviço FastAPI (Sicoob)** em [`python/sicoob_service/`](../python/sicoob_service/). O Node consulta o Python no arranque (`checkPythonHealth`) e durante a conversa: [`listarBoletos`](../services/sicoobClient.js) e [`segundaViaBoleto`](../services/sicoobClient.js) integram o fluxo de mensagens.
+## Três componentes
+
+| Componente | Onde | O que é |
+|---|---|---|
+| **API** | `api/` + `app.js` | Node/Express: recebe o webhook do WhatsApp, conduz a conversa, fala com o Sicoob |
+| **Processamento Sicoob** | `python/sicoob_service/` | FastAPI: cliente mTLS da API bancária. Processo próprio, contrato HTTP |
+| **Frontend** | `web/` | HTML estático servido pela API por rota explícita |
+
+O Node fala com o Python por HTTP interno (`SICOOB_SERVICE_URL` + header `X-Internal-Api-Key`);
+o contrato está em [sicoob/NODE_PYTHON_CONTRACT.md](sicoob/NODE_PYTHON_CONTRACT.md). Além dos
+boletos, o Python também grava a telemetria de atendimento no Postgres
+(`POST /interno/interacao`).
 
 ---
 
-## 1. Mapa mental das pastas e ficheiros
+## 1. O componente API, por dentro
 
-```mermaid
-mindmap
-  root((segunda-via-wpp-assusa))
-    raiz
-      package.json
-      app.js
-      .env.sample
-    services
-      (migrado para api/ — ver CLAUDE.md)
-    python_sicoob_service
-      pyproject.toml
-      src_sicoob_service
-        app.py
-        bootstrap.py
-        settings.py
-        banking_v3.py
-        token_v3.py
-        certificate_tools.py
-        __main__.py
-      tests
-    docs
-      meta
-      sicoob
-      postman
-      prompts
-    .github_workflows
-      ci.yml
-      deploy.yml
-    scripts
-      deploy.sh
+Arquitetura em camadas (Clean/Hexagonal). **As setas de dependência apontam só para dentro.**
+
+```
+app.js                        entrada HTTP: rotas, verificação de assinatura, páginas
+│
+└── api/
+    ├── composicao.js         composition root — o ÚNICO lugar que vê tudo
+    │
+    ├── domain/               regras puras: sem framework, sem I/O, sem rede
+    │   ├── cpf.js              normalizar, validar (módulo 11), mascarar
+    │   ├── boleto.js           ordenar, cortar em 10, decidir botões vs. lista,
+    │   │                       respeitar os limites da Meta, resolver a seleção
+    │   ├── mensagens.js        todo texto que o cliente lê
+    │   └── portas/index.js     o que o domínio exige do mundo + verificador
+    │
+    ├── application/          um arquivo por caso de uso — recebe as portas por parâmetro
+    │   ├── consultarPorCpf.js       consulta e decide o desfecho
+    │   ├── listagemBoletos.js       monta, envia e reexibe a lista
+    │   ├── entregarSegundaVia.js    entrega o PDF e fecha o atendimento
+    │   └── mensageria.js            envios compartilhados entre os casos de uso
+    │
+    ├── infrastructure/       adapters que implementam as portas
+    │   ├── sicoobHttp.js       → serviço Python (janelas de busca)
+    │   ├── whatsappGraph.js    → Meta Cloud API
+    │   ├── sessaoRedis.js      → Redis (estado da conversa)
+    │   └── telemetriaHttp.js   → Postgres via Python
+    │
+    ├── interface/            fronteira de entrada
+    │   ├── webhookRouter.js      roteamento por estado da conversa
+    │   └── payloadWhatsApp.js    traduz o payload da Meta (Message, Status)
+    │
+    └── config.js             variáveis de ambiente (fora das camadas, como o wiring)
 ```
 
-**Papel de cada pasta**
+**A regra é verificada, não combinada:** `domain` não importa ninguém; `application` importa só
+`domain`; `infrastructure` e `interface` importam `domain` + `application`, nunca um ao outro;
+ninguém importa `interface`. O contrato está em [`.arch.json`](../.arch.json) e
+[`scripts/boundary_lint.py`](../scripts/boundary_lint.py) **falha o CI** quando uma seta aponta
+para fora.
 
-- **Raiz**: ponto de entrada Node ([`app.js`](../app.js)), dependências ([`package.json`](../package.json)), variáveis de exemplo ([`.env.sample`](../.env.sample)).
-- **[`services/`](../services/)**: toda a lógica do webhook WhatsApp (conversa, Graph API, Redis, config), a camada de
-  apresentação das listagens ([`boletoView.js`](../services/boletoView.js), pura e testável) e o cliente HTTP para o Python.
-- **[`python/sicoob_service/`](../python/sicoob_service/)**: API interna Sicoob (uvicorn/FastAPI), certificados, testes.
-- **[`docs/`](.)**: contexto e contratos (não faz parte do runtime do servidor).
-- **[`.github/workflows/`](../.github/workflows/) + [`scripts/deploy.sh`](../scripts/deploy.sh)**: CI/CD — testa e deploya sozinho todo push em `main`. Fluxo completo em [deploy.md](deploy.md).
+`composicao.js` fica fora das camadas de propósito: a regra "ninguém enxerga todo mundo" precisa
+de exatamente uma exceção declarada, senão o wiring vaza de volta para dentro das camadas.
+
+### Por que dá para testar sem Redis, sem rede e sem token
+
+Nenhum caso de uso importa adapter — todos recebem `bancoBoletos`, `sessao`, `notificador` e
+`telemetria` por parâmetro. Trocar qualquer peça em teste não exige tocar em produção.
+
+E **nenhum adapter faz trabalho ao ser importado**: `sessaoRedis` conecta na primeira operação,
+`whatsappGraph` só constrói o cliente do SDK na primeira chamada. Isso não é estilo —
+`new FacebookAdsApi(token)` lança com token indefinido, e foi assim que o container morreu no
+arranque uma vez. [`test/arranqueSemEnv.test.js`](../test/arranqueSemEnv.test.js) guarda a
+propriedade subindo um processo sem nenhuma variável de ambiente.
 
 ---
 
-## 2. Inicialização do Node e arranque do servidor
+## 2. Arranque do servidor
 
-Ordem real de execução quando corre `npm start` → `node app.js`:
+| # | O que acontece | Onde |
+|---|---|---|
+| 1 | `dotenv` carrega o `.env` | [`app.js`](../app.js), [`api/config.js`](../api/config.js) |
+| 2 | `require("./api/composicao")` monta as camadas e liga porta a adapter | [`api/composicao.js`](../api/composicao.js) |
+| 3 | `createApp()` registra as rotas | [`app.js`](../app.js) |
+| 4 | `config.checkEnvVariables()` — só `console.warn` se faltar variável | [`api/config.js`](../api/config.js) |
+| 5 | `listen(config.port)` e health check do serviço Python | [`app.js`](../app.js) |
 
-| Ordem | O que acontece | Onde |
-|------|----------------|------|
-| 1 | `require('dotenv').config()` (segunda vez em [`config.js`](../services/config.js) também) | [`app.js`](../app.js) L13; [`config.js`](../services/config.js) L11 |
-| 2 | Carrega módulos: `config`, `Conversation`, `sicoobClient`, `Message` | [`app.js`](../app.js) L16–19 |
-| 3 | Ao carregar `Conversation` → cadeia `Cache` → [`redis.js`](../services/redis.js): `createClient` + `client.connect()` (efeito lateral) | [`conversation.js`](../services/conversation.js) L15; [`redis.js`](../services/redis.js) L13–24 |
-| 4 | Ao carregar `GraphApi` → `FacebookAdsApi(config.accessToken)` | [`graph-api.js`](../services/graph-api.js) L10–13 |
-| 5 | `express()`, `app.use(urlencoded)`, `app.use(json({ verify: verifyRequestSignature }))` | [`app.js`](../app.js) L20–30 |
-| 6 | Registo de rotas: `GET /webhook`, `POST /webhook`, `GET /` (página), `GET /status`, `/privacy`, `/data-deletion`, `/logo-assusa.png` | [`app.js`](../app.js) L33–85 |
-| 7 | `config.checkEnvVariables()` — avisos se faltam env vars | [`app.js`](../app.js) L88; [`config.js`](../services/config.js) L33–38 |
-| 8 | `app.listen(config.port, async () => { ... })` → log porta; `sicoobClient.checkPythonHealth()` | [`app.js`](../app.js) L110–123 |
+Nenhum desses passos abre conexão com Redis ou com a Meta. O primeiro I/O real acontece quando
+chega a primeira mensagem.
 
-**Funções nomeadas no arranque**
+---
 
-- [`verifyRequestSignature`](../app.js) — middleware de verificação HMAC `x-hub-signature-256` (corre em cada `POST` com body JSON).
-- [`config.checkEnvVariables`](../services/config.js) — percorre `ENV_VARS` e faz `console.warn` se faltar variável.
-- [`sicoobClient.checkPythonHealth`](../services/sicoobClient.js) — `GET {SICOOB_SERVICE_URL}/health` (ou `skipped` se URL não configurada).
+## 3. Rotas HTTP
 
-```mermaid
-flowchart TD
-  start[npm start / node app.js]
-  dotenv[dotenv.config]
-  reqMods[require config Conversation sicoobClient Message]
-  sideRedis[redis.js: createClient e connect]
-  sideFB[graph-api: FacebookAdsApi]
-  express[express + body parsers + rotas]
-  checkEnv[config.checkEnvVariables]
-  listen[app.listen port]
-  health[sicoobClient.checkPythonHealth]
-  start --> dotenv --> reqMods
-  reqMods --> sideRedis
-  reqMods --> sideFB
-  reqMods --> express --> checkEnv --> listen --> health
+| Rota | O que faz |
+|---|---|
+| `GET /` | Página institucional (`web/index.html`) |
+| `GET /status` | Diagnóstico JSON — o smoke test do CI procura "Servidor ativo" aqui |
+| `GET /webhook` | Handshake de verificação da Meta (`hub.challenge`) |
+| `POST /webhook` | Recebe eventos; delega ao `router` do composition root |
+| `GET /privacy`, `GET /data-deletion` | Páginas legais exigidas pela revisão da Meta |
+| `POST /data-deletion` | Recebe pedido de exclusão (a exclusão real ainda é um TODO) |
+| `GET /logo-assusa.png` | Logo usada pela página e pelo preview de link |
+
+Arquivos de `web/` são servidos por **rota explícita com `sendFile`, nunca por
+`express.static`** — expor o diretório inteiro é o que já deixou uma cópia do código-fonte
+pública por semanas.
+
+---
+
+## 4. Caminho de uma mensagem
+
+```
+POST /webhook
+   │  app.js valida assinatura (x-hub-signature-256, quando presente)
+   ▼
+router.handleMessage                     api/interface/webhookRouter.js
+   │  Message traduz o payload           api/interface/payloadWhatsApp.js
+   │  lê o estado da sessão              porta sessao → sessaoRedis
+   │
+   ├── palavra-chave de saída ─────────► menu principal, sessão descartada
+   ├── botão "Ver outras contas" ──────► listagem.reexibirBoletos (cache, 0 chamadas ao Sicoob)
+   ├── estado aguardando_cpf ──────────► consulta.handleCpfRecebido
+   │        │  cpf.apenasDigitos + cpf.cpfValido       (domain)
+   │        │  bancoBoletos.listarBoletos              (porta → sicoobHttp → Python → Sicoob)
+   │        └─► listagem.apresentarBoletos
+   │                 boleto.deveUsarLista / montarRows  (domain, limites da Meta)
+   │                 notificador.messageWith…           (porta → whatsappGraph → Meta)
+   ├── estado aguardando_selecao ──────► entrega.handleSelecaoBoleto
+   │                 bancoBoletos.segundaViaBoleto → PDF, linha digitável, PIX
+   │                 entrega.fecharEntrega → "Ver outras contas" / "Voltar ao menu"
+   └── qualquer outra coisa ───────────► menu principal
 ```
 
----
-
-## 3. Fluxo HTTP após o servidor a escuta
-
-```mermaid
-flowchart LR
-  subgraph getVerify [GET /webhook]
-    G1[Compara hub.mode e hub.verify_token com config.verifyToken]
-    G2[Responde hub.challenge ou 403]
-  end
-  subgraph postHook [POST /webhook]
-    P1[JSON parse com verifyRequestSignature]
-    P2[Itera entry.changes.value]
-    P3a[statuses: Conversation.handleStatus]
-    P3b[messages: Conversation.handleMessage]
-    P4[200 EVENT_RECEIVED]
-  end
-  subgraph root [GET /]
-    R1[JSON health info Jasper]
-  end
-```
+Todo desfecho registra um evento pela porta `telemetria` — a lista está em
+[fluxo-mensagens.md](fluxo-mensagens.md).
 
 ---
 
-## 4. Funções na cadeia de mensagens e estado
+## 5. Estado no Redis
 
-**[`Conversation.handleMessage`](../services/conversation.js)** (estático)
+Chave por telefone, TTL deslizante de `ESTADO_TTL_SECONDS` (padrão 1800 s):
 
-- Instancia `Message(rawMessage)`.
-- `switch (message.type)` sobre IDs em [`constants.js`](../services/constants.js).
-- Chama funções internas ao ficheiro: `sendTryOutDemoMessage`, `sendInteractiveMediaMessage`, `sendLimitedTimeOfferMessage`, `sendMediaCarouselMessage`, `markMessageForFollowUp`.
-- `markMessageForFollowUp` → [`Cache.insert`](../services/redis.js).
-
-**[`Conversation.handleStatus`](../services/conversation.js)**
-
-- Instancia `Status(rawStatus)`.
-- Filtra só `delivered` / `read`.
-- Se [`Cache.remove`](../services/redis.js)(`messageId`) devolver verdadeiro → `sendTryOutDemoMessage` com mensagem de follow-up.
-
-**[`GraphApi`](../services/graph-api.js)** (métodos estáticos; chamada real via `#makeApiCall` privado)
-
-- `messageWithText`, `messageWithInteractiveReply` (até 3 botões), `messageWithInteractiveList` (até 10 linhas),
-  `messageWithDocument`, `uploadMedia`, e os de template herdados do sample: `messageWithUtilityTemplate`,
-  `messageWithLimitedTimeOfferTemplate`, `messageWithMediaCardCarousel`.
-
-**Modelos**
-
-- [`Message` constructor](../api/interface/payloadWhatsApp.js) — extrai `id`, `type` (de `interactive.button_reply.id` **ou** `interactive.list_reply.id`, senão `'unknown'`), `text`, `from`.
-- [`Status` constructor](../api/interface/payloadWhatsApp.js) — `id`, `status`, `recipient_id`.
-
-**Cliente Sicoob (Node)**
-
-- [`baseUrl`](../services/sicoobClient.js), [`internalHeaders`](../services/sicoobClient.js), [`checkPythonHealth`](../services/sicoobClient.js).
-- [`listarBoletos`](../services/sicoobClient.js) → `POST /internal/boleto/listar`, disparado em janelas paralelas por
-  [`montarJanelas`](../services/sicoobClient.js) (a API filtra por data de **vencimento** e recusa intervalos > 35 dias).
-- [`segundaViaBoleto`](../services/sicoobClient.js) → `POST /internal/boleto/segunda-via`, usado tanto para atualizar o
-  valor de cada conta listada quanto para gerar o PDF entregue.
+- `estado:<telefone>` — *(sem estado)* · `aguardando_cpf` · `aguardando_selecao_boleto`
+- `boletos:<telefone>` — a lista já com valores atualizados, para o cliente pedir outra conta
+  sem redigitar o CPF
 
 ---
 
-## 5. Inicialização do microsserviço Python (referência)
+## 6. Testes
 
-- Entrada típica: `python -m sicoob_service` ou comando definido no pacote → [`__main__.py`](../python/sicoob_service/src/sicoob_service/__main__.py) chama `get_settings()` e `uvicorn.run("sicoob_service.app:app", ...)`.
-- [`app.py`](../python/sicoob_service/src/sicoob_service/app.py): instância `FastAPI`, rotas `/health`, `/internal/boleto/*` com `verify_internal_key` e `banking_dependency` → [`create_banking_client`](../python/sicoob_service/src/sicoob_service/bootstrap.py) → [`BankingSicoobV3`](../python/sicoob_service/src/sicoob_service/banking_v3.py).
+103 no Node, todos rodando **sem Redis instalado**, e 48 no Python.
+
+| Arquivo | Guarda o quê |
+|---|---|
+| `cpf.test.js`, `boletoView.test.js` | regras de domínio e os limites da Meta |
+| `janelasBusca.test.js` | janelas de busca contíguas, nunca acima de 35 dias, alcançando o futuro |
+| `portas.test.js` | cada adapter cumpre a porta que o domínio declara |
+| `sessaoRedis.test.js` | importar não conecta ao Redis |
+| `arranqueSemEnv.test.js` | o processo sobe sem nenhuma variável de ambiente |
+| `message.test.js` | tradução do payload, incluindo `list_reply` |
+| `webhook.test.js` | rotas HTTP e o fluxo de conversa ponta a ponta |
