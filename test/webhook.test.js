@@ -212,6 +212,16 @@ function cenarioCpf(t, { emAberto = [], historico = [], historicoFalha = false }
   };
 }
 
+/** Textos enviados ao cliente, venham como texto puro ou como mensagem de botões. */
+const textosEnviados = m => [
+  ...m.text.mock.calls.map(c => c.arguments[3]),
+  ...m.botoes.mock.calls.map(c => c.arguments[3]),
+];
+
+/** Botões oferecidos em todas as mensagens de botão-reply enviadas. */
+const botoesOferecidos = m =>
+  m.botoes.mock.calls.flatMap(c => c.arguments[4]);
+
 const enviarCpf = () =>
   require("../services/conversation").handleMessage("phone-id-123", {
     from: "5531999999999",
@@ -257,7 +267,7 @@ test("acima de 10 contas exibe as 10 mais antigas e avisa o total", async (t) =>
   const rows = m.lista.mock.calls[0].arguments[6];
   assert.equal(rows.length, 10, "corta no teto de 10 linhas da Meta");
 
-  const textos = m.text.mock.calls.map(c => c.arguments[3]);
+  const textos = textosEnviados(m);
   assert.ok(
     textos.some(t => t.includes("12") && t.includes("10")),
     "deve avisar quantas contas existem e quantas estão sendo mostradas"
@@ -284,7 +294,7 @@ test("sem contas em aberto mas com histórico: cliente está em dia", async (t) 
   const m = cenarioCpf(t, { emAberto: [], historico: contas(2) });
   await enviarCpf();
 
-  const textos = m.text.mock.calls.map(c => c.arguments[3]);
+  const textos = textosEnviados(m);
   assert.ok(
     textos.some(t => t.startsWith("Boa notícia")),
     "deve informar que o cliente está em dia"
@@ -303,7 +313,7 @@ test("sem contas em aberto e sem histórico: CPF fora do cadastro", async (t) =>
   const m = cenarioCpf(t, { emAberto: [], historico: [] });
   await enviarCpf();
 
-  const textos = m.text.mock.calls.map(c => c.arguments[3]);
+  const textos = textosEnviados(m);
   assert.ok(
     textos.includes(constantsRef.MSG_CPF_NAO_ENCONTRADO),
     "deve dizer que não localizou o CPF no cadastro"
@@ -314,7 +324,7 @@ test("histórico indisponível cai no texto genérico, sem afirmar que o CPF nã
   const m = cenarioCpf(t, { emAberto: [], historicoFalha: true });
   await enviarCpf();
 
-  const textos = m.text.mock.calls.map(c => c.arguments[3]);
+  const textos = textosEnviados(m);
   assert.ok(textos.includes(constantsRef.MSG_NENHUM_BOLETO), "deve usar o texto genérico");
   assert.ok(
     !textos.includes(constantsRef.MSG_CPF_NAO_ENCONTRADO),
@@ -332,7 +342,7 @@ test("CPF inválido recebe o texto de CPF incorreto, não o de conta inexistente
     text: { body: "12345678900" },
   });
 
-  const textos = m.text.mock.calls.map(c => c.arguments[3]);
+  const textos = textosEnviados(m);
   assert.deepEqual(textos, [constantsRef.MSG_CPF_INVALIDO]);
 });
 
@@ -371,7 +381,7 @@ test("Meta recusando a lista cai para texto com instrução de número", async (
 
   await enviarCpf();
 
-  const textos = m.text.mock.calls.map(c => c.arguments[3]);
+  const textos = textosEnviados(m);
   const fallback = textos.find(t => t.includes("Responda com o"));
   assert.ok(fallback, "deve enviar a lista como texto simples");
   assert.match(fallback, /1\)/, "o texto deve trazer as contas enumeradas");
@@ -492,4 +502,128 @@ test("aviso de falha não tenta enviar sem destinatário", async (t) => {
   await Conversation.avisarFalhaInesperada("phone-id-123", {});
 
   assert.equal(text.mock.calls.length, 0);
+});
+
+// ── botão "Voltar ao menu" nas mensagens de fim de fluxo ─────────────────────
+
+test("mensagem de CPF inválido vem com o botão de voltar ao menu", async (t) => {
+  const m = cenarioCpf(t, { emAberto: contas(1) });
+  await require("../services/conversation").handleMessage("phone-id-123", {
+    from: "5531999999999", id: "wamid.btn.1", timestamp: "1748000070",
+    type: "text", text: { body: "12345678900" },
+  });
+
+  const botoes = botoesOferecidos(m);
+  assert.equal(botoes.length, 1, "deve oferecer exatamente um botão");
+  assert.equal(botoes[0].id, constantsRef.REPLY_MENU_ID);
+  assert.equal(botoes[0].title, constantsRef.REPLY_MENU_CTA);
+  assert.ok(
+    botoes[0].title.length <= 20,
+    "título de botão da Meta é limitado a 20 caracteres"
+  );
+});
+
+test("CPF fora do cadastro também vem com o botão", async (t) => {
+  const m = cenarioCpf(t, { emAberto: [], historico: [] });
+  await enviarCpf();
+  assert.deepEqual(
+    botoesOferecidos(m).map(b => b.id), [constantsRef.REPLY_MENU_ID]
+  );
+});
+
+test("cliente em dia também vem com o botão", async (t) => {
+  const m = cenarioCpf(t, { emAberto: [], historico: contas(2) });
+  await enviarCpf();
+  assert.deepEqual(
+    botoesOferecidos(m).map(b => b.id), [constantsRef.REPLY_MENU_ID]
+  );
+});
+
+test("falha de serviço também vem com o botão", async (t) => {
+  const sicoobClient = require("../services/sicoobClient");
+  const m = cenarioCpf(t, { emAberto: [] });
+  t.mock.method(sicoobClient, "listarBoletos", async () => {
+    throw new Error("python fora do ar");
+  });
+  await enviarCpf();
+
+  const textos = textosEnviados(m);
+  assert.ok(textos.some(x => x === constantsRef.MSG_SEGUNDA_VIA_ERRO_SERVICO));
+  assert.deepEqual(
+    botoesOferecidos(m).map(b => b.id), [constantsRef.REPLY_MENU_ID]
+  );
+});
+
+test("resposta não entendida na seleção vem com o botão e mantém a sessão", async (t) => {
+  const Cache = require("../services/redis");
+  const GraphApi = require("../services/graph-api");
+  const interacao = require("../services/interacaoClient");
+
+  t.mock.method(Cache, "getEstado", async () => "aguardando_selecao_boleto");
+  t.mock.method(Cache, "getBoletos", async () => [
+    { linhaDigitavel: "L0", dataVencimentoOriginal: "2026-05-16", valorPagar: 76.97 },
+  ]);
+  const setEstado = t.mock.method(Cache, "setEstado", async () => {});
+  t.mock.method(Cache, "setBoletos", async () => {});
+  const clearEstado = t.mock.method(Cache, "clearEstado", async () => {});
+  t.mock.method(interacao, "registrar", () => {});
+  const botoes = t.mock.method(GraphApi, "messageWithInteractiveReply", async () => {});
+
+  await require("../services/conversation").handleMessage("phone-id-123", {
+    from: "5531999999999", id: "wamid.btn.5", timestamp: "1748000071",
+    type: "text", text: { body: "sei lá" },
+  });
+
+  assert.match(botoes.mock.calls[0].arguments[3], /Não entendi/);
+  assert.equal(botoes.mock.calls[0].arguments[4][0].id, constantsRef.REPLY_MENU_ID);
+  assert.equal(clearEstado.mock.calls.length, 0, "a sessão deve continuar viva");
+  assert.ok(setEstado.mock.calls.some(c => c.arguments[1] === "aguardando_selecao_boleto"));
+});
+
+test("tocar no botão volta ao menu inicial e limpa a sessão de seleção", async (t) => {
+  const Cache = require("../services/redis");
+  const GraphApi = require("../services/graph-api");
+  const interacao = require("../services/interacaoClient");
+
+  t.mock.method(Cache, "getEstado", async () => "aguardando_selecao_boleto");
+  t.mock.method(Cache, "getBoletos", async () => [{ linhaDigitavel: "L0" }]);
+  t.mock.method(Cache, "setEstado", async () => {});
+  t.mock.method(Cache, "setBoletos", async () => {});
+  const clearEstado = t.mock.method(Cache, "clearEstado", async () => {});
+  const clearBoletos = t.mock.method(Cache, "clearBoletos", async () => {});
+  const registrar = t.mock.method(interacao, "registrar", () => {});
+  const botoes = t.mock.method(GraphApi, "messageWithInteractiveReply", async () => {});
+
+  await require("../services/conversation").handleMessage("phone-id-123", {
+    from: "5531999999999", id: "wamid.btn.6", timestamp: "1748000072",
+    type: "interactive",
+    interactive: { type: "button_reply", button_reply: { id: "assusa-menu", title: "Voltar ao menu" } },
+  });
+
+  assert.equal(botoes.mock.calls.length, 1, "deve enviar o menu principal");
+  assert.equal(botoes.mock.calls[0].arguments[3], constantsRef.APP_DEFAULT_MESSAGE);
+  assert.deepEqual(
+    botoes.mock.calls[0].arguments[4].map(b => b.id),
+    [constantsRef.REPLY_SEGUNDA_VIA_ID],
+    "o menu deve oferecer a 2ª via"
+  );
+  assert.ok(clearEstado.mock.calls.length >= 1, "deve limpar o estado");
+  assert.ok(clearBoletos.mock.calls.length >= 1, "deve limpar os boletos");
+  assert.ok(registrar.mock.calls.some(c => c.arguments[1] === "MENU_VIA_BOTAO"));
+});
+
+test("se a Meta recusar o botão, a mensagem ainda chega como texto", async (t) => {
+  const GraphApi = require("../services/graph-api");
+  const m = cenarioCpf(t, { emAberto: [], historico: [] });
+  t.mock.method(GraphApi, "messageWithInteractiveReply", async () => {
+    throw new Error("(#131009) Parameter value is not valid");
+  });
+
+  await enviarCpf();
+
+  const textos = m.text.mock.calls.map(c => c.arguments[3]);
+  assert.ok(
+    textos.includes(constantsRef.MSG_CPF_NAO_ENCONTRADO),
+    "o cliente não pode ficar sem a mensagem por causa do botão"
+  );
 });

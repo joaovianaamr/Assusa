@@ -44,14 +44,15 @@ MENSAGEM RECEBIDA
     │
     ├─── Estado Redis = "aguardando_cpf"
     │    │
-    │    ├── Botão de menu recebido (assusa-segunda-via, assusa-horario-funcionamento)
+    │    ├── Botão de menu recebido (assusa-segunda-via, assusa-horario-funcionamento,
+    │    │                        assusa-menu)
     │    │   └── limpa estado → continua no dispatch abaixo
     │    │
     │    └── handleCpfRecebido()
     │        │
     │        ├── CPF com dígitos inválidos (< 11, > 11 ou dígitos verificadores errados)
     │        │   ├── grava interação: CPF_INVALIDO
-    │        │   └── ✉ "Esse CPF parece incompleto ou incorreto..."
+    │        │   └── ✉ "Esse CPF parece incompleto ou incorreto..." + botão [Voltar ao menu]
     │        │       [estado permanece aguardando_cpf — usuário pode tentar de novo]
     │        │
     │        └── CPF válido (11 dígitos + dígitos verificadores corretos)
@@ -74,11 +75,11 @@ MENSAGEM RECEBIDA
     │                │   │
     │                │   ├── histórico com boletos (cliente existe, está em dia)
     │                │   │   ├── grava interação: CLIENTE_EM_DIA
-    │                │   │   └── ✉ "Boa notícia: não há contas em aberto no CPF 123.***.**9-00..."
+    │                │   │   └── ✉ "Boa notícia: não há contas em aberto no CPF 123.***.**9-00..." + botão
     │                │   │
     │                │   ├── histórico vazio (CPF não é de cliente)
     │                │   │   ├── grava interação: CPF_NAO_ENCONTRADO
-    │                │   │   └── ✉ "Não localizei esse CPF no cadastro da Assusa..."
+    │                │   │   └── ✉ "Não localizei esse CPF no cadastro da Assusa..." + botão [Voltar ao menu]
     │                │   │
     │                │   ├── consulta de histórico falhou → texto genérico
     │                │   │   ├── grava interação: NENHUM_BOLETO
@@ -115,7 +116,8 @@ MENSAGEM RECEBIDA
     │
     ├─── Estado Redis = "aguardando_selecao_boleto"
     │    │
-    │    ├── Botão de menu recebido (assusa-segunda-via, assusa-horario-funcionamento)
+    │    ├── Botão de menu recebido (assusa-segunda-via, assusa-horario-funcionamento,
+    │    │                        assusa-menu)
     │    │   └── limpa estado e boletos → continua no dispatch abaixo
     │    │
     │    └── handleSelecaoBoleto()
@@ -128,7 +130,7 @@ MENSAGEM RECEBIDA
     │        │   └── limpa estado e boletos do Redis
     │        │
     │        ├── resposta não reconhecida (texto solto, número fora do intervalo)
-    │        │   ├── ✉ "Não entendi sua resposta. Responda com o número..."
+    │        │   ├── ✉ "Não entendi sua resposta. Responda com o número..." + botão [Voltar ao menu]
     │        │   └── mantém a sessão e renova o TTL (cliente tenta de novo)
     │        │
     │        └── seleção válida (boleto-0 … boleto-9, ou número digitado)
@@ -158,6 +160,10 @@ MENSAGEM RECEBIDA
              │   ├── grava interação: SEGUNDA_VIA_INICIADA
              │   ├── setEstado: aguardando_cpf
              │   └── ✉ "Para enviar sua 2ª via, preciso do seu CPF..."
+             │
+             ├── "assusa-menu" (botão "Voltar ao menu" das mensagens de fim de fluxo)
+             │   ├── grava interação: MENU_VIA_BOTAO
+             │   └── ✉ "Olá! Bem-vindo à Assusa..." + menu (1 botão)
              │
              ├── "assusa-horario-funcionamento" (botão legado — não exibido no menu)
              │   ├── grava interação: HORARIO_CONSULTADO
@@ -325,6 +331,7 @@ BOLETO_SELECIONADO     → usuário escolheu um boleto { idx, dataVencimento }
 PDF_ENTREGUE           → PDF enviado com sucesso { dataVencimento, valor }
 HORARIO_CONSULTADO     → usuário clicou em horário (botão legado)
 MENU_EXIBIDO           → mensagem desconhecida → menu enviado
+MENU_VIA_BOTAO         → cliente tocou em "Voltar ao menu" numa mensagem de fim de fluxo
 FLUXO_CANCELADO        → usuário digitou palavra-chave de saída (menu/sair/voltar/...)
 ```
 
@@ -337,6 +344,13 @@ O menu exibe **1 botão** (dois slots livres):
 | ID | Texto exibido |
 |---|---|
 | `assusa-segunda-via` | 2ª via de conta |
+
+Toda mensagem de **fim de fluxo** (CPF inválido, CPF fora do cadastro, cliente em dia,
+nenhuma conta encontrada, sistema fora do ar, falha inesperada e resposta não entendida)
+sai acompanhada de um botão **"Voltar ao menu"** (`assusa-menu`), que reexibe esta tela.
+Antes era preciso *digitar* "menu" — barreira real para o público idoso. O botão entra em
+`MENU_BUTTONS`, então limpa estado e boletos antes do dispatch; se a Meta recusar o
+interativo, o texto ainda é enviado (`enviarComBotaoMenu`).
 
 O botão "Falar com atendente" foi removido do fluxo — junto com seu handler, suas
 constantes e a notificação por e-mail (o antigo `services/mailer.js`). O telefone
@@ -373,8 +387,8 @@ permanece no código.
 | `MSG_LABEL_LINHA_DIGITAVEL` | "Linha digitável do boleto:" |
 | `MSG_LABEL_PIX` | "PIX copia e cola:" |
 | `MSG_PIX_INDISPONIVEL` | "PIX não disponível para este boleto." |
-| `MSG_SELECAO_NAO_ENTENDIDA` | "Não entendi sua resposta.\n\nResponda com o *número* da conta que deseja pagar, de 1 a {TOTAL}.\n\nOu digite *menu* para recomeçar." |
-| `MSG_ERRO_INESPERADO` | "Tive um problema aqui e não consegui concluir seu atendimento.\n\nDigite *menu* para recomeçar ou ligue para (31) 3624-8550." |
+| `MSG_SELECAO_NAO_ENTENDIDA` | "Não entendi sua resposta.\n\nResponda com o *número* da conta que deseja pagar, de 1 a {TOTAL}." |
+| `MSG_ERRO_INESPERADO` | "Tive um problema aqui e não consegui concluir seu atendimento.\n\nToque no botão abaixo para recomeçar, ou ligue para (31) 3624-8550." |
 | `MSG_SEGUNDA_VIA_ERRO_SERVICO` | "Nosso sistema está fora do ar neste momento.\n\nTente de novo em alguns minutos ou ligue para (31) 3624-8550." |
 
 ---

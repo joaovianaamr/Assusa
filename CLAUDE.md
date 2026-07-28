@@ -54,7 +54,7 @@ Docker; se passar, `deploy.yml` dispara `scripts/deploy.sh` na VPS (pull, rebuil
 Três defesas dependem disso e devem ser preservadas: `app.js` faz esse `require` *dentro* do
 handler do POST; `test/webhook.test.js` cobre só casos que não disparam a cadeia; e
 `test/cpf.test.js` lê `conversation.js` como **texto-fonte** (`readFileSync`) em vez de dar
-`require`. Resultado: `npm test` passa sem Redis instalado (verificado — 51/51).
+`require`. Resultado: `npm test` passa sem Redis instalado (verificado — 78/78).
 Os testes que exercitam o fluxo mockam `Cache` com `t.mock.method` antes de chamar
 `Conversation.handleMessage`; lógica nova que dê para isolar deve ir para `boletoView.js`,
 que é puro e pode ser testado com `require` direto.
@@ -71,6 +71,12 @@ registrado agora com vencimento em duas semanas já está em aberto, mas fica fo
 a janela terminar em `hoje`. Por isso `montarJanelas` (`services/sicoobClient.js`) começa em
 `hoje + SICOOB_DIAS_FUTURO`. As janelas precisam ser contíguas e nunca passar de 35 dias — o
 Sicoob recusa com `5002`. `test/janelasBusca.test.js` trava as três coisas.
+
+**Toda mensagem de fim de fluxo leva o botão "Voltar ao menu"** (`enviarComBotaoMenu`).
+O público é majoritariamente idoso: exigir que digitem "menu" para recomeçar deixava gente
+presa. O id `assusa-menu` está em `MENU_BUTTONS`, então limpa estado e boletos antes do
+dispatch. Ao acrescentar uma nova mensagem de erro, use `enviarComBotaoMenu`, não
+`GraphApi.messageWithText`.
 
 **A Meta recusa a mensagem interativa inteira (400) por detalhe de formato.** Três defesas
 dependem disso e devem ser preservadas: `enviarSelecaoBoletos` cai para texto simples pedindo o

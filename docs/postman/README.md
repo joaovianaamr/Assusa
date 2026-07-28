@@ -437,6 +437,8 @@ Execute a etapa 5.1 primeiro (estado `aguardando_cpf`), depois:
 >
 > Confira os 11 números e envie de novo."
 
+Acompanhada do botão **Voltar ao menu** (`assusa-menu`), como toda mensagem de fim de fluxo.
+
 **Estado:** permanece `aguardando_cpf` (usuário pode tentar de novo).
 
 ---
@@ -791,6 +793,7 @@ Query params (todos opcionais):
 | Evento | Quando ocorre |
 |---|---|
 | `MENU_EXIBIDO` | Mensagem desconhecida → menu enviado |
+| `MENU_VIA_BOTAO` | Cliente tocou em "Voltar ao menu" numa mensagem de fim de fluxo |
 | `SEGUNDA_VIA_INICIADA` | Usuário clicou em 2ª via |
 | `HORARIO_CONSULTADO` | Usuário clicou em horário (botão legado) |
 | `CPF_INVALIDO` | CPF com formato ou dígitos verificadores inválidos |

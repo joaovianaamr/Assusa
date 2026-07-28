@@ -69,10 +69,10 @@ module.exports = Object.freeze({
     "PIX não disponível para este boleto.",
   // Resposta não reconhecida enquanto o cliente escolhe a conta.
   MSG_SELECAO_NAO_ENTENDIDA:
-    "Não entendi sua resposta.\n\nResponda com o *número* da conta que deseja pagar, de 1 a {TOTAL}.\n\nOu digite *menu* para recomeçar.",
+    "Não entendi sua resposta.\n\nResponda com o *número* da conta que deseja pagar, de 1 a {TOTAL}.",
   // Última rede de segurança: o fluxo estourou de um jeito não previsto.
   MSG_ERRO_INESPERADO:
-    "Tive um problema aqui e não consegui concluir seu atendimento.\n\nDigite *menu* para recomeçar ou ligue para (31) 3624-8550.",
+    "Tive um problema aqui e não consegui concluir seu atendimento.\n\nToque no botão abaixo para recomeçar, ou ligue para (31) 3624-8550.",
   MSG_SEGUNDA_VIA_ERRO_SERVICO:
     "Nosso sistema está fora do ar neste momento.\n\nTente de novo em alguns minutos ou ligue para (31) 3624-8550.",
 
@@ -82,8 +82,10 @@ module.exports = Object.freeze({
   // CTA texts
   REPLY_SEGUNDA_VIA_CTA: "2ª via de conta",
   REPLY_HORARIO_CTA: "Horário atendimento",
+  REPLY_MENU_CTA: "Voltar ao menu",
 
   // Reply Button IDs
   REPLY_SEGUNDA_VIA_ID: "assusa-segunda-via",
-  REPLY_HORARIO_ID: "assusa-horario-funcionamento"
+  REPLY_HORARIO_ID: "assusa-horario-funcionamento",
+  REPLY_MENU_ID: "assusa-menu"
 });

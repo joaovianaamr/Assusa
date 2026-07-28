@@ -39,6 +39,32 @@ function sendMenuPrincipal(
   );
 }
 
+/**
+ * Envia uma mensagem de fim de fluxo (erro, CPF não encontrado, cliente em dia)
+ * acompanhada de um botão que volta ao menu principal.
+ *
+ * Sem o botão o cliente precisava *digitar* "menu" para recomeçar — barreira real
+ * para o público idoso, que é a maior parte de quem usa o bot.
+ *
+ * Mesma proteção do envio da listagem: se a Meta recusar o interativo, o texto
+ * ainda sai. As palavras-chave de saída seguem valendo nos dois casos.
+ */
+async function enviarComBotaoMenu(messageId, senderPhoneNumberId, recipientPhoneNumber, texto) {
+  try {
+    await GraphApi.messageWithInteractiveReply(
+      messageId,
+      senderPhoneNumberId,
+      recipientPhoneNumber,
+      texto,
+      [{ id: constants.REPLY_MENU_ID, title: constants.REPLY_MENU_CTA }]
+    );
+    return;
+  } catch (e) {
+    console.error('[menu] botão de retorno não pôde ser enviado, caindo para texto:', e?.message || e);
+  }
+  await GraphApi.messageWithText(messageId, senderPhoneNumberId, recipientPhoneNumber, texto);
+}
+
 async function handleSolicitacaoSegundaVia(
   messageId,
   senderPhoneNumberId,
@@ -76,7 +102,7 @@ async function handleCpfRecebido(senderPhoneNumberId, message) {
 
   if (cpfDigits.length !== 11 || !cpfValido(cpfDigits)) {
     interacao.registrar(message.senderPhoneNumber, "CPF_INVALIDO", null, { cpf_recebido: cpfDigits });
-    await GraphApi.messageWithText(
+    await enviarComBotaoMenu(
       message.id,
       senderPhoneNumberId,
       message.senderPhoneNumber,
@@ -97,7 +123,7 @@ async function handleCpfRecebido(senderPhoneNumberId, message) {
     resultado = await sicoobClient.listarBoletos({ numeroCpfCnpj: cpfDigits });
   } catch {
     interacao.registrar(message.senderPhoneNumber, "ERRO_SERVICO", cpfDigits, { etapa: "listar_boletos" });
-    await GraphApi.messageWithText(
+    await enviarComBotaoMenu(
       message.id,
       senderPhoneNumberId,
       message.senderPhoneNumber,
@@ -115,7 +141,7 @@ async function handleCpfRecebido(senderPhoneNumberId, message) {
   if (hasServiceError) {
     console.error('[listarBoletos] erro da API Sicoob:', JSON.stringify(resultData));
     interacao.registrar(message.senderPhoneNumber, "ERRO_SERVICO", cpfDigits, { etapa: "listar_boletos", detail: resultData });
-    await GraphApi.messageWithText(
+    await enviarComBotaoMenu(
       message.id,
       senderPhoneNumberId,
       message.senderPhoneNumber,
@@ -180,7 +206,7 @@ async function responderSemBoletosEmAberto(senderPhoneNumberId, message, cpfDigi
   }
 
   interacao.registrar(message.senderPhoneNumber, evento, cpfDigits);
-  await GraphApi.messageWithText(
+  await enviarComBotaoMenu(
     message.id,
     senderPhoneNumberId,
     message.senderPhoneNumber,
@@ -207,7 +233,7 @@ async function apresentarBoletos(senderPhoneNumberId, message, cpfDigits, boleto
       constants.MSG_AVISO_MUITOS_BOLETOS
         .replace("{TOTAL}", boletos.length)
         .replace("{EXIBIDOS}", exibir.length)
-    );
+  );
   }
 
   // A listagem (listar) traz vencimento/valor ORIGINAIS; a 2ª via recalcula para
@@ -336,7 +362,7 @@ async function handleSelecaoBoleto(senderPhoneNumberId, message) {
 
   // Cache expirado ou perdido: não há mais o que escolher, volta ao início.
   if (!boletos || !boletos.length) {
-    await GraphApi.messageWithText(
+    await enviarComBotaoMenu(
       message.id,
       senderPhoneNumberId,
       message.senderPhoneNumber,
@@ -351,7 +377,7 @@ async function handleSelecaoBoleto(senderPhoneNumberId, message) {
   // fora do intervalo). Pede de novo em vez de fingir falha de sistema, e
   // mantém a sessão viva para o cliente tentar outra vez.
   if (idx === null || !boletos[idx]) {
-    await GraphApi.messageWithText(
+    await enviarComBotaoMenu(
       message.id,
       senderPhoneNumberId,
       message.senderPhoneNumber,
@@ -377,7 +403,7 @@ async function handleSelecaoBoleto(senderPhoneNumberId, message) {
 
   if (!resultado?.pdfBoleto) {
     interacao.registrar(message.senderPhoneNumber, "ERRO_SERVICO", null, { etapa: "segunda_via" });
-    await GraphApi.messageWithText(
+    await enviarComBotaoMenu(
       message.id,
       senderPhoneNumberId,
       message.senderPhoneNumber,
@@ -400,7 +426,7 @@ async function handleSelecaoBoleto(senderPhoneNumberId, message) {
     const { id: mediaId } = await GraphApi.uploadMedia(senderPhoneNumberId, pdfBuffer);
     await GraphApi.messageWithDocument(
       message.id, senderPhoneNumberId, recipient, mediaId, "boleto.pdf", caption
-    );
+  );
   } catch {
     await GraphApi.messageWithText(message.id, senderPhoneNumberId, recipient, caption);
   }
@@ -447,9 +473,12 @@ module.exports = class Conversation {
     const message = new Message(rawMessage);
     const estadoAtual = await Cache.getEstado(message.senderPhoneNumber);
 
+    // Botões que valem como "voltar ao início": chegando um deles em qualquer
+    // estado, a sessão é descartada antes do dispatch.
     const MENU_BUTTONS = [
       constants.REPLY_SEGUNDA_VIA_ID,
       constants.REPLY_HORARIO_ID,
+      constants.REPLY_MENU_ID,
     ];
 
     const PALAVRAS_SAIDA = ["menu", "sair", "voltar", "cancelar", "inicio"];
@@ -504,6 +533,17 @@ module.exports = class Conversation {
           constants.MSG_HORARIO_FUNCIONAMENTO
         );
         break;
+      // Botão "Voltar ao menu" oferecido nas mensagens de fim de fluxo. Cairia no
+      // default de qualquer forma; o case existe para medir quanto ele é usado.
+      case constants.REPLY_MENU_ID:
+        interacao.registrar(message.senderPhoneNumber, "MENU_VIA_BOTAO");
+        await sendMenuPrincipal(
+          message.id,
+          senderPhoneNumberId,
+          message.senderPhoneNumber,
+          constants.APP_DEFAULT_MESSAGE
+        );
+        break;
       default:
         interacao.registrar(message.senderPhoneNumber, "MENU_EXIBIDO");
         await sendMenuPrincipal(
@@ -524,12 +564,12 @@ module.exports = class Conversation {
   static async avisarFalhaInesperada(senderPhoneNumberId, rawMessage) {
     const recipient = rawMessage?.from;
     if (!recipient) return;
-    await GraphApi.messageWithText(
+    await enviarComBotaoMenu(
       undefined,
       senderPhoneNumberId,
       recipient,
       constants.MSG_ERRO_INESPERADO
-    );
+  );
   }
 
   static async handleStatus(senderPhoneNumberId, rawStatus) {
