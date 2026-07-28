@@ -44,6 +44,25 @@ Dois detalhes de formatação que já causaram confusão:
 - Para o **fixo**, o `9` não pode ser usado de forma alguma — são 8 dígitos. É linha fixa de BH,
   o que também explica por que `code_method: "SMS"` nunca funcionaria nele.
 
+## Perfil de negócio (foto, descrição, site)
+
+```bash
+./scripts/meta-numero.sh perfil                 # lê o estado atual
+./scripts/meta-numero.sh foto caminho/logo.png  # troca a foto
+```
+
+A foto **não vai direto no perfil**: precisa virar um `handle` pela Resumable Upload API antes
+(`POST /{app-id}/uploads` → `POST /{upload-session-id}` → `POST /{phone-number-id}/whatsapp_business_profile`).
+O script faz os três passos. Duas pegadinhas embutidas nele:
+
+- O passo de envio dos bytes usa `Authorization: OAuth`, **não `Bearer`**. A Meta recusa `Bearer`
+  nesse endpoint específico e o erro que devolve não menciona o esquema de autenticação.
+- Requisitos da imagem: **quadrada**, mínimo 192×192, JPEG ou PNG, até 5 MB. Fora disso a Meta
+  corta ou recusa. O script valida o tipo antes de gastar a chamada.
+
+Alternativa sem terminal: WhatsApp Manager → **Configurações da conta do WhatsApp Business** →
+**Perfil**. Mesmo resultado; a rota por API existe porque é reproduzível e versionável.
+
 ## Token
 
 System user token, em `ACCESS_TOKEN` (`.env`, fora do git). `is_valid: true`, `expires_at: 0`

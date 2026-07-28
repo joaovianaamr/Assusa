@@ -13,6 +13,8 @@
 #   ./scripts/meta-numero.sh pedir-codigo <phone-number-id> [SMS|VOICE]
 #   ./scripts/meta-numero.sh verificar <phone-number-id> <codigo>
 #   ./scripts/meta-numero.sh registrar [phone-number-id] [pin]  # defaults: .env
+#   ./scripts/meta-numero.sh perfil                           # lê o perfil de negócio
+#   ./scripts/meta-numero.sh foto <arquivo.jpg|png>           # troca a foto do perfil
 
 set -euo pipefail
 
@@ -72,8 +74,46 @@ import json,sys; print(json.dumps({"cc":sys.argv[1],"phone_number":sys.argv[2],"
       -d "{\"messaging_product\":\"whatsapp\",\"pin\":\"${3:-${WHATSAPP_2FA_PIN:?defina WHATSAPP_2FA_PIN no .env}}\"}"
     ;;
 
+  perfil)
+    req GET "${2:-${PHONE_NUMBER_ID:?informe o phone-number-id ou defina PHONE_NUMBER_ID no .env}}/whatsapp_business_profile?fields=about,address,description,email,profile_picture_url,websites,vertical"
+    ;;
+
+  foto)
+    # Três chamadas encadeadas — a foto NÃO vai direto no perfil, precisa virar um
+    # "handle" pela Resumable Upload API antes. Requisitos da Meta: imagem quadrada,
+    # mínimo 192x192, JPEG ou PNG, até 5 MB. Fora disso a Meta corta ou recusa.
+    foto="${2:?informe o caminho do arquivo de imagem}"
+    [ -f "$foto" ] || { echo "arquivo não encontrado: $foto" >&2; exit 1; }
+    : "${APP_ID:?defina APP_ID no .env}"
+    pnid="${3:-${PHONE_NUMBER_ID:?informe o phone-number-id ou defina PHONE_NUMBER_ID no .env}}"
+
+    tipo=$(file --mime-type -b "$foto")
+    case "$tipo" in image/jpeg|image/png) ;; *)
+      echo "tipo não suportado: $tipo (use JPEG ou PNG)" >&2; exit 1 ;;
+    esac
+
+    # 1) Abre a sessão de upload. Devolve um id no formato "upload:XXXX".
+    sessao=$(curl -sS -X POST \
+      "$API/$APP_ID/uploads?file_length=$(stat -c%s "$foto")&file_type=$tipo" \
+      -H "Authorization: Bearer $ACCESS_TOKEN" \
+      | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')
+
+    # 2) Envia os bytes. Aqui o esquema é OAuth, não Bearer — a Meta rejeita Bearer
+    # neste endpoint específico, e o erro que devolve não diz isso.
+    handle=$(curl -sS -X POST "$API/$sessao" \
+      -H "Authorization: OAuth $ACCESS_TOKEN" \
+      -H "file_offset: 0" \
+      --data-binary "@$foto" \
+      | python3 -c 'import json,sys; print(json.load(sys.stdin)["h"])')
+
+    # 3) Aponta o perfil para o handle recém-criado.
+    req POST "$pnid/whatsapp_business_profile" \
+      -d "$(python3 -c '
+import json,sys; print(json.dumps({"messaging_product":"whatsapp","profile_picture_handle":sys.argv[1]}))' "$handle")"
+    ;;
+
   *)
-    sed -n '2,17p' "$0"
+    sed -n '2,19p' "$0"
     exit 1
     ;;
 esac
