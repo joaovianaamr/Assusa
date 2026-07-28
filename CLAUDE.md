@@ -78,6 +78,13 @@ presa. O id `assusa-menu` está em `MENU_BUTTONS`, então limpa estado e boletos
 dispatch. Ao acrescentar uma nova mensagem de erro, use `enviarComBotaoMenu`, não
 `GraphApi.messageWithText`.
 
+**`assusa-ver-outras` NÃO pode entrar em `MENU_BUTTONS`.** Depois de entregar um boleto o bot
+mantém estado e lista no Redis por 30 min, para o cliente pedir outra conta sem redigitar o CPF
+(`refrescarSessaoBoletos`). Os ids de `MENU_BUTTONS` limpam estado **e** boletos — se o botão
+"Ver outras contas" estivesse lá, ele destruiria a sessão que existe justamente para ele. Por
+isso é interceptado no topo de `handleMessage`, antes da máquina de estados: dentro de
+`aguardando_selecao_boleto` ele cairia em `handleSelecaoBoleto` e viraria "não entendi".
+
 **A Meta recusa a mensagem interativa inteira (400) por detalhe de formato.** Três defesas
 dependem disso e devem ser preservadas: `enviarSelecaoBoletos` cai para texto simples pedindo o
 número da conta; o estado `aguardando_selecao_boleto` só é gravado **depois** do envio bem-sucedido

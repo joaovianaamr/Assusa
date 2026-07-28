@@ -230,7 +230,7 @@ recomeçar (ver seção [Redis](#redis)).
 
 **Resposta no WhatsApp (duas mensagens, em sequência):**
 > 1. "Digite o CPF do titular da conta:"
-> 2. "Exemplo: 12345678900 | 123.456.789-10"
+> 2. "Pode enviar dos dois jeitos:" + os dois formatos em negrito (`*12345678900*` e `*123.456.789-00*`)
 
 **Estado no Redis após:** `aguardando_cpf`
 
@@ -372,9 +372,19 @@ renovado a cada interação)
 > Se não houver PIX, no lugar dos passos 4-5 é enviado "PIX não disponível para este boleto."
 > Se o upload do PDF falhar, a caption é enviada como texto e os blocos 2-5 seguem normalmente.
 
+Depois da entrega vem o **fechamento** (`fecharEntrega`):
+
+> "Pronto! Sua conta de DD/MM/AAAA foi enviada. ✅
+>
+> Você ainda tem N conta(s) em aberto. O que deseja agora?"
+
+com os botões **[Ver outras contas]** e **[Voltar ao menu]** — ou só o segundo, quando havia
+uma conta só. "Ver outras contas" (`assusa-ver-outras`) reexibe a lista **do cache**, sem
+consultar o Sicoob e sem descartar a sessão; "Voltar ao menu" limpa tudo.
+
 **Estado no Redis após:** **mantido** em `aguardando_selecao_boleto` com os boletos em cache
-(TTL renovado). O cliente pode tocar em **outro** botão para receber outra conta **sem
-redigitar o CPF**, até o TTL de 30 min expirar.
+(TTL renovado). O cliente pode escolher **outra** conta e recebê-la **sem redigitar o CPF**,
+até o TTL de 30 min expirar.
 
 ---
 
@@ -794,6 +804,8 @@ Query params (todos opcionais):
 |---|---|
 | `MENU_EXIBIDO` | Mensagem desconhecida → menu enviado |
 | `MENU_VIA_BOTAO` | Cliente tocou em "Voltar ao menu" numa mensagem de fim de fluxo |
+| `LISTA_REEXIBIDA` | Cliente tocou em "Ver outras contas" — lista servida do cache do Redis |
+| `SESSAO_EXPIRADA` | Tocou em "Ver outras contas" com o TTL já expirado |
 | `SEGUNDA_VIA_INICIADA` | Usuário clicou em 2ª via |
 | `HORARIO_CONSULTADO` | Usuário clicou em horário (botão legado) |
 | `CPF_INVALIDO` | CPF com formato ou dígitos verificadores inválidos |

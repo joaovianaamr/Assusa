@@ -142,6 +142,7 @@ test("selecionar boleto entrega em partes e mantém a lista clicável (não limp
   t.mock.method(GraphApi, "uploadMedia", async () => ({ id: "media-1" }));
   const mockDoc = t.mock.method(GraphApi, "messageWithDocument", async () => {});
   const mockText = t.mock.method(GraphApi, "messageWithText", async () => {});
+  const mockBotoes = t.mock.method(GraphApi, "messageWithInteractiveReply", async () => {});
 
   await Conversation.handleMessage("phone-id-123", {
     from: "5531999999999",
@@ -164,6 +165,18 @@ test("selecionar boleto entrega em partes e mantém a lista clicável (não limp
   assert.equal(clearBoletos.mock.calls.length, 0, "não deve limpar os boletos após entregar");
   assert.ok(setEstado.mock.calls.length >= 1, "deve renovar o TTL do estado");
   assert.ok(setBoletos.mock.calls.length >= 1, "deve renovar o TTL dos boletos");
+
+  // fechamento: o cliente precisa saber que ainda pode pedir as outras contas
+  assert.equal(mockBotoes.mock.calls.length, 1, "deve fechar com uma mensagem de botões");
+  const [, , , textoFinal, botoesFinal] = mockBotoes.mock.calls[0].arguments;
+  assert.match(textoFinal, /Pronto!/);
+  assert.match(textoFinal, /16\/05\/2026/, "deve citar a conta entregue");
+  assert.match(textoFinal, /1 conta\(s\) em aberto/, "havia 2 no cache, resta 1");
+  assert.deepEqual(
+    botoesFinal.map(b => b.id),
+    ["assusa-ver-outras", "assusa-menu"],
+    "com outras contas, oferece reexibir a lista antes de sair"
+  );
 });
 
 // ── caminhos novos: botões vs. lista, e os desfechos da consulta por CPF ──────
@@ -626,4 +639,117 @@ test("se a Meta recusar o botão, a mensagem ainda chega como texto", async (t) 
     textos.includes(constantsRef.MSG_CPF_NAO_ENCONTRADO),
     "o cliente não pode ficar sem a mensagem por causa do botão"
   );
+});
+
+// ── fechamento pós-entrega e reexibição da lista ─────────────────────────────
+
+/** Cenário "cliente já tem a lista em cache e escolheu uma conta". */
+function cenarioEntrega(t, quantidade) {
+  const Cache = require("../services/redis");
+  const GraphApi = require("../services/graph-api");
+  const interacao = require("../services/interacaoClient");
+  const sicoobClient = require("../services/sicoobClient");
+
+  const cache = Array.from({ length: quantidade }, (_, i) => ({
+    linhaDigitavel: `L${i}`,
+    dataVencimentoOriginal: `2026-0${i + 1}-15`,
+    valorPagar: 100 + i,
+  }));
+
+  t.mock.method(Cache, "getEstado", async () => "aguardando_selecao_boleto");
+  t.mock.method(Cache, "getBoletos", async () => cache);
+  t.mock.method(Cache, "setEstado", async () => {});
+  t.mock.method(Cache, "setBoletos", async () => {});
+  t.mock.method(Cache, "clearEstado", async () => {});
+  t.mock.method(Cache, "clearBoletos", async () => {});
+  t.mock.method(interacao, "registrar", () => {});
+  t.mock.method(sicoobClient, "segundaViaBoleto", async () => ({
+    body: { ok: true, result: { response: { resultado: {
+      pdfBoleto: "JVBERi0=", valor: 100, dataVencimento: "2026-06-17", linhaDigitavel: "L0",
+    } } } },
+  }));
+  t.mock.method(GraphApi, "uploadMedia", async () => ({ id: "media-1" }));
+  t.mock.method(GraphApi, "messageWithDocument", async () => {});
+  return {
+    text: t.mock.method(GraphApi, "messageWithText", async () => {}),
+    botoes: t.mock.method(GraphApi, "messageWithInteractiveReply", async () => {}),
+    lista: t.mock.method(GraphApi, "messageWithInteractiveList", async () => {}),
+    cache,
+  };
+}
+
+const escolher = (id) =>
+  require("../services/conversation").handleMessage("phone-id-123", {
+    from: "5531999999999", id: "wamid.esc", timestamp: "1748000080",
+    type: "interactive", interactive: { type: "button_reply", button_reply: { id, title: "x" } },
+  });
+
+test("com uma única conta, o fechamento não oferece 'ver outras'", async (t) => {
+  const m = cenarioEntrega(t, 1);
+  await escolher("boleto-0");
+
+  const [, , , texto, botoes] = m.botoes.mock.calls[0].arguments;
+  assert.match(texto, /Posso ajudar com mais alguma coisa/);
+  assert.deepEqual(botoes.map(b => b.id), [constantsRef.REPLY_MENU_ID]);
+});
+
+test("'Ver outras contas' reexibe a lista sem consultar o Sicoob", async (t) => {
+  const sicoobClient = require("../services/sicoobClient");
+  const m = cenarioEntrega(t, 5);
+  const listar = t.mock.method(sicoobClient, "listarBoletos", async () => {
+    throw new Error("não deveria consultar o Sicoob");
+  });
+
+  await escolher(constantsRef.REPLY_VER_OUTRAS_ID);
+
+  assert.equal(listar.mock.calls.length, 0, "não pode gastar requisição no Sicoob");
+  assert.equal(m.lista.mock.calls.length, 1, "5 contas → lista interativa");
+  assert.equal(m.lista.mock.calls[0].arguments[6].length, 5, "todas as contas do cache");
+});
+
+test("'Ver outras contas' não descarta a sessão (ao contrário de Voltar ao menu)", async (t) => {
+  const Cache = require("../services/redis");
+  const m = cenarioEntrega(t, 3);
+  const clearEstado = t.mock.method(Cache, "clearEstado", async () => {});
+  const clearBoletos = t.mock.method(Cache, "clearBoletos", async () => {});
+  const setBoletos = t.mock.method(Cache, "setBoletos", async () => {});
+
+  await escolher(constantsRef.REPLY_VER_OUTRAS_ID);
+
+  assert.equal(clearEstado.mock.calls.length, 0, "a sessão deve sobreviver");
+  assert.equal(clearBoletos.mock.calls.length, 0, "a lista deve sobreviver");
+  assert.ok(setBoletos.mock.calls.length >= 1, "deve renovar o TTL");
+  assert.equal(m.botoes.mock.calls.length, 1, "3 contas → botões");
+});
+
+test("'Ver outras contas' com a sessão expirada avisa e oferece recomeçar", async (t) => {
+  const Cache = require("../services/redis");
+  const GraphApi = require("../services/graph-api");
+  const interacao = require("../services/interacaoClient");
+
+  t.mock.method(Cache, "getEstado", async () => null);
+  t.mock.method(Cache, "getBoletos", async () => null);
+  t.mock.method(Cache, "clearEstado", async () => {});
+  t.mock.method(interacao, "registrar", () => {});
+  const botoes = t.mock.method(GraphApi, "messageWithInteractiveReply", async () => {});
+
+  await escolher(constantsRef.REPLY_VER_OUTRAS_ID);
+
+  const [, , , texto, bts] = botoes.mock.calls[0].arguments;
+  assert.match(texto, /não tenho mais sua lista/);
+  assert.deepEqual(bts.map(b => b.id), [constantsRef.REPLY_MENU_ID]);
+});
+
+test("o fechamento nunca derruba a entrega já feita", async (t) => {
+  const GraphApi = require("../services/graph-api");
+  const m = cenarioEntrega(t, 2);
+  t.mock.method(GraphApi, "messageWithInteractiveReply", async () => {
+    throw new Error("(#131009) Parameter value is not valid");
+  });
+
+  // não pode lançar: o PDF e o PIX já chegaram ao cliente
+  await escolher("boleto-0");
+
+  const textos = m.text.mock.calls.map(c => c.arguments[3]);
+  assert.ok(textos.some(x => /Pronto!/.test(x)), "o fechamento sai como texto");
 });

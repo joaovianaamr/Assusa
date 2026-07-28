@@ -448,6 +448,71 @@ async function handleSelecaoBoleto(senderPhoneNumberId, message) {
   // Mantém estado + boletos para o cliente escolher outra conta sem redigitar o
   // CPF; renova o TTL (janela deslizante).
   await refrescarSessaoBoletos(recipient, boletos);
+  await fecharEntrega(senderPhoneNumberId, message, boleto, boletos.length);
+}
+
+/**
+ * Fecha o atendimento depois de entregar o boleto.
+ *
+ * Antes a conversa morria no PIX: o cliente não sabia que a lista continuava
+ * viva por 30 min e que podia pedir outra conta sem redigitar o CPF.
+ *
+ * "Ver outras contas" reexibe a lista do Redis — de propósito NÃO está em
+ * MENU_BUTTONS, senão limparia a sessão que ele acabou de usar. "Voltar ao
+ * menu" continua sendo a saída que descarta tudo.
+ */
+async function fecharEntrega(senderPhoneNumberId, message, boletoEntregue, totalNaSessao) {
+  const temOutras = totalNaSessao > 1;
+  const texto = (temOutras ? constants.MSG_POS_ENTREGA_OUTRAS : constants.MSG_POS_ENTREGA_UNICA)
+    .replace("{DATA}", formatarData(boletoEntregue.dataVencimentoOriginal))
+    .replace("{RESTANTES}", totalNaSessao - 1);
+
+  const botoes = [];
+  if (temOutras) {
+    botoes.push({ id: constants.REPLY_VER_OUTRAS_ID, title: constants.REPLY_VER_OUTRAS_CTA });
+  }
+  botoes.push({ id: constants.REPLY_MENU_ID, title: constants.REPLY_MENU_CTA });
+
+  try {
+    await GraphApi.messageWithInteractiveReply(
+      undefined, senderPhoneNumberId, message.senderPhoneNumber, texto, botoes
+    );
+  } catch (e) {
+    // O boleto já foi entregue; o fechamento não pode derrubar o fluxo.
+    console.error('[pos-entrega] botões não enviados, caindo para texto:', e?.message || e);
+    await GraphApi.messageWithText(
+      undefined, senderPhoneNumberId, message.senderPhoneNumber, texto
+    ).catch(err => console.error('[pos-entrega] texto também falhou:', err?.message || err));
+  }
+}
+
+/**
+ * Reexibe a lista guardada no Redis, sem consultar o Sicoob de novo: em até
+ * 30 min os valores não mudam de forma perceptível, e assim o cliente não
+ * espera nem gasta requisição (o endpoint de pagadores limita a 10/s).
+ */
+async function reexibirBoletos(senderPhoneNumberId, message) {
+  const boletos = await Cache.getBoletos(message.senderPhoneNumber);
+
+  if (!boletos || !boletos.length) {
+    interacao.registrar(message.senderPhoneNumber, "SESSAO_EXPIRADA");
+    await enviarComBotaoMenu(
+      message.id,
+      senderPhoneNumberId,
+      message.senderPhoneNumber,
+      constants.MSG_SESSAO_EXPIRADA
+    );
+    await Cache.clearEstado(message.senderPhoneNumber);
+    return;
+  }
+
+  interacao.registrar(message.senderPhoneNumber, "LISTA_REEXIBIDA", null, { total: boletos.length });
+  const enviou = await enviarSelecaoBoletos(
+    senderPhoneNumberId, message, boletos, view.deveUsarLista(boletos.length)
+  );
+  if (enviou) {
+    await refrescarSessaoBoletos(message.senderPhoneNumber, boletos);
+  }
 }
 
 /**
@@ -494,6 +559,14 @@ module.exports = class Conversation {
         message.senderPhoneNumber,
         constants.APP_DEFAULT_MESSAGE
       );
+      return;
+    }
+
+    // "Ver outras contas" vale em qualquer estado e é tratado antes da máquina
+    // de estados: dentro de aguardando_selecao_boleto ele cairia em
+    // handleSelecaoBoleto e viraria "não entendi sua resposta".
+    if (message.type === constants.REPLY_VER_OUTRAS_ID) {
+      await reexibirBoletos(senderPhoneNumberId, message);
       return;
     }
 

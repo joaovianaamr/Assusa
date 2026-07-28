@@ -42,6 +42,19 @@ MENSAGEM RECEBIDA
     │    ├── grava interação: FLUXO_CANCELADO
     │    └── ✉ menu principal (1 botão) + instruções de saída
     │
+    ├─── Botão "Ver outras contas" (assusa-ver-outras) — QUALQUER estado
+    │    │   [tratado antes da máquina de estados: dentro de
+    │    │    aguardando_selecao_boleto cairia em handleSelecaoBoleto
+    │    │    e viraria "não entendi sua resposta"]
+    │    │
+    │    ├── há lista no Redis → reexibe do CACHE (0 chamadas ao Sicoob)
+    │    │   ├── grava interação: LISTA_REEXIBIDA
+    │    │   └── renova o TTL — a sessão NÃO é descartada
+    │    │
+    │    └── cache vazio (TTL expirou)
+    │        ├── grava interação: SESSAO_EXPIRADA
+    │        └── ✉ "não tenho mais sua lista..." + botão [Voltar ao menu]
+    │
     ├─── Estado Redis = "aguardando_cpf"
     │    │
     │    ├── Botão de menu recebido (assusa-segunda-via, assusa-horario-funcionamento,
@@ -146,12 +159,21 @@ MENSAGEM RECEBIDA
     │                        │
     │                        ├── upload com SUCESSO
     │                        │   ├── grava interação: PDF_ENTREGUE
-    │                        │   └── ✉ documento PDF "boleto.pdf"
+    │                        │   ├── ✉ documento PDF "boleto.pdf"
     │                        │       caption: vencimento DD/MM/YYYY | valor R$ X,XX
     │                        │               linha digitável | PIX copia e cola
     │                        │
-    │                        └── upload FALHOU (erro na Meta API)
-    │                            └── ✉ caption como texto simples (fallback sem PDF)
+    │                        ├── upload FALHOU (erro na Meta API)
+    │                        │   └── ✉ caption como texto simples (fallback sem PDF)
+    │                        │
+    │                        └── FECHAMENTO (fecharEntrega) — sempre, após entregar
+    │                            ├── mantém estado + boletos e renova o TTL
+    │                            ├── 2+ contas na sessão:
+    │                            │   ✉ "Pronto! Sua conta de DD/MM/AAAA foi enviada."
+    │                            │   + [Ver outras contas] [Voltar ao menu]
+    │                            └── 1 conta só:
+    │                                ✉ "Pronto! ... Posso ajudar com mais alguma coisa?"
+    │                                + [Voltar ao menu]
     │
     └─── Sem estado / estado desconhecido
          └── dispatch por message.type
@@ -332,6 +354,8 @@ PDF_ENTREGUE           → PDF enviado com sucesso { dataVencimento, valor }
 HORARIO_CONSULTADO     → usuário clicou em horário (botão legado)
 MENU_EXIBIDO           → mensagem desconhecida → menu enviado
 MENU_VIA_BOTAO         → cliente tocou em "Voltar ao menu" numa mensagem de fim de fluxo
+LISTA_REEXIBIDA        → cliente tocou em "Ver outras contas"; lista servida do cache
+SESSAO_EXPIRADA        → tocou em "Ver outras contas" mas o TTL já havia expirado
 FLUXO_CANCELADO        → usuário digitou palavra-chave de saída (menu/sair/voltar/...)
 ```
 
@@ -369,7 +393,7 @@ permanece no código.
 | `APP_TRY_ANOTHER_MESSAGE` | "Posso te ajudar com mais alguma coisa?" |
 | `MSG_HORARIO_FUNCIONAMENTO` | "Nosso atendimento funciona de segunda a sexta, das 8h às 18h, e aos sábados das 8h às 12h." |
 | `MSG_SOLICITAR_CPF_1` | "Digite o CPF do titular da conta:" |
-| `MSG_SOLICITAR_CPF_2` | "Exemplo: 12345678900 \| 123.456.789-10" |
+| `MSG_SOLICITAR_CPF_2` | "Pode enviar dos dois jeitos:\n\n*12345678900*\n*123.456.789-00*" |
 | `MSG_CPF_INVALIDO` | "Esse CPF parece incompleto ou incorreto.\n\nConfira os 11 números e envie de novo." |
 | `MSG_CLIENTE_EM_DIA` | "Boa notícia: não há contas em aberto no CPF {CPF}.\n\nVocê está em dia com a Assusa. 😊" |
 | `MSG_CPF_NAO_ENCONTRADO` | "Não localizei esse CPF no cadastro da Assusa.\n\nConfira se digitou o CPF do *titular* da conta de água. Se estiver certo, ligue para (31) 3624-8550." |
@@ -387,6 +411,9 @@ permanece no código.
 | `MSG_LABEL_LINHA_DIGITAVEL` | "Linha digitável do boleto:" |
 | `MSG_LABEL_PIX` | "PIX copia e cola:" |
 | `MSG_PIX_INDISPONIVEL` | "PIX não disponível para este boleto." |
+| `MSG_POS_ENTREGA_OUTRAS` | "Pronto! Sua conta de {DATA} foi enviada. ✅\n\nVocê ainda tem {RESTANTES} conta(s) em aberto. O que deseja agora?" |
+| `MSG_POS_ENTREGA_UNICA` | "Pronto! Sua conta de {DATA} foi enviada. ✅\n\nPosso ajudar com mais alguma coisa?" |
+| `MSG_SESSAO_EXPIRADA` | "Já faz um tempo desde a sua consulta e não tenho mais sua lista de contas.\n\nToque no botão abaixo para consultar de novo." |
 | `MSG_SELECAO_NAO_ENTENDIDA` | "Não entendi sua resposta.\n\nResponda com o *número* da conta que deseja pagar, de 1 a {TOTAL}." |
 | `MSG_ERRO_INESPERADO` | "Tive um problema aqui e não consegui concluir seu atendimento.\n\nToque no botão abaixo para recomeçar, ou ligue para (31) 3624-8550." |
 | `MSG_SEGUNDA_VIA_ERRO_SERVICO` | "Nosso sistema está fora do ar neste momento.\n\nTente de novo em alguns minutos ou ligue para (31) 3624-8550." |

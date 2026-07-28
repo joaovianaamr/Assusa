@@ -18,8 +18,10 @@ module.exports = Object.freeze({
     "Nosso atendimento funciona de segunda a sexta, das 8h às 18h, e aos sábados das 8h às 12h.",
   MSG_SOLICITAR_CPF_1:
     "Digite o CPF do titular da conta:",
+  // Um exemplo por linha e em negrito (* do WhatsApp): o mesmo CPF nas duas
+  // grafias, para deixar claro que tanto faz enviar com ou sem pontos.
   MSG_SOLICITAR_CPF_2:
-    "Exemplo: 12345678900 | 123.456.789-10",
+    "Pode enviar dos dois jeitos:\n\n*12345678900*\n*123.456.789-00*",
 
   // ── Quatro desfechos distintos da consulta por CPF ────────────────────────
   // 1) o número digitado não é um CPF válido
@@ -67,6 +69,16 @@ module.exports = Object.freeze({
     "PIX copia e cola:",
   MSG_PIX_INDISPONIVEL:
     "PIX não disponível para este boleto.",
+  // ── Fechamento depois de entregar o boleto ────────────────────────────────
+  // Sem isto a conversa morria no PIX e o cliente não sabia que podia pedir as
+  // outras contas sem redigitar o CPF. {DATA} = vencimento da conta entregue.
+  MSG_POS_ENTREGA_OUTRAS:
+    "Pronto! Sua conta de {DATA} foi enviada. ✅\n\nVocê ainda tem {RESTANTES} conta(s) em aberto. O que deseja agora?",
+  MSG_POS_ENTREGA_UNICA:
+    "Pronto! Sua conta de {DATA} foi enviada. ✅\n\nPosso ajudar com mais alguma coisa?",
+  // A lista guardada no Redis expirou (TTL) e não há o que reexibir.
+  MSG_SESSAO_EXPIRADA:
+    "Já faz um tempo desde a sua consulta e não tenho mais sua lista de contas.\n\nToque no botão abaixo para consultar de novo.",
   // Resposta não reconhecida enquanto o cliente escolhe a conta.
   MSG_SELECAO_NAO_ENTENDIDA:
     "Não entendi sua resposta.\n\nResponda com o *número* da conta que deseja pagar, de 1 a {TOTAL}.",
@@ -83,9 +95,12 @@ module.exports = Object.freeze({
   REPLY_SEGUNDA_VIA_CTA: "2ª via de conta",
   REPLY_HORARIO_CTA: "Horário atendimento",
   REPLY_MENU_CTA: "Voltar ao menu",
+  REPLY_VER_OUTRAS_CTA: "Ver outras contas",
 
   // Reply Button IDs
   REPLY_SEGUNDA_VIA_ID: "assusa-segunda-via",
   REPLY_HORARIO_ID: "assusa-horario-funcionamento",
-  REPLY_MENU_ID: "assusa-menu"
+  REPLY_MENU_ID: "assusa-menu",
+  // NÃO entra em MENU_BUTTONS: reexibe a lista guardada em vez de descartá-la.
+  REPLY_VER_OUTRAS_ID: "assusa-ver-outras"
 });
