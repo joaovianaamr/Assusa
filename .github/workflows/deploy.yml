@@ -44,6 +44,35 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
+          # Diagnóstico disparado na PRIMEIRA falha de conexão, enquanto a janela
+          # de instabilidade ainda está aberta.
+          #
+          # Serve para decidir uma questão que só o runner pode responder: a VPS
+          # está inalcançável, ou é a porta 22 especificamente? Do lado de fora já
+          # sabemos que, durante as falhas, o site responde 200 na 443 e a 22
+          # aceita conexão de outras origens — mas isso foi medido da máquina do
+          # operador, não daqui.
+          #
+          #   443 responde e 22 não  → filtro/rate-limit de porta. A correção é
+          #                            mover o sshd para outra porta (a 22 é
+          #                            varrida sem parar: 22 IPs distintos hoje).
+          #   nenhuma responde       → é a rota. Aí sim vale inverter o fluxo e
+          #                            deixar a VPS puxar.
+          diagnostico() {
+            echo "::group::Diagnóstico de rede (runner → VPS)"
+            echo "IP de saída do runner: $(curl -s --max-time 5 https://api.ipify.org || echo '?')"
+            for porta in 22 443 8090; do
+              if timeout 8 bash -c "cat < /dev/null > /dev/tcp/$VPS_HOST/$porta" 2>/dev/null; then
+                echo "porta $porta: ACEITA conexão"
+              else
+                echo "porta $porta: sem resposta"
+              fi
+            done
+            echo "HTTPS público: $(curl -s -o /dev/null -w '%{http_code}' --max-time 10 https://assusa.tech/ || echo '?')"
+            echo "::endgroup::"
+          }
+
+          diagnosticado=0
           for tentativa in 1 2 3; do
             # `set +e` + captura imediata: num `if cmd; then ...; fi` sem else,
             # o bash devolve 0 quando a condição é falsa, e o código real do
@@ -65,9 +94,13 @@ jobs:
               exit "$codigo"
             fi
             echo "tentativa $tentativa: falha de conexão SSH"
+            if [ "$diagnosticado" -eq 0 ]; then
+              diagnostico
+              diagnosticado=1
+            fi
             [ "$tentativa" -lt 3 ] && sleep "${tentativa}0"
           done
-          echo "as 3 tentativas falharam na conexão — ver docs/deploy.md" >&2
+          echo "as 3 tentativas falharam na conexão — ver o diagnóstico acima e docs/deploy.md" >&2
           exit 1
 
       - name: Verificar publicamente

@@ -68,7 +68,10 @@ verdade. O `flock` em `scripts/deploy.sh` cobre o caso de a conexão cair com o 
 rodando, que também devolve 255.
 
 Ver `ssh: Connection timed out` no log com o deploy verde é normal: foi uma tentativa perdida.
-Se as **três** falharem, o que se sabe do episódio de 28/07/2026:
+Se as **três** falharem, o log traz um bloco `Diagnóstico de rede` medindo, do próprio runner,
+quais portas da VPS respondem — a tabela de interpretação está em `docs/deploy.md`. A hipótese
+de trabalho é filtro na porta 22, porque durante as falhas a 443 responde e a 22 aceita conexão
+de outras origens. O que se sabe do episódio de 28/07/2026:
 
 - **Não há firewall na VPS** — `ufw` inativo, `iptables INPUT` com policy ACCEPT e sem regras.
   Não procure bloqueio ali, e não vá mexer no painel do provedor por causa disso.

@@ -180,8 +180,22 @@ fora do ar, não simulado) e se recuperou sozinho.
 10 s e 20 s entre elas. Se você está vendo essa mensagem no log mas o deploy terminou verde,
 foi só uma tentativa perdida e não há nada a fazer.
 
-**Se as três falharem**, aí sim vale investigar — mas comece pelo mais provável, que continua
-sendo instabilidade transitória de rede: espere ~30 min e re-rode.
+**Se as três falharem**, o log traz um bloco `Diagnóstico de rede (runner → VPS)` com a resposta
+da VPS nas portas 22, 443 e 8090, medida **do próprio runner** no momento da falha. Ele existe
+para decidir uma questão que só pode ser respondida de lá:
+
+| O que o diagnóstico mostra | O que significa | O que fazer |
+|---|---|---|
+| 443 aceita, 22 não | filtro ou rate-limit **na porta 22** | mover o `sshd` para outra porta (ex. 2222) e apontar o workflow para ela — mantendo a 22 durante a transição para não perder acesso |
+| nenhuma porta aceita | a rota runner↔VPS está fora | inverter o fluxo: um cron na VPS puxando `git fetch` + `deploy.sh`, que a torna independente de conexão de entrada |
+| todas aceitam | falha só no handshake SSH | investigar `sshd` (limites de sessão, `MaxStartups`) |
+
+Enquanto não houver esse dado, a hipótese mais provável continua sendo a porta 22 — durante as
+falhas o site respondeu **200 na 443** e a **22 aceitou conexão de outras origens**, o que
+descarta indisponibilidade genérica. A porta 22 desta VPS é varrida sem parar (22 IPs distintos
+num único dia), e filtro anti-scanning no caminho é comportamento comum de provedor.
+
+Até lá, se precisar publicar na hora: `ssh <VPS_USER>@<VPS_HOST> 'cd /root/segunda-via-wpp-assusa && bash scripts/deploy.sh'`.
 
 Em 28/07/2026 duas tentativas seguidas falharam assim (19:49 e 19:54), incluindo um
 `gh run rerun` imediato — e meia hora depois o mesmo deploy passou sozinho, sem nenhuma
