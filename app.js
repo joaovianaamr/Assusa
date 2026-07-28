@@ -45,6 +45,13 @@ function createApp() {
 
   app.use(json({ verify: verifyRequestSignature }));
 
+  // Arquivos de public/ são servidos por rota explícita, nunca por
+  // express.static: o diretório inteiro não deve ficar exposto (ver CLAUDE.md —
+  // uma cópia do código-fonte já ficou pública por semanas a partir daqui).
+  app.get("/logo-assusa.png", (_req, res) => {
+    res.sendFile(require("path").join(__dirname, "public", "logo-assusa.png"));
+  });
+
   app.get("/privacy", (_req, res) => {
     res.sendFile(require("path").join(__dirname, "public", "privacy.html"));
   });
@@ -137,7 +144,16 @@ function createApp() {
     res.status(200).send("EVENT_RECEIVED");
   });
 
-  app.get("/", (req, res) => {
+  // Página institucional — é o que o associado (e o revisor da Meta, que olha o
+  // site declarado no perfil do WhatsApp Business) vê ao abrir assusa.tech.
+  app.get("/", (_req, res) => {
+    res.sendFile(require("path").join(__dirname, "public", "index.html"));
+  });
+
+  // Diagnóstico legível por máquina, que antes ficava na raiz. O smoke test do
+  // CI procura "Servidor ativo" aqui; os health checks do Dockerfile e do
+  // scripts/deploy.sh olham só o código 200 da raiz, então seguem valendo.
+  app.get("/status", (_req, res) => {
     res.json({
       message: "Assusa Atendimento WhatsApp - Servidor ativo",
       endpoints: ["POST /webhook - Recebe eventos do WhatsApp"]

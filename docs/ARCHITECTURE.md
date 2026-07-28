@@ -71,7 +71,7 @@ Ordem real de execução quando corre `npm start` → `node app.js`:
 | 3 | Ao carregar `Conversation` → cadeia `Cache` → [`redis.js`](../services/redis.js): `createClient` + `client.connect()` (efeito lateral) | [`conversation.js`](../services/conversation.js) L15; [`redis.js`](../services/redis.js) L13–24 |
 | 4 | Ao carregar `GraphApi` → `FacebookAdsApi(config.accessToken)` | [`graph-api.js`](../services/graph-api.js) L10–13 |
 | 5 | `express()`, `app.use(urlencoded)`, `app.use(json({ verify: verifyRequestSignature }))` | [`app.js`](../app.js) L20–30 |
-| 6 | Registo de rotas: `GET /webhook`, `POST /webhook`, `GET /` | [`app.js`](../app.js) L33–85 |
+| 6 | Registo de rotas: `GET /webhook`, `POST /webhook`, `GET /` (página), `GET /status`, `/privacy`, `/data-deletion`, `/logo-assusa.png` | [`app.js`](../app.js) L33–85 |
 | 7 | `config.checkEnvVariables()` — avisos se faltam env vars | [`app.js`](../app.js) L88; [`config.js`](../services/config.js) L33–38 |
 | 8 | `app.listen(config.port, async () => { ... })` → log porta; `sicoobClient.checkPythonHealth()` | [`app.js`](../app.js) L110–123 |
 

@@ -651,6 +651,22 @@ Content-Type: application/json
 
 ---
 
+### 7.0 Página institucional e status do Node
+
+`GET {{BASE_URL}}/` → página HTML institucional (200). É o que o associado e a revisão da Meta
+veem em assusa.tech.
+
+`GET {{BASE_URL}}/status` → diagnóstico em JSON do servidor Node:
+
+```json
+{ "message": "Assusa Atendimento WhatsApp - Servidor ativo", "endpoints": ["POST /webhook - Recebe eventos do WhatsApp"] }
+```
+
+> O JSON ficava na raiz e foi movido para `/status` quando a página entrou. O smoke test do CI
+> verifica `ASSUSA` na raiz e `Servidor ativo` aqui.
+
+---
+
 ### 7.1 Health check
 
 `GET {{PYTHON_URL}}/health`

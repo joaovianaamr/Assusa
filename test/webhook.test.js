@@ -68,6 +68,54 @@ test("POST /webhook returns 200 without X-Hub-Signature-256", async () => {
   assert.equal(res.status, 200);
 });
 
+// ── páginas estáticas e status ───────────────────────────────────────────────
+
+test("GET / serve a página institucional em HTML", async () => {
+  const res = await request(createApp()).get("/");
+
+  assert.equal(res.status, 200);
+  assert.match(res.headers["content-type"] || "", /text\/html/);
+  assert.match(res.text, /ASSUSA/, "a página precisa nomear a empresa");
+  assert.match(res.text, /wa\.me\/5531984271278/, "link do autoatendimento no WhatsApp");
+  assert.match(res.text, /3624-8550/, "telefone para quem não usa WhatsApp");
+});
+
+test("GET / não devolve mais JSON", async () => {
+  const res = await request(createApp()).get("/");
+  assert.doesNotMatch(res.headers["content-type"] || "", /application\/json/);
+});
+
+test("GET /status devolve o diagnóstico que o CI verifica", async () => {
+  const res = await request(createApp()).get("/status");
+
+  assert.equal(res.status, 200);
+  assert.match(res.headers["content-type"] || "", /application\/json/);
+  assert.match(res.body.message, /Servidor ativo/);
+});
+
+test("GET /logo-assusa.png é servida", async () => {
+  const res = await request(createApp()).get("/logo-assusa.png");
+
+  assert.equal(res.status, 200, "a página referencia esta imagem");
+  assert.match(res.headers["content-type"] || "", /image\/png/);
+});
+
+test("as páginas legais continuam de pé", async () => {
+  const app = createApp();
+  for (const rota of ["/privacy", "/data-deletion"]) {
+    const res = await request(app).get(rota);
+    assert.equal(res.status, 200, `${rota} deve responder 200`);
+    assert.match(res.headers["content-type"] || "", /text\/html/);
+  }
+});
+
+test("o código-fonte não pode ser servido — GET /app.js é 404", async () => {
+  // Já houve uma cópia de app.js exposta em public/ por semanas (ver CLAUDE.md).
+  // O CI checa isso no container; aqui trava também no teste.
+  const res = await request(createApp()).get("/app.js");
+  assert.equal(res.status, 404);
+});
+
 test("aguardando_cpf + button assusa-segunda-via reinicia o fluxo pedindo o CPF em duas mensagens", async (t) => {
   const Cache = require("../services/redis");
   const GraphApi = require("../services/graph-api");

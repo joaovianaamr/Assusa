@@ -11,8 +11,9 @@ Dois processos independentes: **Node/Express** na raiz (webhook WhatsApp, máqui
 no Redis) e **FastAPI** em `python/sicoob_service/` (cliente mTLS da API bancária Sicoob).
 O Node fala com o Python por HTTP interno (`SICOOB_SERVICE_URL` + header `X-Internal-Api-Key`).
 
-- `app.js` — rotas: `GET/POST /webhook`, `GET /`, `/privacy`, `/data-deletion`. Exporta `createApp()`
-  para os testes; só sobe o servidor quando `require.main === module`.
+- `app.js` — rotas: `GET/POST /webhook`, `GET /` (página institucional), `GET /status` (diagnóstico
+  JSON), `/privacy`, `/data-deletion`, `/logo-assusa.png`. Exporta `createApp()` para os testes; só
+  sobe o servidor quando `require.main === module`.
 - `services/` — toda a lógica: `conversation.js` (máquina de estados), `graph-api.js` (envio),
   `redis.js` (estado), `sicoobClient.js` (→ Python), `boletoView.js` (formatação e montagem
   das listagens, puro), `message.js` (parse do payload), `config.js`, `constants.js`.
@@ -41,6 +42,15 @@ diretório de runtime na raiz, ele **não** chega ao container — atualize o `D
 **Nada de `.js` dentro de `public/`.** O CI falha explicitamente se encontrar algum. Isso
 existe porque uma cópia do código-fonte (`public/app.js`) ficou exposta publicamente por
 semanas. O CI também verifica que `GET /app.js` retorna 404.
+
+**A raiz é a página institucional; o JSON de diagnóstico vive em `/status`.** O smoke test do
+CI procura `ASSUSA` na raiz e `Servidor ativo` em `/status` — mover uma dessas strings quebra a
+esteira, e o `deploy.yml` só roda se o CI passar. Os health checks do `Dockerfile` e do
+`scripts/deploy.sh` olham apenas o código 200 da raiz.
+
+**Arquivos de `public/` são servidos por rota explícita, nunca por `express.static`.** Cada um
+tem seu `app.get(...)` com `sendFile`. Expor o diretório inteiro é justamente o que deixou uma
+cópia do código-fonte pública por semanas.
 
 **Nunca edite arquivos versionados direto na VPS.** Já causou drift que quebrou o `git pull`.
 Toda mudança entra por commit em `main`. Na VPS só se toca em `.env` e `certificados/`

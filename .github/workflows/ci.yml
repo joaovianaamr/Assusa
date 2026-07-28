@@ -55,6 +55,8 @@ jobs:
             curl -fsS http://127.0.0.1:8080/ && break
             sleep 1
           done
-          curl -fsS http://127.0.0.1:8080/ | grep -q "Servidor ativo"
+          curl -fsS http://127.0.0.1:8080/ | grep -q "ASSUSA"
+          curl -fsS http://127.0.0.1:8080/status | grep -q "Servidor ativo"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/logo-assusa.png)" = "200"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/app.js)" = "404"
           docker logs web-ci
