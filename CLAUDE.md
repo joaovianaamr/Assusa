@@ -142,6 +142,13 @@ número da conta; o estado `aguardando_selecao_boleto` só é gravado **depois**
 aceita botão, item de lista e número digitado, então o fallback é utilizável. O `.catch` do webhook
 em `app.js` chama `Conversation.avisarFalhaInesperada` — sem isso, erro no fluxo vira silêncio.
 
+**As rotas do `sicoob/` são `def`, não `async def` — não "corrija" isso.** O cliente Sicoob é
+síncrono (`httpx.Client`, e `time.sleep()` no retry de 429); numa rota `async` ele bloqueia o
+event loop e as 6 janelas que o Node dispara em paralelo passam a ser atendidas em fila. Medido:
+6 requisições simultâneas em **0,721 s** com `async def` contra **0,096 s** com `def`. Vale
+também para `banking_dependency`, que renova o token via mTLS. Trocar de volta não quebra nada —
+só deixa ~7× mais lento sob carga, em silêncio.
+
 **`config.checkEnvVariables()` só emite `console.warn`.** Variável faltando não impede o boot —
 o serviço sobe quebrado silenciosamente. Verifique os logs de arranque.
 

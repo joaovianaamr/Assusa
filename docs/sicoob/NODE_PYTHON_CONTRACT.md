@@ -35,6 +35,20 @@ Todas as rotas abaixo exigem `X-Internal-Api-Key`. O corpo de resposta é sempre
 
 - **Erro de validação FastAPI:** `422` com detalhe padrão Pydantic.
 
+- **Erro de campo obrigatório ausente:** HTTP `200` com `result.error` preenchido — o serviço
+  não devolve 4xx nesse caso. Desde jul/2026 a mensagem lista **todos** os campos faltantes de
+  uma vez:
+
+  ```json
+  { "ok": true, "result": { "error": "Campo(s) obrigatório(s) ausente(s): numeroCliente, codigoModalidade" } }
+  ```
+
+  > **Trate `error` pela presença, nunca pelo texto.** É o que o Node faz
+  > (`api/infrastructure/sicoobHttp.js`, `api/application/consultarPorCpf.js`): testa se a chave
+  > existe e não casa strings. O conteúdo já mudou uma vez e pode mudar de novo — as mensagens
+  > são derivadas do nome da operação (`Falha ao dar baixa no boleto: ...`), então elas
+  > acompanham qualquer renomeação interna.
+
 - **Erro interno não tratado:** `500` `{"detail": "..."}`.
 
 ### Rotas
