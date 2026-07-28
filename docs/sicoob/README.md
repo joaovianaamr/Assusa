@@ -2,7 +2,7 @@
 
 | Ficheiro/pasta | Nota |
 | -------------- | ---- |
-| [NODE_PYTHON_CONTRACT.md](NODE_PYTHON_CONTRACT.md) | Contrato entre o Node (`services/sicoobClient.js`) e o microsserviço Python (`python/sicoob_service/`). |
+| [NODE_PYTHON_CONTRACT.md](NODE_PYTHON_CONTRACT.md) | Contrato entre o Node (`services/sicoobClient.js`) e o microsserviço Python (`sicoob/`). |
 | [dados-gerais.md](dados-gerais.md), [escopo.md](escopo.md), [sandbox.md](sandbox.md), [seguranca-geral.md](seguranca-geral.md), [time-span-limit.md](time-span-limit.md) | Referência geral da API Cobrança Bancária Sicoob (documentação externa, uso interno). |
 
 ## Endpoints — boleto

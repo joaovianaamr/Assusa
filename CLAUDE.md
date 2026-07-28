@@ -8,7 +8,7 @@ consultando o back-end do **Sicoob**. Código-base derivado do sample *Jasper's 
 ## Arquitetura em uma frase
 
 Três componentes isolados: **API** (`api/` + `app.js` — Node/Express em camadas, webhook do
-WhatsApp e máquina de estados no Redis), **processamento Sicoob** (`python/sicoob_service/` —
+WhatsApp e máquina de estados no Redis), **processamento Sicoob** (`sicoob/` —
 FastAPI, cliente mTLS da API bancária) e **frontend** (`web/` — HTML estático). São dois
 processos: o Node fala com o Python por HTTP interno (`SICOOB_SERVICE_URL` + header
 `X-Internal-Api-Key`), e o frontend é servido pela API.
@@ -21,7 +21,7 @@ processos: o Node fala com o Python por HTTP interno (`SICOOB_SERVICE_URL` + hea
   sicoobHttp, telemetriaHttp), `interface/` (`webhookRouter.js` e `payloadWhatsApp.js`) e
   `composicao.js` (composition root — o único lugar que liga porta a adapter).
 - `web/` — o frontend estático (páginas institucional, de privacidade e de exclusão de dados).
-- `python/sicoob_service/src/sicoob_service/` — `app.py` (rotas `/internal/*`, `/health`),
+- `sicoob/src/sicoob_service/` — `app.py` (rotas `/internal/*`, `/health`),
   `banking_v3.py`, `token_v3.py`, `certificate_tools.py`.
 
 **Leia `docs/README.md` antes de mexer** — é o índice de toda a documentação.
@@ -35,7 +35,7 @@ npm start                 # node app.js (porta 8080)
 npm test                  # node --test test/*.test.js
 docker compose up --build # stack completa: redis + postgres + sicoob + web
 
-cd python/sicoob_service && pip install -e ".[dev]" && pytest -q
+cd sicoob && pip install -e ".[dev]" && pytest -q
 ```
 
 ## Armadilhas reais deste repo

@@ -59,4 +59,4 @@ Todas as rotas abaixo exigem `X-Internal-Api-Key`. O corpo de resposta é sempre
 
 ## Variáveis de ambiente (Python)
 
-Ver `README.md` na raiz do pacote `python/sicoob_service`.
+Ver `README.md` na raiz do pacote `sicoob`.

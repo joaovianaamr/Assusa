@@ -47,7 +47,7 @@ You will need:
 
 - [Node](https://nodejs.org/en/) 10.x or higher
 - Remote server service, a local tunneling service such as [ngrok](https://ngrok.com/), or your own webserver.
-- Opcional: [Python](https://www.python.org/) 3.11+ para o microsserviço de **boletos Sicoob** (`python/sicoob_service`). O Node chama este serviço por HTTP quando `SICOOB_SERVICE_URL` e `INTERNAL_API_KEY` estão definidos (ver `.env.sample` e `python/sicoob_service/README.md`).
+- Opcional: [Python](https://www.python.org/) 3.11+ para o microsserviço de **boletos Sicoob** (`sicoob`). O Node chama este serviço por HTTP quando `SICOOB_SERVICE_URL` e `INTERNAL_API_KEY` estão definidos (ver `.env.sample` e `sicoob/README.md`).
 - Documentação completa (arquitetura, deploy, integrações): [docs/README.md](docs/README.md).
 
 # Usage

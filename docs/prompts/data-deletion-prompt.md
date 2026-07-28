@@ -15,7 +15,7 @@ Contexto atual:
   - `estado:<telefone>`
   - `boletos:<telefone>`
 - As interações persistentes ficam no Postgres via microsserviço Python, na tabela `interacoes`, definida em:
-  - `python/sicoob_service/src/sicoob_service/database.py`
+  - `sicoob/src/sicoob_service/database.py`
 - O Node registra interações chamando o microsserviço Python por `services/interacaoClient.js`.
 - O microsserviço Python já tem rotas internas:
   - `POST /interno/interacao`
@@ -82,7 +82,7 @@ Testes obrigatórios:
 Comandos de verificação esperados:
 - `npm test`
 - Testes Python do microsserviço, conforme o padrão do projeto, por exemplo:
-  - `cd python/sicoob_service && pytest`
+  - `cd sicoob && pytest`
 
 Critério de conclusão:
 - A rota pública `POST /data-deletion` deixa de ser apenas registro em console.

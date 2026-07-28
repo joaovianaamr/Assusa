@@ -42,7 +42,7 @@ services:
 
   sicoob:
     build:
-      context: ./python/sicoob_service
+      context: ./sicoob
       dockerfile: Dockerfile
     restart: unless-stopped
     volumes:

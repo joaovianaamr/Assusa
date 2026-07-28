@@ -43,7 +43,7 @@ defesas deixam de ser necessárias.
   continuam praticamente iguais.
 - **Migração incremental**: cada fase termina com `npm test` verde e é publicável sozinha.
   Isto está em produção, e todo push em `main` publica.
-- **`python/sicoob_service/` fica como está.** Já é um componente isolado de verdade —
+- **`sicoob/` fica como está.** Já é um componente isolado de verdade —
   processo próprio, contrato HTTP em `docs/sicoob/NODE_PYTHON_CONTRACT.md`, 48 testes. Não há
   problema correspondente ao trabalho de formalizar camadas nele.
 
@@ -77,7 +77,7 @@ segunda-via-wpp-assusa/
 │   │   └── payloadWhatsApp.js ← services/message.js + status.js
 │   └── composicao.js          composition root: o único lugar que vê tudo
 ├── web/                       componente 2 — frontend (era public/)
-├── python/sicoob_service/     componente 3 — intacto
+├── sicoob/     componente 3 — intacto
 └── .arch.json                 fronteiras verificadas no CI
 ```
 

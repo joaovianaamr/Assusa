@@ -1,0 +1,2 @@
+[console_scripts]
+sicoob-service = sicoob_service.__main__:main

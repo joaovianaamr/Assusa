@@ -10,7 +10,7 @@
 | Componente | Onde | O que é |
 |---|---|---|
 | **API** | `api/` + `app.js` | Node/Express: recebe o webhook do WhatsApp, conduz a conversa, fala com o Sicoob |
-| **Processamento Sicoob** | `python/sicoob_service/` | FastAPI: cliente mTLS da API bancária. Processo próprio, contrato HTTP |
+| **Processamento Sicoob** | `sicoob/` | FastAPI: cliente mTLS da API bancária. Processo próprio, contrato HTTP |
 | **Frontend** | `web/` | HTML estático servido pela API por rota explícita |
 
 O Node fala com o Python por HTTP interno (`SICOOB_SERVICE_URL` + header `X-Internal-Api-Key`);
@@ -152,7 +152,7 @@ Chave por telefone, TTL deslizante de `ESTADO_TTL_SECONDS` (padrão 1800 s):
 
 ## 6. Testes
 
-103 no Node, todos rodando **sem Redis instalado**, e 48 no Python.
+103 no Node, todos rodando **sem Redis instalado**, e 53 no Python.
 
 | Arquivo | Guarda o quê |
 |---|---|

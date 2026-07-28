@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: python/sicoob_service
+        working-directory: sicoob
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -49,7 +49,7 @@ jobs:
       - name: Nenhum .js pode existir em web/
         run: test -z "$(find web -name '*.js' -o -name '*.mjs')"
       - run: docker build -t web:ci .
-      - run: docker build -t sicoob:ci python/sicoob_service
+      - run: docker build -t sicoob:ci sicoob
       - name: Smoke test do container web
         run: |
           docker run -d --name web-ci -p 8080:8080 web:ci
