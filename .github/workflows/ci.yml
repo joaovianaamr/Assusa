@@ -23,6 +23,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      - name: Fronteiras de camada em api/ (Clean/Hexagonal)
+        run: python3 scripts/boundary_lint.py --root api --config .arch.json
 
   python:
     runs-on: ubuntu-latest

@@ -5,8 +5,8 @@ const assert = require("node:assert/strict");
 
 // boletoView é puro: não conecta ao Redis nem à rede, então pode ser
 // carregado com require normal (ao contrário de conversation.js).
-const view = require("../services/boletoView");
-const constants = require("../services/constants");
+const view = require("../api/domain/boleto");
+const constants = require("../api/domain/mensagens");
 
 const boleto = (dataVencimentoOriginal, valorPagar) => ({
   dataVencimentoOriginal,
@@ -42,21 +42,6 @@ test("formatarBRL usa vírgula decimal e duas casas", () => {
 test("formatarBRL tolera valor inválido", () => {
   assert.equal(view.formatarBRL(null), "—");
   assert.equal(view.formatarBRL("abc"), "—");
-});
-
-// ── máscara de CPF ───────────────────────────────────────────────────────────
-
-test("mascararCpf esconde o miolo do documento", () => {
-  assert.equal(view.mascararCpf("12345678900"), "123.***.**9-00");
-});
-
-test("mascararCpf aceita CPF já formatado", () => {
-  assert.equal(view.mascararCpf("123.456.789-00"), "123.***.**9-00");
-});
-
-test("mascararCpf devolve vazio para entrada de tamanho errado", () => {
-  assert.equal(view.mascararCpf("123"), "");
-  assert.equal(view.mascararCpf(null), "");
 });
 
 // ── decisão botões vs. lista ─────────────────────────────────────────────────

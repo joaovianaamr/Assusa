@@ -8,7 +8,7 @@
 
 "use strict";
 
-const constants = require("./constants");
+const mensagens = require("./mensagens");
 
 // Limites da Meta (WhatsApp Cloud API) para mensagens interativas.
 const MAX_BOTOES = 3;          // mensagem de botões
@@ -46,17 +46,6 @@ function formatarBRL(valor) {
   });
 }
 
-/**
- * Mascara o CPF para eco ao cliente: 12345678900 → 123.***.**9-00.
- * Mostra o suficiente para a pessoa reconhecer o número que digitou sem
- * expor o documento inteiro na conversa.
- */
-function mascararCpf(digits) {
-  const d = String(digits ?? "").replace(/\D/g, "");
-  if (d.length !== 11) return "";
-  return `${d.slice(0, 3)}.***.**${d[8]}-${d.slice(9)}`;
-}
-
 /** Acima de 3 contas os botões não cabem — cai para a lista interativa. */
 function deveUsarLista(quantidade) {
   return quantidade > MAX_BOTOES;
@@ -65,7 +54,7 @@ function deveUsarLista(quantidade) {
 /** Texto enumerado das contas, usado no corpo da mensagem nos dois formatos. */
 function montarLinhasBoletos(boletos) {
   return boletos.map((b, i) =>
-    constants.MSG_SELECIONAR_BOLETO_ITEM
+    mensagens.MSG_SELECIONAR_BOLETO_ITEM
       .replace("{N}", i + 1)
       .replace("{DATA}", formatarData(b.dataVencimentoOriginal))
       .replace("{VALOR}", formatarBRL(b.valorPagar))
@@ -78,7 +67,7 @@ function montarLinhasBoletos(boletos) {
  */
 function montarBotoesBoletos(boletos) {
   return boletos.slice(0, MAX_BOTOES).map((b, i) => ({
-    id: `${constants.REPLY_BOLETO_PREFIX}${i}`,
+    id: `${mensagens.REPLY_BOLETO_PREFIX}${i}`,
     title: truncar(
       `${i + 1} - Conta ${formatarDataCurta(b.dataVencimentoOriginal)}`,
       LIMITE_TITULO_BOTAO
@@ -103,13 +92,13 @@ function montarCorpoSelecao(template, boletos) {
 /** Linhas da lista interativa (até 10), com valor atualizado na descrição. */
 function montarRowsLista(boletos) {
   return boletos.slice(0, MAX_ROWS).map((b, i) => ({
-    id: `${constants.REPLY_BOLETO_PREFIX}${i}`,
+    id: `${mensagens.REPLY_BOLETO_PREFIX}${i}`,
     title: truncar(
       `${i + 1}) Conta ${formatarData(b.dataVencimentoOriginal)}`,
       LIMITE_TITULO_ROW
     ),
     description: truncar(
-      constants.MSG_LISTA_ITEM_DESCRICAO.replace("{VALOR}", formatarBRL(b.valorPagar)),
+      mensagens.MSG_LISTA_ITEM_DESCRICAO.replace("{VALOR}", formatarBRL(b.valorPagar)),
       LIMITE_DESCRICAO_ROW
     )
   }));
@@ -126,8 +115,8 @@ function montarRowsLista(boletos) {
 function resolverIndiceSelecao({ type, text }, total) {
   const dentroDoIntervalo = i => Number.isInteger(i) && i >= 0 && i < total;
 
-  if (typeof type === "string" && type.startsWith(constants.REPLY_BOLETO_PREFIX)) {
-    const i = parseInt(type.slice(constants.REPLY_BOLETO_PREFIX.length), 10);
+  if (typeof type === "string" && type.startsWith(mensagens.REPLY_BOLETO_PREFIX)) {
+    const i = parseInt(type.slice(mensagens.REPLY_BOLETO_PREFIX.length), 10);
     return dentroDoIntervalo(i) ? i : null;
   }
 
@@ -155,7 +144,6 @@ module.exports = {
   formatarData,
   formatarDataCurta,
   formatarBRL,
-  mascararCpf,
   deveUsarLista,
   montarLinhasBoletos,
   montarBotoesBoletos,

@@ -1,0 +1,25 @@
+{
+  "_comment": "Contrato de camadas do componente api/. As setas de dependência apontam só para dentro: domain não importa ninguém, application importa domain, infrastructure e interface importam domain+application e nunca um ao outro. Verificado no CI por scripts/boundary_lint.py.",
+  "style": "clean",
+  "layers": {
+    "domain":         { "markers": ["domain"],         "may_import": [] },
+    "application":    { "markers": ["application"],    "may_import": ["domain"] },
+    "infrastructure": { "markers": ["infrastructure"], "may_import": ["domain", "application"] },
+    "interface":      { "markers": ["interface"],      "may_import": ["domain", "application"] }
+  },
+  "_comment_forbidden": "O domínio não pode conhecer framework nem I/O. Esta lista é a das dependências que ESTE projeto realmente usa — a lista genérica da skill não cobria redis nem o SDK da Meta.",
+  "domain_forbidden_import_patterns": [
+    "express",
+    "body-parser",
+    "redis",
+    "facebook-nodejs-business-sdk",
+    "dotenv",
+    "node-fetch",
+    "supertest",
+    "nodemailer",
+    "fs",
+    "path",
+    "http",
+    "https"
+  ]
+}

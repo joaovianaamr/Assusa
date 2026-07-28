@@ -121,7 +121,7 @@ test("aguardando_cpf + button assusa-segunda-via reinicia o fluxo pedindo o CPF 
   const GraphApi = require("../services/graph-api");
   const interacao = require("../services/interacaoClient");
   const Conversation = require("../services/conversation");
-  const constants = require("../services/constants");
+  const constants = require("../api/domain/mensagens");
 
   t.mock.method(Cache, "getEstado", async () => "aguardando_cpf");
   t.mock.method(Cache, "clearEstado", async () => {});
@@ -159,7 +159,7 @@ test("selecionar boleto entrega em partes e mantém a lista clicável (não limp
   const interacao = require("../services/interacaoClient");
   const sicoobClient = require("../services/sicoobClient");
   const Conversation = require("../services/conversation");
-  const constants = require("../services/constants");
+  const constants = require("../api/domain/mensagens");
 
   t.mock.method(Cache, "getEstado", async () => "aguardando_selecao_boleto");
   t.mock.method(Cache, "getBoletos", async () => [
@@ -230,7 +230,7 @@ test("selecionar boleto entrega em partes e mantém a lista clicável (não limp
 // ── caminhos novos: botões vs. lista, e os desfechos da consulta por CPF ──────
 
 const CPF_VALIDO = "11144477735";
-const constantsRef = require("../services/constants");
+const constantsRef = require("../api/domain/mensagens");
 
 /** Monta o cenário de "cliente mandou o CPF" com os mocks mínimos. */
 function cenarioCpf(t, { emAberto = [], historico = [], historicoFalha = false } = {}) {

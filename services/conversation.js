@@ -7,7 +7,7 @@
 
 "use strict";
 
-const constants = require("./constants");
+const constants = require("../api/domain/mensagens");
 const config = require("./config");
 const GraphApi = require('./graph-api');
 const Message = require('./message');
@@ -15,7 +15,8 @@ const Status = require('./status');
 const Cache = require('./redis');
 const sicoobClient = require('./sicoobClient');
 const interacao = require('./interacaoClient');
-const view = require('./boletoView');
+const view = require('../api/domain/boleto');
+const cpf = require('../api/domain/cpf');
 
 const { formatarData, formatarBRL } = view;
 
@@ -84,23 +85,10 @@ async function handleSolicitacaoSegundaVia(
   );
 }
 
-function cpfValido(digits) {
-  if (digits.length !== 11) return false;
-  if (/^(\d)\1{10}$/.test(digits)) return false;
-  const calc = (len) => {
-    const soma = digits.slice(0, len).split("").reduce(
-      (acc, d, i) => acc + Number(d) * (len + 1 - i), 0
-    );
-    const r = soma % 11;
-    return r < 2 ? 0 : 11 - r;
-  };
-  return calc(9) === Number(digits[9]) && calc(10) === Number(digits[10]);
-}
-
 async function handleCpfRecebido(senderPhoneNumberId, message) {
-  const cpfDigits = (message.text || "").replace(/\D/g, "");
+  const cpfDigits = cpf.apenasDigitos(message.text);
 
-  if (cpfDigits.length !== 11 || !cpfValido(cpfDigits)) {
+  if (!cpf.cpfValido(cpfDigits)) {
     interacao.registrar(message.senderPhoneNumber, "CPF_INVALIDO", null, { cpf_recebido: cpfDigits });
     await enviarComBotaoMenu(
       message.id,
@@ -194,7 +182,7 @@ async function responderSemBoletosEmAberto(senderPhoneNumberId, message, cpfDigi
         : Array.isArray(raw?.resultado) ? raw.resultado
         : [];
       if (lista.length) {
-        mensagem = constants.MSG_CLIENTE_EM_DIA.replace("{CPF}", view.mascararCpf(cpfDigits));
+        mensagem = constants.MSG_CLIENTE_EM_DIA.replace("{CPF}", cpf.mascararCpf(cpfDigits));
         evento = "CLIENTE_EM_DIA";
       } else {
         mensagem = constants.MSG_CPF_NAO_ENCONTRADO;

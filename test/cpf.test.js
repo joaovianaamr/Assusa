@@ -3,13 +3,10 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 
-// Extrai a função sem carregar dependências do módulo inteiro
-const src = require("fs").readFileSync(
-  require("path").join(__dirname, "../services/conversation.js"),
-  "utf8"
-);
-const fnBody = src.match(/function cpfValido[\s\S]+?^}/m)[0];
-const cpfValido = new Function(`return (${fnBody})`)();
+// Antes este teste lia conversation.js como TEXTO e extraía a função com regex,
+// para não disparar a conexão com o Redis que o require daquele módulo provoca.
+// Com a regra isolada no domínio, o require é direto — api/domain/ é puro.
+const { apenasDigitos, cpfValido, mascararCpf } = require("../api/domain/cpf");
 
 // ── válidos ───────────────────────────────────────────────────────────────────
 
@@ -65,4 +62,35 @@ test("CPF inválido — mais de 11 dígitos", () => {
 
 test("CPF inválido — string vazia", () => {
   assert.ok(!cpfValido(""));
+});
+
+// ── normalização da entrada (antes vivia solta em conversation.js) ───────────
+
+test("apenasDigitos aceita qualquer pontuação", () => {
+  for (const entrada of [
+    "11144477735", "111.444.777-35", "111 444 777 35",
+    "111-444-777-35", "111.444.777.35", "meu cpf e 111.444.777-35",
+  ]) {
+    assert.equal(apenasDigitos(entrada), "11144477735", `falhou para ${entrada}`);
+  }
+});
+
+test("apenasDigitos tolera entrada ausente", () => {
+  assert.equal(apenasDigitos(null), "");
+  assert.equal(apenasDigitos(undefined), "");
+});
+
+// ── máscara (migrada de boletoView: é regra de CPF, não de boleto) ───────────
+
+test("mascararCpf esconde o miolo do documento", () => {
+  assert.equal(mascararCpf("12345678900"), "123.***.**9-00");
+});
+
+test("mascararCpf aceita CPF já formatado", () => {
+  assert.equal(mascararCpf("123.456.789-00"), "123.***.**9-00");
+});
+
+test("mascararCpf devolve vazio para entrada de tamanho errado", () => {
+  assert.equal(mascararCpf("123"), "");
+  assert.equal(mascararCpf(null), "");
 });

@@ -9,6 +9,7 @@ comece por ele, não pelos arquivos soltos dentro.
 |---|---|
 | [project-context.md](project-context.md) | Primeiro contato: o que é o bot, glossário do domínio (ASSUSA, segunda via, Cloud API), variáveis de ambiente por categoria. |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Mapa de pastas/arquivos, como o Node inicializa, e como Node e o microsserviço Python se falam. |
+| [arquitetura-isolamento.md](arquitetura-isolamento.md) | **Proposta** (nada executado): separar API, Sicoob e frontend em fronteiras explícitas e quebrar o acoplamento do `conversation.js`. |
 | [fluxo-mensagens.md](fluxo-mensagens.md) | Máquina de estados do bot — cada caminho possível de conversa no WhatsApp, estado a estado. |
 
 ## Operar em produção
