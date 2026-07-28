@@ -14,9 +14,12 @@ O Node fala com o Python por HTTP interno (`SICOOB_SERVICE_URL` + header `X-Inte
 - `app.js` — rotas: `GET/POST /webhook`, `GET /` (página institucional), `GET /status` (diagnóstico
   JSON), `/privacy`, `/data-deletion`, `/logo-assusa.png`. Exporta `createApp()` para os testes; só
   sobe o servidor quando `require.main === module`.
-- `services/` — toda a lógica: `conversation.js` (máquina de estados), `graph-api.js` (envio),
-  `redis.js` (estado), `sicoobClient.js` (→ Python), `boletoView.js` (formatação e montagem
-  das listagens, puro), `message.js` (parse do payload), `config.js`, `constants.js`.
+- `api/` — o componente Node em camadas. `domain/` (cpf, boleto, mensagens, portas — puro),
+  `application/` (um arquivo por caso de uso), `infrastructure/` (whatsappGraph, sessaoRedis,
+  sicoobHttp, telemetriaHttp), `interface/webhookRouter.js` (roteamento por estado) e
+  `composicao.js` (composition root — o único lugar que liga porta a adapter).
+- `services/` — resta o que ainda não migrou: `message.js` e `status.js` (tradutores do payload
+  da Meta) e `conversation.js`, hoje uma fachada de 29 linhas que só repassa para o router.
 - `python/sicoob_service/src/sicoob_service/` — `app.py` (rotas `/internal/*`, `/health`),
   `banking_v3.py`, `token_v3.py`, `certificate_tools.py`.
 
