@@ -7,6 +7,11 @@ explícitas dentro do monorepo, e para quebrar o acoplamento interno do Node.
 > `refactor(api): fase 1/2/3 e 4` e `refactor(web): fase 5` implementam este plano.
 > Este documento fica como registro do porquê — o mapa atual das camadas está no
 > `CLAUDE.md` e em `docs/ARCHITECTURE.md`.
+>
+> Uma **fase 7**, não prevista no plano original, eliminou o resíduo: `services/` deixou de
+> existir (a fachada `conversation.js` foi apagada e os tradutores do payload viraram
+> `api/interface/payloadWhatsApp.js`), e o `require` tardio saiu do handler em `app.js` — era a
+> última das três defesas contra o efeito colateral de import do Redis.
 
 ## Por que
 

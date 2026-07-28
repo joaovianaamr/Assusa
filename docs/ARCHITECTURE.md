@@ -17,15 +17,7 @@ mindmap
       app.js
       .env.sample
     services
-      boletoView.js
-      config.js
-      constants.js
-      conversation.js
-      graph-api.js
-      message.js
-      status.js
-      redis.js
-      sicoobClient.js
+      (migrado para api/ — ver CLAUDE.md)
     python_sicoob_service
       pyproject.toml
       src_sicoob_service
@@ -145,8 +137,8 @@ flowchart LR
 
 **Modelos**
 
-- [`Message` constructor](../services/message.js) — extrai `id`, `type` (de `interactive.button_reply.id` **ou** `interactive.list_reply.id`, senão `'unknown'`), `text`, `from`.
-- [`Status` constructor](../services/status.js) — `id`, `status`, `recipient_id`.
+- [`Message` constructor](../api/interface/payloadWhatsApp.js) — extrai `id`, `type` (de `interactive.button_reply.id` **ou** `interactive.list_reply.id`, senão `'unknown'`), `text`, `from`.
+- [`Status` constructor](../api/interface/payloadWhatsApp.js) — `id`, `status`, `recipient_id`.
 
 **Cliente Sicoob (Node)**
 

@@ -16,10 +16,9 @@ O Node fala com o Python por HTTP interno (`SICOOB_SERVICE_URL` + header `X-Inte
   sobe o servidor quando `require.main === module`.
 - `api/` — o componente Node em camadas. `domain/` (cpf, boleto, mensagens, portas — puro),
   `application/` (um arquivo por caso de uso), `infrastructure/` (whatsappGraph, sessaoRedis,
-  sicoobHttp, telemetriaHttp), `interface/webhookRouter.js` (roteamento por estado) e
+  sicoobHttp, telemetriaHttp), `interface/` (`webhookRouter.js` e `payloadWhatsApp.js`) e
   `composicao.js` (composition root — o único lugar que liga porta a adapter).
-- `services/` — resta o que ainda não migrou: `message.js` e `status.js` (tradutores do payload
-  da Meta) e `conversation.js`, hoje uma fachada de 29 linhas que só repassa para o router.
+- `web/` — o frontend estático (páginas institucional, de privacidade e de exclusão de dados).
 - `python/sicoob_service/src/sicoob_service/` — `app.py` (rotas `/internal/*`, `/health`),
   `banking_v3.py`, `token_v3.py`, `certificate_tools.py`.
 
@@ -39,7 +38,7 @@ cd python/sicoob_service && pip install -e ".[dev]" && pytest -q
 
 ## Armadilhas reais deste repo
 
-**O `Dockerfile` copia apenas `app.js`, `api/`, `services/` e `web/`.** Se você criar um novo
+**O `Dockerfile` copia apenas `app.js`, `api/` e `web/`.** Se você criar um novo
 diretório de runtime na raiz, ele **não** chega ao container — atualize o `Dockerfile` junto.
 
 **Nada de `.js` dentro de `web/`** (o antigo `public/`). O CI falha explicitamente se encontrar
@@ -64,17 +63,24 @@ Toda mudança entra por commit em `main`. Na VPS só se toca em `.env` e `certif
 Docker; se passar, `deploy.yml` dispara `scripts/deploy.sh` na VPS (pull, rebuild, health check,
 **rollback automático** se o health falhar). Não faça push em `main` sem intenção de publicar.
 
-**A conexão com o Redis é preguiçosa — importar não faz I/O.** Era o contrário: `redis.js`
-chamava `client.connect()` no topo, então `require('./services/conversation')` abria socket sem
-pedir, e três defesas existiam só para contornar isso. Hoje `api/infrastructure/sessaoRedis.js`
-conecta na primeira operação, e `test/sessaoRedis.test.js` falha se alguém devolver a conexão
-para o topo do arquivo. `npm test` passa sem Redis instalado (verificado — 100/100).
+**A conexão com o Redis é preguiçosa — importar não faz I/O.** Era o contrário: o adapter
+chamava `client.connect()` no topo, então importar a cadeia da conversa abria socket sem pedir.
+Três defesas existiam só para contornar isso — o `require` tardio dentro do handler em `app.js`,
+o cuidado no `webhook.test.js` e a leitura do `conversation.js` como texto no `cpf.test.js`.
+**As três já não existem**, porque a causa foi removida: `api/infrastructure/sessaoRedis.js`
+conecta na primeira operação. `test/sessaoRedis.test.js` monta o composition root inteiro e falha
+se alguém devolver a conexão para o topo do arquivo.
 
-**Camadas em `api/` com fronteira verificada.** `domain/` (regras puras: cpf, boleto, mensagens,
-portas), `application/`, `infrastructure/` (os quatro adapters) e `interface/`. As setas apontam
-só para dentro e `scripts/boundary_lint.py` roda no CI com `.arch.json` — o build falha quando
-uma seta aponta para fora. As portas em `api/domain/portas/` são verificadas por
+**Camadas em `api/` com fronteira verificada.** `domain/` (cpf, boleto, mensagens, portas — puro),
+`application/` (um arquivo por caso de uso), `infrastructure/` (os quatro adapters),
+`interface/` (roteador e tradutores do payload) e `composicao.js` fora das camadas. As setas
+apontam só para dentro e `scripts/boundary_lint.py` roda no CI com `.arch.json` — o build falha
+quando uma seta aponta para fora. As portas em `api/domain/portas/` são verificadas por
 `test/portas.test.js`: renomear um método de adapter quebra o teste, não a produção.
+
+**Nenhum caso de uso importa adapter.** Eles recebem `bancoBoletos`, `sessao`, `notificador` e
+`telemetria` por parâmetro; quem liga porta a adapter é só o composition root. Ao criar um caso
+de uso novo, siga o padrão: `module.exports = function criar({ ... }) { ... }`.
 
 **Mensagem de botões da Meta aceita no máximo 3 botões; lista interativa, 10 linhas.**
 Por isso a listagem de contas bifurca em `apresentarBoletos` (`≤ 3` → botões, `≥ 4` → lista) e

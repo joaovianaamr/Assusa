@@ -15,6 +15,11 @@ const express = require("express");
 
 const config = require("./api/config");
 const sicoobClient = require("./api/infrastructure/sicoobHttp");
+// O composition root monta o roteador da conversa com as portas já ligadas.
+// Ficava dentro do handler do POST enquanto importar a cadeia conectava ao
+// Redis; hoje a conexão é preguiçosa e um erro de import estoura no arranque,
+// onde o rollback automático do deploy enxerga.
+const { router } = require("./api/composicao");
 
 function verifyRequestSignature(req, res, buf) {
   let signature = req.headers["x-hub-signature-256"];
@@ -109,7 +114,6 @@ function createApp() {
     console.log("WhatsApp webhook POST", { object: objectType, entryCount });
 
     if (body && body.object === "whatsapp_business_account") {
-      const Conversation = require("./services/conversation");
       body.entry.forEach(entry => {
         entry.changes.forEach(change => {
           const value = change.value;
@@ -118,7 +122,7 @@ function createApp() {
 
             if (value.statuses) {
               value.statuses.forEach(status => {
-                Conversation.handleStatus(senderPhoneNumberId, status).catch(err =>
+                router.handleStatus(senderPhoneNumberId, status).catch(err =>
                   console.error('handleStatus error:', err?.message)
                 );
               });
@@ -126,12 +130,12 @@ function createApp() {
 
             if (value.messages) {
               value.messages.forEach(rawMessage => {
-                Conversation.handleMessage(senderPhoneNumberId, rawMessage).catch(err => {
+                router.handleMessage(senderPhoneNumberId, rawMessage).catch(err => {
                   console.error('handleMessage error:', err?.message);
                   // Última rede: sem isto o cliente fica no silêncio absoluto.
                   // O envio pode falhar junto (se o problema for a própria Graph
                   // API) — nesse caso só resta o log.
-                  Conversation.avisarFalhaInesperada(senderPhoneNumberId, rawMessage)
+                  router.avisarFalhaInesperada(senderPhoneNumberId, rawMessage)
                     .catch(e => console.error('aviso de falha não enviado:', e?.message));
                 });
               });

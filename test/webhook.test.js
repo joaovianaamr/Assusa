@@ -120,7 +120,7 @@ test("aguardando_cpf + button assusa-segunda-via reinicia o fluxo pedindo o CPF 
   const Cache = require("../api/infrastructure/sessaoRedis");
   const GraphApi = require("../api/infrastructure/whatsappGraph");
   const interacao = require("../api/infrastructure/telemetriaHttp");
-  const Conversation = require("../services/conversation");
+  const { router: Conversation } = require("../api/composicao");
   const constants = require("../api/domain/mensagens");
 
   t.mock.method(Cache, "getEstado", async () => "aguardando_cpf");
@@ -158,7 +158,7 @@ test("selecionar boleto entrega em partes e mantém a lista clicável (não limp
   const GraphApi = require("../api/infrastructure/whatsappGraph");
   const interacao = require("../api/infrastructure/telemetriaHttp");
   const sicoobClient = require("../api/infrastructure/sicoobHttp");
-  const Conversation = require("../services/conversation");
+  const { router: Conversation } = require("../api/composicao");
   const constants = require("../api/domain/mensagens");
 
   t.mock.method(Cache, "getEstado", async () => "aguardando_selecao_boleto");
@@ -284,7 +284,7 @@ const botoesOferecidos = m =>
   m.botoes.mock.calls.flatMap(c => c.arguments[4]);
 
 const enviarCpf = () =>
-  require("../services/conversation").handleMessage("phone-id-123", {
+  require("../api/composicao").router.handleMessage("phone-id-123", {
     from: "5531999999999",
     id: "wamid.test.cpf",
     timestamp: "1748000030",
@@ -395,7 +395,7 @@ test("histórico indisponível cai no texto genérico, sem afirmar que o CPF nã
 
 test("CPF inválido recebe o texto de CPF incorreto, não o de conta inexistente", async (t) => {
   const m = cenarioCpf(t, { emAberto: contas(1) });
-  await require("../services/conversation").handleMessage("phone-id-123", {
+  await require("../api/composicao").router.handleMessage("phone-id-123", {
     from: "5531999999999",
     id: "wamid.test.cpfruim",
     timestamp: "1748000031",
@@ -416,7 +416,7 @@ test("menu principal não oferece mais falar com atendente", async (t) => {
   t.mock.method(interacao, "registrar", () => {});
   const botoes = t.mock.method(GraphApi, "messageWithInteractiveReply", async () => {});
 
-  await require("../services/conversation").handleMessage("phone-id-123", {
+  await require("../api/composicao").router.handleMessage("phone-id-123", {
     from: "5531999999999",
     id: "wamid.test.menu",
     timestamp: "1748000040",
@@ -499,7 +499,7 @@ test("cliente escolhe a conta digitando o número", async (t) => {
   const doc = t.mock.method(GraphApi, "messageWithDocument", async () => {});
   t.mock.method(GraphApi, "messageWithText", async () => {});
 
-  await require("../services/conversation").handleMessage("phone-id-123", {
+  await require("../api/composicao").router.handleMessage("phone-id-123", {
     from: "5531999999999", id: "wamid.num", timestamp: "1748000050",
     type: "text", text: { body: "2" },
   });
@@ -526,7 +526,7 @@ test("resposta incompreensível pede de novo e mantém a sessão", async (t) => 
   t.mock.method(interacao, "registrar", () => {});
   const text = t.mock.method(GraphApi, "messageWithText", async () => {});
 
-  await require("../services/conversation").handleMessage("phone-id-123", {
+  await require("../api/composicao").router.handleMessage("phone-id-123", {
     from: "5531999999999", id: "wamid.ruim", timestamp: "1748000060",
     type: "text", text: { body: "quero a primeira conta" },
   });
@@ -546,7 +546,7 @@ test("resposta incompreensível pede de novo e mantém a sessão", async (t) => 
 
 test("falha inesperada no fluxo avisa o cliente em vez de silêncio", async (t) => {
   const GraphApi = require("../api/infrastructure/whatsappGraph");
-  const Conversation = require("../services/conversation");
+  const { router: Conversation } = require("../api/composicao");
   const text = t.mock.method(GraphApi, "messageWithText", async () => {});
 
   await Conversation.avisarFalhaInesperada("phone-id-123", { from: "5531999999999" });
@@ -557,7 +557,7 @@ test("falha inesperada no fluxo avisa o cliente em vez de silêncio", async (t) 
 
 test("aviso de falha não tenta enviar sem destinatário", async (t) => {
   const GraphApi = require("../api/infrastructure/whatsappGraph");
-  const Conversation = require("../services/conversation");
+  const { router: Conversation } = require("../api/composicao");
   const text = t.mock.method(GraphApi, "messageWithText", async () => {});
 
   await Conversation.avisarFalhaInesperada("phone-id-123", {});
@@ -569,7 +569,7 @@ test("aviso de falha não tenta enviar sem destinatário", async (t) => {
 
 test("mensagem de CPF inválido vem com o botão de voltar ao menu", async (t) => {
   const m = cenarioCpf(t, { emAberto: contas(1) });
-  await require("../services/conversation").handleMessage("phone-id-123", {
+  await require("../api/composicao").router.handleMessage("phone-id-123", {
     from: "5531999999999", id: "wamid.btn.1", timestamp: "1748000070",
     type: "text", text: { body: "12345678900" },
   });
@@ -630,7 +630,7 @@ test("resposta não entendida na seleção vem com o botão e mantém a sessão"
   t.mock.method(interacao, "registrar", () => {});
   const botoes = t.mock.method(GraphApi, "messageWithInteractiveReply", async () => {});
 
-  await require("../services/conversation").handleMessage("phone-id-123", {
+  await require("../api/composicao").router.handleMessage("phone-id-123", {
     from: "5531999999999", id: "wamid.btn.5", timestamp: "1748000071",
     type: "text", text: { body: "sei lá" },
   });
@@ -655,7 +655,7 @@ test("tocar no botão volta ao menu inicial e limpa a sessão de seleção", asy
   const registrar = t.mock.method(interacao, "registrar", () => {});
   const botoes = t.mock.method(GraphApi, "messageWithInteractiveReply", async () => {});
 
-  await require("../services/conversation").handleMessage("phone-id-123", {
+  await require("../api/composicao").router.handleMessage("phone-id-123", {
     from: "5531999999999", id: "wamid.btn.6", timestamp: "1748000072",
     type: "interactive",
     interactive: { type: "button_reply", button_reply: { id: "assusa-menu", title: "Voltar ao menu" } },
@@ -727,7 +727,7 @@ function cenarioEntrega(t, quantidade) {
 }
 
 const escolher = (id) =>
-  require("../services/conversation").handleMessage("phone-id-123", {
+  require("../api/composicao").router.handleMessage("phone-id-123", {
     from: "5531999999999", id: "wamid.esc", timestamp: "1748000080",
     type: "interactive", interactive: { type: "button_reply", button_reply: { id, title: "x" } },
   });

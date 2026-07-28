@@ -3,8 +3,8 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 
-// message.js não tem dependências de runtime (Redis/rede).
-const Message = require("../services/message");
+// Os tradutores do payload são puros — sem Redis nem rede.
+const { Message } = require("../api/interface/payloadWhatsApp");
 
 test("clique em botão vira o id do botão", () => {
   const m = new Message({

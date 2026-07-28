@@ -26,8 +26,7 @@ const bancoBoletos = require("./infrastructure/sicoobHttp");
 const telemetria = require("./infrastructure/telemetriaHttp");
 
 // tradutores do payload da Meta (entrada)
-const Message = require("../services/message");
-const Status = require("../services/status");
+const { Message, Status } = require("./interface/payloadWhatsApp");
 
 // application — casos de uso
 const criarMensageria = require("./application/mensageria");

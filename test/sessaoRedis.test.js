@@ -22,13 +22,14 @@ test("importar o adapter não conecta ao Redis", () => {
   );
 });
 
-test("a cadeia inteira pode ser importada sem Redis de pé", () => {
-  // conversation.js puxa o adapter; nada disso deve tocar a rede.
+test("a cadeia inteira — composition root incluído — importa sem Redis de pé", () => {
+  // o composition root puxa TODOS os adapters e casos de uso;
+  // nada disso pode tocar a rede.
   const Cache = require("../api/infrastructure/sessaoRedis");
-  require("../services/conversation");
+  require("../api/composicao");
   assert.equal(
     Cache._conectado(), false,
-    "importar conversation.js não pode conectar ao Redis"
+    "montar o composition root não pode conectar ao Redis"
   );
 });
 
