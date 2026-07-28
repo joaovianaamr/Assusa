@@ -46,8 +46,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Nenhum .js pode existir em public/
-        run: test -z "$(find public -name '*.js' -o -name '*.mjs')"
+      - name: Nenhum .js pode existir em web/
+        run: test -z "$(find web -name '*.js' -o -name '*.mjs')"
       - run: docker build -t web:ci .
       - run: docker build -t sicoob:ci python/sicoob_service
       - name: Smoke test do container web

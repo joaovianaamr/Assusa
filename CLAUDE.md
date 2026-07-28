@@ -39,12 +39,13 @@ cd python/sicoob_service && pip install -e ".[dev]" && pytest -q
 
 ## Armadilhas reais deste repo
 
-**O `Dockerfile` copia apenas `app.js`, `services/` e `public/`.** Se você criar um novo
+**O `Dockerfile` copia apenas `app.js`, `api/`, `services/` e `web/`.** Se você criar um novo
 diretório de runtime na raiz, ele **não** chega ao container — atualize o `Dockerfile` junto.
 
-**Nada de `.js` dentro de `public/`.** O CI falha explicitamente se encontrar algum. Isso
-existe porque uma cópia do código-fonte (`public/app.js`) ficou exposta publicamente por
-semanas. O CI também verifica que `GET /app.js` retorna 404.
+**Nada de `.js` dentro de `web/`** (o antigo `public/`). O CI falha explicitamente se encontrar
+algum. Isso existe porque uma cópia do código-fonte ficou exposta publicamente por semanas. O CI
+e `test/webhook.test.js` também verificam que `GET /app.js` retorna 404. Os arquivos de `web/`
+são servidos por rota explícita com `sendFile`, nunca por `express.static`.
 
 **A raiz é a página institucional; o JSON de diagnóstico vive em `/status`.** O smoke test do
 CI procura `ASSUSA` na raiz e `Servidor ativo` em `/status` — mover uma dessas strings quebra a

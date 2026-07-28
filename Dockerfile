@@ -9,7 +9,7 @@ RUN npm ci --omit=dev
 COPY --chown=node:node app.js ./
 COPY --chown=node:node api/ ./api/
 COPY --chown=node:node services/ ./services/
-COPY --chown=node:node public/ ./public/
+COPY --chown=node:node web/ ./web/
 
 USER node
 

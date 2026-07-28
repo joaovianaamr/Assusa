@@ -3,7 +3,10 @@
 Proposta para separar **API**, **processamento Sicoob** e **frontend** em fronteiras
 explícitas dentro do monorepo, e para quebrar o acoplamento interno do Node.
 
-> Status: proposta. Nada aqui foi executado.
+> Status: **executado** em 2026-07-28, nas seis fases previstas. Os commits
+> `refactor(api): fase 1/2/3 e 4` e `refactor(web): fase 5` implementam este plano.
+> Este documento fica como registro do porquê — o mapa atual das camadas está no
+> `CLAUDE.md` e em `docs/ARCHITECTURE.md`.
 
 ## Por que
 

@@ -45,19 +45,19 @@ function createApp() {
 
   app.use(json({ verify: verifyRequestSignature }));
 
-  // Arquivos de public/ são servidos por rota explícita, nunca por
+  // Arquivos de web/ são servidos por rota explícita, nunca por
   // express.static: o diretório inteiro não deve ficar exposto (ver CLAUDE.md —
   // uma cópia do código-fonte já ficou pública por semanas a partir daqui).
   app.get("/logo-assusa.png", (_req, res) => {
-    res.sendFile(require("path").join(__dirname, "public", "logo-assusa.png"));
+    res.sendFile(require("path").join(__dirname, "web", "logo-assusa.png"));
   });
 
   app.get("/privacy", (_req, res) => {
-    res.sendFile(require("path").join(__dirname, "public", "privacy.html"));
+    res.sendFile(require("path").join(__dirname, "web", "privacy.html"));
   });
 
   app.get("/data-deletion", (_req, res) => {
-    res.sendFile(require("path").join(__dirname, "public", "data-deletion.html"));
+    res.sendFile(require("path").join(__dirname, "web", "data-deletion.html"));
   });
 
   // TODO: implementar deleção real (remover do postgres e encerrar sessão Redis)
@@ -147,7 +147,7 @@ function createApp() {
   // Página institucional — é o que o associado (e o revisor da Meta, que olha o
   // site declarado no perfil do WhatsApp Business) vê ao abrir assusa.tech.
   app.get("/", (_req, res) => {
-    res.sendFile(require("path").join(__dirname, "public", "index.html"));
+    res.sendFile(require("path").join(__dirname, "web", "index.html"));
   });
 
   // Diagnóstico legível por máquina, que antes ficava na raiz. O smoke test do
