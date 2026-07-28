@@ -6,32 +6,37 @@ do painel. Ao mudar qualquer coisa aqui, reconfira com `scripts/meta-numero.sh l
 Histórico de como chegamos aqui: [historico-migracao-smb.md](historico-migracao-smb.md).
 Como repetir o cadastro: [playbook-numero-novo.md](playbook-numero-novo.md).
 
-## Identificadores fixos
+## Onde ficam os identificadores
 
-| Ativo | ID |
+Os IDs e o PIN **não são versionados** — vivem no `.env` (fora do git, repositório público).
+As chaves estão documentadas em [`.env.sample`](../../.env.sample).
+
+| Variável | O que é |
 | --- | --- |
-| App ID | `3022736628114151` ("Assusa") |
-| Business ID | `1269589111675253` ("Assusa") |
-| System user do token | `122122968651220838` ("Assusa") |
+| `APP_ID` | App "Assusa" no painel de desenvolvedores da Meta |
+| `BUSINESS_ID` | Business "Assusa", dono de todas as WABAs |
+| `WABA_ID` | WABA de **produção**, nativa Cloud API, criada em 27/07/2026 |
+| `PHONE_NUMBER_ID` | Número em uso (+55 31 98427-1278) |
+| `WHATSAPP_2FA_PIN` | **Segredo.** PIN de duas etapas; protege o re-registro do número |
+| `WABA_ID_LEGADO` / `PHONE_NUMBER_ID_LEGADO` | WABA e número antigos, travados em `ON_PREMISE` |
 
-## WABAs
+Para ver os valores atuais e o estado real na Meta:
 
-| WABA | ID | Tipo | Uso |
-| --- | --- | --- | --- |
-| **Assusa** (nova) | `2109652016644520` | Cloud API nativa | **Produção.** Criada em 27/07/2026. |
-| Waba-test | `2243287776413548` | Cloud API nativa | Número de teste da Meta. |
-| Assusa (antiga) | `368840660673690` | Derivada do app SMB | Legado. Hospeda o fixo travado. |
+```bash
+./scripts/meta-numero.sh listar     # todos os números da WABA de produção
+./scripts/meta-numero.sh status     # detalhe do número em uso
+```
 
-Todas: `ownership_type: SELF`, `account_review_status: APPROVED`,
-`business_verification_status: verified`, donas do business `1269589111675253`.
+## Estado dos ativos
 
-## Números
+Todas as WABAs: `ownership_type: SELF`, `account_review_status: APPROVED`,
+`business_verification_status: verified`, sob o mesmo business.
 
-| Número | `phone_number_id` | WABA | Estado |
-| --- | --- | --- | --- |
-| **+55 31 98427-1278** | `1164007100138609` | `2109652016644520` | `CLOUD_API` / `CONNECTED` / `VERIFIED`, nome `APPROVED` — **em uso** |
-| +1 555-647-1004 (teste Meta) | `1170317646154505` | `2243287776413548` | `CLOUD_API` / `CONNECTED` |
-| +55 31 3624-8550 (fixo) | `3009766265732489` | `368840660673690` | `ON_PREMISE` / `DISCONNECTED` — **inutilizável**, ver histórico |
+| Número | Onde | Estado |
+| --- | --- | --- |
+| **+55 31 98427-1278** | WABA de produção (`WABA_ID`) | `CLOUD_API` / `CONNECTED` / `VERIFIED`, nome `APPROVED` — **em uso** |
+| +1 555-647-1004 (teste Meta) | WABA `Waba-test` | `CLOUD_API` / `CONNECTED` |
+| +55 31 3624-8550 (fixo) | WABA legado | `ON_PREMISE` / `DISCONNECTED` — **inutilizável**, ver histórico |
 
 Dois detalhes de formatação que já causaram confusão:
 

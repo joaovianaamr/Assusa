@@ -483,8 +483,8 @@ observações feitas na hora.
 
 ## WABA "Assusa" (número real)
 
-* pin: `000000`
-* phone number id: `3009766265732489`
+* pin: `WHATSAPP_2FA_PIN_LEGADO` no `.env` (era o default público `000000`)
+* phone number id: `PHONE_NUMBER_ID_LEGADO` no `.env`
 
 ![](../capturas/meta/info/1784840660206.png)
 
