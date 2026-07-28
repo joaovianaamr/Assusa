@@ -235,8 +235,10 @@ Ativado após o usuário clicar em "2ª via de conta". O bot aguarda CPF.
 > ficou fora da mensagem de propósito, para não confundir o cliente.
 >
 > O marcador `•` é **literal**, não a sintaxe de lista `- ` do WhatsApp: o app trata a
-> lista como bloco e insere uma linha em branco depois dela, que sobra no fim da
-> mensagem. Com o bullet no texto o visual é o mesmo, sem a sobra.
+> lista como bloco e insere uma margem depois dela, que aparece como linha em branco
+> sobrando no fim da mensagem — confirmado em aparelho real (jul/2026). Com o bullet no
+> texto o visual é o mesmo, sem a sobra. Vale para qualquer mensagem do bot: **não** use
+> `- ` no fim de uma mensagem.
 
 ---
 

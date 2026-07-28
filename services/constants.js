@@ -29,8 +29,9 @@ module.exports = Object.freeze({
   // ("meu cpf e ..."), embora funcione: confundiria mais do que ajudaria.
   //
   // O marcador "•" é literal, e não a sintaxe de lista "- " do WhatsApp: o app
-  // trata a lista como um bloco e acrescenta uma linha em branco depois dela.
-  // Com o bullet no texto o visual é o mesmo, sem a sobra no fim da mensagem.
+  // trata a lista como um bloco e acrescenta uma margem depois dela, que aparece
+  // como linha em branco sobrando no fim da mensagem (confirmado em aparelho
+  // real, jul/2026). Com o bullet no texto o visual é o mesmo, sem a sobra.
   MSG_SOLICITAR_CPF_2:
     "Pode digitar do jeito que for mais fácil. Exemplos:\n• 12345678900\n• 123.456.789-00\n• 123 456 789 00",
 
