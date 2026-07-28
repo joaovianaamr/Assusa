@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 from contextlib import asynccontextmanager
 from typing import Annotated, Any
 
@@ -47,9 +47,19 @@ async def verify_internal_key(
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
-async def banking_dependency(
+# ── Por que as rotas abaixo são `def` e não `async def` ──────────────────────
+# O cliente do Sicoob (`banking_v3`) é SÍNCRONO: usa httpx.Client e chega a
+# chamar time.sleep() no retry de 429. Numa rota `async def`, isso roda dentro do
+# event loop e bloqueia o servidor inteiro — o Node dispara 6 janelas em paralelo
+# e elas eram atendidas uma de cada vez (medido: 1 requisição 0,09 s, 6 em
+# paralelo 0,72 s, ou seja, a soma).
+#
+# Declarando `def`, o FastAPI executa a função num threadpool e a concorrência
+# volta. Vale para banking_dependency também: ela renova o token via mTLS, que é
+# o ponto mais caro de todos.
+def banking_dependency(
     settings: Annotated[Settings, Depends(get_settings)],
-) -> AsyncGenerator[BankingSicoobV3, None]:
+) -> Generator[BankingSicoobV3, None, None]:
     global _cached_client, _cached_at
     now = time.monotonic()
     if _cached_client is None or (now - _cached_at) > _TOKEN_TTL:
@@ -70,37 +80,37 @@ AuthDep = Depends(verify_internal_key)
 
 
 @app.get("/health")
-async def health() -> dict[str, str]:
+def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
 @app.post("/internal/boleto/registrar", dependencies=[AuthDep])
-async def boleto_registrar(body: dict[str, Any], banking: BankingDep) -> dict[str, Any]:
+def boleto_registrar(body: dict[str, Any], banking: BankingDep) -> dict[str, Any]:
     return {"ok": True, "result": banking.registrar_boleto(body)}
 
 
 @app.post("/internal/boleto/segunda-via", dependencies=[AuthDep])
-async def boleto_segunda_via(body: dict[str, Any], banking: BankingDep) -> dict[str, Any]:
+def boleto_segunda_via(body: dict[str, Any], banking: BankingDep) -> dict[str, Any]:
     return {"ok": True, "result": banking.segunda_via_boleto(body)}
 
 
 @app.post("/internal/boleto/consultar", dependencies=[AuthDep])
-async def boleto_consultar(body: dict[str, Any], banking: BankingDep) -> dict[str, Any]:
+def boleto_consultar(body: dict[str, Any], banking: BankingDep) -> dict[str, Any]:
     return {"ok": True, "result": banking.consultar_boleto(body)}
 
 
 @app.post("/internal/boleto/baixa", dependencies=[AuthDep])
-async def boleto_baixa(body: dict[str, Any], banking: BankingDep) -> dict[str, Any]:
+def boleto_baixa(body: dict[str, Any], banking: BankingDep) -> dict[str, Any]:
     return {"ok": True, "result": banking.baixa_boleto(body)}
 
 
 @app.post("/internal/boleto/listar", dependencies=[AuthDep])
-async def boleto_listar(body: dict[str, Any], banking: BankingDep) -> dict[str, Any]:
+def boleto_listar(body: dict[str, Any], banking: BankingDep) -> dict[str, Any]:
     return {"ok": True, "result": banking.listar_boleto(body)}
 
 
 @app.get("/internal/boleto/faixas-nosso-numero", dependencies=[AuthDep])
-async def boleto_faixas_nosso_numero(
+def boleto_faixas_nosso_numero(
     banking: BankingDep,
     numeroCliente: int,
     codigoModalidade: int,
@@ -118,7 +128,7 @@ async def boleto_faixas_nosso_numero(
 
 
 @app.patch("/internal/boleto/alterar/{nosso_numero}", dependencies=[AuthDep])
-async def boleto_alterar(
+def boleto_alterar(
     nosso_numero: str,
     body: dict[str, Any],
     banking: BankingDep,
@@ -127,12 +137,12 @@ async def boleto_alterar(
 
 
 @app.post("/internal/webhook/cadastrar", dependencies=[AuthDep])
-async def webhook_cadastrar(body: dict[str, Any], banking: BankingDep) -> dict[str, Any]:
+def webhook_cadastrar(body: dict[str, Any], banking: BankingDep) -> dict[str, Any]:
     return {"ok": True, "result": banking.cadastrar_webhook(body)}
 
 
 @app.get("/internal/webhook/consultar", dependencies=[AuthDep])
-async def webhook_consultar(
+def webhook_consultar(
     banking: BankingDep,
     id_webhook: Annotated[str | None, Query(alias="idWebhook")] = None,
 ) -> dict[str, Any]:
@@ -141,7 +151,7 @@ async def webhook_consultar(
 
 
 @app.patch("/internal/webhook/{id_webhook}", dependencies=[AuthDep])
-async def webhook_alterar(
+def webhook_alterar(
     id_webhook: str,
     body: dict[str, Any],
     banking: BankingDep,
@@ -150,7 +160,7 @@ async def webhook_alterar(
 
 
 @app.get("/internal/webhook/{id_webhook}/solicitacoes", dependencies=[AuthDep])
-async def webhook_consultar_solicitacoes(
+def webhook_consultar_solicitacoes(
     id_webhook: str,
     banking: BankingDep,
     data_solicitacao: Annotated[str | None, Query(alias="dataSolicitacao")] = None,
@@ -166,12 +176,12 @@ async def webhook_consultar_solicitacoes(
 
 
 @app.patch("/internal/webhook/{id_webhook}/reativar", dependencies=[AuthDep])
-async def webhook_reativar(id_webhook: str, banking: BankingDep) -> dict[str, Any]:
+def webhook_reativar(id_webhook: str, banking: BankingDep) -> dict[str, Any]:
     return {"ok": True, "result": banking.reativar_webhook(id_webhook)}
 
 
 @app.delete("/internal/webhook/{id_webhook}", dependencies=[AuthDep])
-async def webhook_deletar(id_webhook: str, banking: BankingDep) -> dict[str, Any]:
+def webhook_deletar(id_webhook: str, banking: BankingDep) -> dict[str, Any]:
     return {"ok": True, "result": banking.deletar_webhook(id_webhook)}
 
 
