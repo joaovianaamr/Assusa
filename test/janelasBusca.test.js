@@ -4,7 +4,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 
 // sicoobClient só usa fetch e config — pode ser carregado sem Redis nem rede.
-const sicoob = require("../services/sicoobClient");
+const sicoob = require("../api/infrastructure/sicoobHttp");
 
 const DIA_MS = 86400000;
 const dias = (a, b) => Math.round((new Date(b) - new Date(a)) / DIA_MS);

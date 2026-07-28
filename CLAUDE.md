@@ -60,14 +60,17 @@ Toda mudança entra por commit em `main`. Na VPS só se toca em `.env` e `certif
 Docker; se passar, `deploy.yml` dispara `scripts/deploy.sh` na VPS (pull, rebuild, health check,
 **rollback automático** se o health falhar). Não faça push em `main` sem intenção de publicar.
 
-**`require('./services/conversation')` conecta ao Redis como efeito colateral de módulo.**
-Três defesas dependem disso e devem ser preservadas: `app.js` faz esse `require` *dentro* do
-handler do POST; `test/webhook.test.js` cobre só casos que não disparam a cadeia; e
-`test/cpf.test.js` lê `conversation.js` como **texto-fonte** (`readFileSync`) em vez de dar
-`require`. Resultado: `npm test` passa sem Redis instalado (verificado — 78/78).
-Os testes que exercitam o fluxo mockam `Cache` com `t.mock.method` antes de chamar
-`Conversation.handleMessage`; lógica nova que dê para isolar deve ir para `boletoView.js`,
-que é puro e pode ser testado com `require` direto.
+**A conexão com o Redis é preguiçosa — importar não faz I/O.** Era o contrário: `redis.js`
+chamava `client.connect()` no topo, então `require('./services/conversation')` abria socket sem
+pedir, e três defesas existiam só para contornar isso. Hoje `api/infrastructure/sessaoRedis.js`
+conecta na primeira operação, e `test/sessaoRedis.test.js` falha se alguém devolver a conexão
+para o topo do arquivo. `npm test` passa sem Redis instalado (verificado — 100/100).
+
+**Camadas em `api/` com fronteira verificada.** `domain/` (regras puras: cpf, boleto, mensagens,
+portas), `application/`, `infrastructure/` (os quatro adapters) e `interface/`. As setas apontam
+só para dentro e `scripts/boundary_lint.py` roda no CI com `.arch.json` — o build falha quando
+uma seta aponta para fora. As portas em `api/domain/portas/` são verificadas por
+`test/portas.test.js`: renomear um método de adapter quebra o teste, não a produção.
 
 **Mensagem de botões da Meta aceita no máximo 3 botões; lista interativa, 10 linhas.**
 Por isso a listagem de contas bifurca em `apresentarBoletos` (`≤ 3` → botões, `≥ 4` → lista) e

@@ -117,9 +117,9 @@ test("o código-fonte não pode ser servido — GET /app.js é 404", async () =>
 });
 
 test("aguardando_cpf + button assusa-segunda-via reinicia o fluxo pedindo o CPF em duas mensagens", async (t) => {
-  const Cache = require("../services/redis");
-  const GraphApi = require("../services/graph-api");
-  const interacao = require("../services/interacaoClient");
+  const Cache = require("../api/infrastructure/sessaoRedis");
+  const GraphApi = require("../api/infrastructure/whatsappGraph");
+  const interacao = require("../api/infrastructure/telemetriaHttp");
   const Conversation = require("../services/conversation");
   const constants = require("../api/domain/mensagens");
 
@@ -154,10 +154,10 @@ test("aguardando_cpf + button assusa-segunda-via reinicia o fluxo pedindo o CPF 
 });
 
 test("selecionar boleto entrega em partes e mantém a lista clicável (não limpa estado)", async (t) => {
-  const Cache = require("../services/redis");
-  const GraphApi = require("../services/graph-api");
-  const interacao = require("../services/interacaoClient");
-  const sicoobClient = require("../services/sicoobClient");
+  const Cache = require("../api/infrastructure/sessaoRedis");
+  const GraphApi = require("../api/infrastructure/whatsappGraph");
+  const interacao = require("../api/infrastructure/telemetriaHttp");
+  const sicoobClient = require("../api/infrastructure/sicoobHttp");
   const Conversation = require("../services/conversation");
   const constants = require("../api/domain/mensagens");
 
@@ -234,10 +234,10 @@ const constantsRef = require("../api/domain/mensagens");
 
 /** Monta o cenário de "cliente mandou o CPF" com os mocks mínimos. */
 function cenarioCpf(t, { emAberto = [], historico = [], historicoFalha = false } = {}) {
-  const Cache = require("../services/redis");
-  const GraphApi = require("../services/graph-api");
-  const interacao = require("../services/interacaoClient");
-  const sicoobClient = require("../services/sicoobClient");
+  const Cache = require("../api/infrastructure/sessaoRedis");
+  const GraphApi = require("../api/infrastructure/whatsappGraph");
+  const interacao = require("../api/infrastructure/telemetriaHttp");
+  const sicoobClient = require("../api/infrastructure/sicoobHttp");
 
   t.mock.method(Cache, "getEstado", async () => "aguardando_cpf");
   t.mock.method(Cache, "setEstado", async () => {});
@@ -408,9 +408,9 @@ test("CPF inválido recebe o texto de CPF incorreto, não o de conta inexistente
 });
 
 test("menu principal não oferece mais falar com atendente", async (t) => {
-  const Cache = require("../services/redis");
-  const GraphApi = require("../services/graph-api");
-  const interacao = require("../services/interacaoClient");
+  const Cache = require("../api/infrastructure/sessaoRedis");
+  const GraphApi = require("../api/infrastructure/whatsappGraph");
+  const interacao = require("../api/infrastructure/telemetriaHttp");
 
   t.mock.method(Cache, "getEstado", async () => null);
   t.mock.method(interacao, "registrar", () => {});
@@ -432,8 +432,8 @@ test("menu principal não oferece mais falar com atendente", async (t) => {
 // ── proteções: fallback de envio, estado, número digitado ────────────────────
 
 test("Meta recusando a lista cai para texto com instrução de número", async (t) => {
-  const GraphApi = require("../services/graph-api");
-  const Cache = require("../services/redis");
+  const GraphApi = require("../api/infrastructure/whatsappGraph");
+  const Cache = require("../api/infrastructure/sessaoRedis");
   const m = cenarioCpf(t, { emAberto: contas(5) });
   t.mock.method(GraphApi, "messageWithInteractiveList", async () => {
     throw new Error("(#131009) Parameter value is not valid");
@@ -453,8 +453,8 @@ test("Meta recusando a lista cai para texto com instrução de número", async (
 });
 
 test("se nem o texto sair, o estado não fica gravado (cliente não fica preso)", async (t) => {
-  const GraphApi = require("../services/graph-api");
-  const Cache = require("../services/redis");
+  const GraphApi = require("../api/infrastructure/whatsappGraph");
+  const Cache = require("../api/infrastructure/sessaoRedis");
   cenarioCpf(t, { emAberto: contas(5) });
   t.mock.method(GraphApi, "messageWithInteractiveList", async () => {
     throw new Error("falha no envio interativo");
@@ -477,10 +477,10 @@ test("se nem o texto sair, o estado não fica gravado (cliente não fica preso)"
 });
 
 test("cliente escolhe a conta digitando o número", async (t) => {
-  const Cache = require("../services/redis");
-  const GraphApi = require("../services/graph-api");
-  const interacao = require("../services/interacaoClient");
-  const sicoobClient = require("../services/sicoobClient");
+  const Cache = require("../api/infrastructure/sessaoRedis");
+  const GraphApi = require("../api/infrastructure/whatsappGraph");
+  const interacao = require("../api/infrastructure/telemetriaHttp");
+  const sicoobClient = require("../api/infrastructure/sicoobHttp");
 
   t.mock.method(Cache, "getEstado", async () => "aguardando_selecao_boleto");
   t.mock.method(Cache, "getBoletos", async () => [
@@ -512,9 +512,9 @@ test("cliente escolhe a conta digitando o número", async (t) => {
 });
 
 test("resposta incompreensível pede de novo e mantém a sessão", async (t) => {
-  const Cache = require("../services/redis");
-  const GraphApi = require("../services/graph-api");
-  const interacao = require("../services/interacaoClient");
+  const Cache = require("../api/infrastructure/sessaoRedis");
+  const GraphApi = require("../api/infrastructure/whatsappGraph");
+  const interacao = require("../api/infrastructure/telemetriaHttp");
 
   t.mock.method(Cache, "getEstado", async () => "aguardando_selecao_boleto");
   t.mock.method(Cache, "getBoletos", async () => [
@@ -545,7 +545,7 @@ test("resposta incompreensível pede de novo e mantém a sessão", async (t) => 
 });
 
 test("falha inesperada no fluxo avisa o cliente em vez de silêncio", async (t) => {
-  const GraphApi = require("../services/graph-api");
+  const GraphApi = require("../api/infrastructure/whatsappGraph");
   const Conversation = require("../services/conversation");
   const text = t.mock.method(GraphApi, "messageWithText", async () => {});
 
@@ -556,7 +556,7 @@ test("falha inesperada no fluxo avisa o cliente em vez de silêncio", async (t) 
 });
 
 test("aviso de falha não tenta enviar sem destinatário", async (t) => {
-  const GraphApi = require("../services/graph-api");
+  const GraphApi = require("../api/infrastructure/whatsappGraph");
   const Conversation = require("../services/conversation");
   const text = t.mock.method(GraphApi, "messageWithText", async () => {});
 
@@ -601,7 +601,7 @@ test("cliente em dia também vem com o botão", async (t) => {
 });
 
 test("falha de serviço também vem com o botão", async (t) => {
-  const sicoobClient = require("../services/sicoobClient");
+  const sicoobClient = require("../api/infrastructure/sicoobHttp");
   const m = cenarioCpf(t, { emAberto: [] });
   t.mock.method(sicoobClient, "listarBoletos", async () => {
     throw new Error("python fora do ar");
@@ -616,9 +616,9 @@ test("falha de serviço também vem com o botão", async (t) => {
 });
 
 test("resposta não entendida na seleção vem com o botão e mantém a sessão", async (t) => {
-  const Cache = require("../services/redis");
-  const GraphApi = require("../services/graph-api");
-  const interacao = require("../services/interacaoClient");
+  const Cache = require("../api/infrastructure/sessaoRedis");
+  const GraphApi = require("../api/infrastructure/whatsappGraph");
+  const interacao = require("../api/infrastructure/telemetriaHttp");
 
   t.mock.method(Cache, "getEstado", async () => "aguardando_selecao_boleto");
   t.mock.method(Cache, "getBoletos", async () => [
@@ -642,9 +642,9 @@ test("resposta não entendida na seleção vem com o botão e mantém a sessão"
 });
 
 test("tocar no botão volta ao menu inicial e limpa a sessão de seleção", async (t) => {
-  const Cache = require("../services/redis");
-  const GraphApi = require("../services/graph-api");
-  const interacao = require("../services/interacaoClient");
+  const Cache = require("../api/infrastructure/sessaoRedis");
+  const GraphApi = require("../api/infrastructure/whatsappGraph");
+  const interacao = require("../api/infrastructure/telemetriaHttp");
 
   t.mock.method(Cache, "getEstado", async () => "aguardando_selecao_boleto");
   t.mock.method(Cache, "getBoletos", async () => [{ linhaDigitavel: "L0" }]);
@@ -674,7 +674,7 @@ test("tocar no botão volta ao menu inicial e limpa a sessão de seleção", asy
 });
 
 test("se a Meta recusar o botão, a mensagem ainda chega como texto", async (t) => {
-  const GraphApi = require("../services/graph-api");
+  const GraphApi = require("../api/infrastructure/whatsappGraph");
   const m = cenarioCpf(t, { emAberto: [], historico: [] });
   t.mock.method(GraphApi, "messageWithInteractiveReply", async () => {
     throw new Error("(#131009) Parameter value is not valid");
@@ -693,10 +693,10 @@ test("se a Meta recusar o botão, a mensagem ainda chega como texto", async (t) 
 
 /** Cenário "cliente já tem a lista em cache e escolheu uma conta". */
 function cenarioEntrega(t, quantidade) {
-  const Cache = require("../services/redis");
-  const GraphApi = require("../services/graph-api");
-  const interacao = require("../services/interacaoClient");
-  const sicoobClient = require("../services/sicoobClient");
+  const Cache = require("../api/infrastructure/sessaoRedis");
+  const GraphApi = require("../api/infrastructure/whatsappGraph");
+  const interacao = require("../api/infrastructure/telemetriaHttp");
+  const sicoobClient = require("../api/infrastructure/sicoobHttp");
 
   const cache = Array.from({ length: quantidade }, (_, i) => ({
     linhaDigitavel: `L${i}`,
@@ -742,7 +742,7 @@ test("com uma única conta, o fechamento não oferece 'ver outras'", async (t) =
 });
 
 test("'Ver outras contas' reexibe a lista sem consultar o Sicoob", async (t) => {
-  const sicoobClient = require("../services/sicoobClient");
+  const sicoobClient = require("../api/infrastructure/sicoobHttp");
   const m = cenarioEntrega(t, 5);
   const listar = t.mock.method(sicoobClient, "listarBoletos", async () => {
     throw new Error("não deveria consultar o Sicoob");
@@ -756,7 +756,7 @@ test("'Ver outras contas' reexibe a lista sem consultar o Sicoob", async (t) => 
 });
 
 test("'Ver outras contas' não descarta a sessão (ao contrário de Voltar ao menu)", async (t) => {
-  const Cache = require("../services/redis");
+  const Cache = require("../api/infrastructure/sessaoRedis");
   const m = cenarioEntrega(t, 3);
   const clearEstado = t.mock.method(Cache, "clearEstado", async () => {});
   const clearBoletos = t.mock.method(Cache, "clearBoletos", async () => {});
@@ -771,9 +771,9 @@ test("'Ver outras contas' não descarta a sessão (ao contrário de Voltar ao me
 });
 
 test("'Ver outras contas' com a sessão expirada avisa e oferece recomeçar", async (t) => {
-  const Cache = require("../services/redis");
-  const GraphApi = require("../services/graph-api");
-  const interacao = require("../services/interacaoClient");
+  const Cache = require("../api/infrastructure/sessaoRedis");
+  const GraphApi = require("../api/infrastructure/whatsappGraph");
+  const interacao = require("../api/infrastructure/telemetriaHttp");
 
   t.mock.method(Cache, "getEstado", async () => null);
   t.mock.method(Cache, "getBoletos", async () => null);
@@ -789,7 +789,7 @@ test("'Ver outras contas' com a sessão expirada avisa e oferece recomeçar", as
 });
 
 test("o fechamento nunca derruba a entrega já feita", async (t) => {
-  const GraphApi = require("../services/graph-api");
+  const GraphApi = require("../api/infrastructure/whatsappGraph");
   const m = cenarioEntrega(t, 2);
   t.mock.method(GraphApi, "messageWithInteractiveReply", async () => {
     throw new Error("(#131009) Parameter value is not valid");

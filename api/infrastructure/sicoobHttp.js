@@ -5,7 +5,7 @@
 
 "use strict";
 
-const config = require("./config");
+const config = require("../config");
 const DEFAULT_TIMEOUT_MS = 60000;
 
 function baseUrl() {

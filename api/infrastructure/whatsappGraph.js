@@ -8,7 +8,7 @@
 "use strict";
 
 const { FacebookAdsApi } = require('facebook-nodejs-business-sdk');
-const config = require("./config");
+const config = require("../config");
 
 const api = new FacebookAdsApi(config.accessToken);
 

@@ -13,8 +13,8 @@ const { urlencoded, json } = require("body-parser");
 require("dotenv").config();
 const express = require("express");
 
-const config = require("./services/config");
-const sicoobClient = require("./services/sicoobClient");
+const config = require("./api/config");
+const sicoobClient = require("./api/infrastructure/sicoobHttp");
 
 function verifyRequestSignature(req, res, buf) {
   let signature = req.headers["x-hub-signature-256"];

@@ -8,13 +8,13 @@
 "use strict";
 
 const constants = require("../api/domain/mensagens");
-const config = require("./config");
-const GraphApi = require('./graph-api');
+const config = require("../api/config");
+const GraphApi = require('../api/infrastructure/whatsappGraph');
 const Message = require('./message');
 const Status = require('./status');
-const Cache = require('./redis');
-const sicoobClient = require('./sicoobClient');
-const interacao = require('./interacaoClient');
+const Cache = require('../api/infrastructure/sessaoRedis');
+const sicoobClient = require('../api/infrastructure/sicoobHttp');
+const interacao = require('../api/infrastructure/telemetriaHttp');
 const view = require('../api/domain/boleto');
 const cpf = require('../api/domain/cpf');
 
