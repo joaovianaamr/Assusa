@@ -2,6 +2,20 @@
 # Executado na VPS pela chave de deploy dedicada (forced command em authorized_keys).
 # Faz git pull --ff-only, rebuild, health check e rollback automático se falhar.
 set -euo pipefail
+
+# Trava contra execuções sobrepostas.
+#
+# O workflow tenta a conexão SSH até 3 vezes. Se ela cair DEPOIS que este script
+# já começou, o ssh devolve 255 (indistinguível de "não conectou") e a tentativa
+# seguinte dispararia um segundo deploy por cima do primeiro — dois
+# `docker compose up --build` no mesmo diretório é receita para estado
+# inconsistente.
+#
+# `-n` falha na hora em vez de enfileirar, e saímos com 0: se já há um deploy
+# rodando, o segundo não é erro, é redundância.
+exec 9>/var/lock/assusa-deploy.lock
+flock -n 9 || { echo "deploy: outro deploy já está em andamento — nada a fazer"; exit 0; }
+
 cd /root/segunda-via-wpp-assusa
 
 PREV="$(git rev-parse HEAD)"

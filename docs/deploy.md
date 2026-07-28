@@ -43,8 +43,19 @@ loopback nunca veria).
 | Arquivo | Gatilho | O que faz |
 |---|---|---|
 | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | `push` em `main`, `pull_request` | 3 jobs em paralelo: `node` (`npm test` + `boundary_lint.py`), `python` (`pytest` + `ruff check --exit-zero`), `docker` (build das 2 imagens + smoke test do container — ver abaixo) |
-| [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | `workflow_run` do CI (só roda se `conclusion == success` e `head_branch == main`), ou `workflow_dispatch` manual | SSH até a VPS com a chave restrita → dispara `scripts/deploy.sh` → confere `https://assusa.tech/` publicamente |
-| [`scripts/deploy.sh`](../scripts/deploy.sh) | executado pelo Deploy (ou à mão na VPS) | `git pull --ff-only` → `docker compose up -d --build` → health loop → rollback automático (`git reset --hard` + rebuild) se falhar |
+| [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) | `workflow_run` do CI (só roda se `conclusion == success` e `head_branch == main`), ou `workflow_dispatch` manual | SSH até a VPS com a chave restrita (**3 tentativas**, só em falha de conexão) → dispara `scripts/deploy.sh` → confere `https://assusa.tech/` publicamente |
+| [`scripts/deploy.sh`](../scripts/deploy.sh) | executado pelo Deploy (ou à mão na VPS) | **`flock`** → `git pull --ff-only` → `docker compose up -d --build` → health loop → rollback automático (`git reset --hard` + rebuild) se falhar |
+
+### Por que o retry só vale para falha de conexão
+
+O `ssh` devolve **255** para erro próprio (não conectou, autenticação). Qualquer outro código vem
+do `deploy.sh` rodando na VPS — health check reprovando, rollback — e aí o deploy falhou de
+verdade: repetir esconderia o problema. O step distingue os dois casos.
+
+Sobra um caso que o código de saída não separa: a conexão cair **depois** que o `deploy.sh` já
+começou também devolve 255, e a tentativa seguinte dispararia um segundo deploy por cima do
+primeiro. É para isso que existe o `flock` no script — `-n` para falhar na hora em vez de
+enfileirar, e saída 0, porque um deploy já em andamento não é erro, é redundância.
 
 `ruff` roda como baseline não bloqueante (`--exit-zero`) — hoje aponta 9 avisos, nenhum
 travando o CI. Torná-lo bloqueante é uma mudança deliberada futura, não acidental.
@@ -165,7 +176,12 @@ fora do ar, não simulado) e se recuperou sozinho.
 
 ### `ssh: connect to host *** port 22: Connection timed out`
 
-**Costuma ser transitório. Espere ~30 min e re-rode antes de investigar infraestrutura.**
+**O workflow agora absorve isso sozinho** — desde jul/2026 o step de SSH tenta 3 vezes, com
+10 s e 20 s entre elas. Se você está vendo essa mensagem no log mas o deploy terminou verde,
+foi só uma tentativa perdida e não há nada a fazer.
+
+**Se as três falharem**, aí sim vale investigar — mas comece pelo mais provável, que continua
+sendo instabilidade transitória de rede: espere ~30 min e re-rode.
 
 Em 28/07/2026 duas tentativas seguidas falharam assim (19:49 e 19:54), incluindo um
 `gh run rerun` imediato — e meia hora depois o mesmo deploy passou sozinho, sem nenhuma

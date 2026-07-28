@@ -29,10 +29,46 @@ jobs:
           printf '%s\n' "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
+      # A conexão SSH do runner até a VPS falha de vez em quando por instabilidade
+      # de rede — nada que a VPS controle (sem firewall; o sshd nem chega a
+      # registrar a tentativa). O step "Verificar publicamente" abaixo já tentava
+      # 10 vezes; este, que é o mais frágil, tentava uma só e desistia.
+      #
+      # Só repetimos em exit 255, que é erro do PRÓPRIO ssh (conexão/auth).
+      # Qualquer outro código vem do deploy.sh na VPS: aí o deploy falhou de
+      # verdade — health check reprovando, rollback — e repetir esconderia o
+      # problema. O flock no deploy.sh cobre o caso de a conexão cair depois do
+      # script já ter começado, que também devolve 255.
       - name: Disparar deploy (forced command roda scripts/deploy.sh)
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
-          ssh -i ~/.ssh/id_deploy -o IdentitiesOnly=yes \
-            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" true
+          for tentativa in 1 2 3; do
+            # `set +e` + captura imediata: num `if cmd; then ...; fi` sem else,
+            # o bash devolve 0 quando a condição é falsa, e o código real do
+            # comando se perde.
+            set +e
+            ssh -i ~/.ssh/id_deploy -o IdentitiesOnly=yes \
+              -o ConnectTimeout=20 \
+              -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+              "$VPS_USER@$VPS_HOST" true
+            codigo=$?
+            set -e
+
+            if [ "$codigo" -eq 0 ]; then
+              echo "deploy disparado na tentativa $tentativa"
+              exit 0
+            fi
+            if [ "$codigo" -ne 255 ]; then
+              echo "deploy.sh falhou na VPS (exit $codigo) — não é problema de conexão"
+              exit "$codigo"
+            fi
+            echo "tentativa $tentativa: falha de conexão SSH"
+            [ "$tentativa" -lt 3 ] && sleep "${tentativa}0"
+          done
+          echo "as 3 tentativas falharam na conexão — ver docs/deploy.md" >&2
+          exit 1
 
       - name: Verificar publicamente
         run: |

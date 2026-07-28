@@ -61,13 +61,14 @@ Toda mudança entra por commit em `main`. Na VPS só se toca em `.env` e `certif
 Docker; se passar, `deploy.yml` dispara `scripts/deploy.sh` na VPS (pull, rebuild, health check,
 **rollback automático** se o health falhar). Não faça push em `main` sem intenção de publicar.
 
-**Deploy falhando com `ssh: connect to host *** port 22: Connection timed out` costuma ser
-transitório — espere e repita antes de investigar infraestrutura.** Em 28/07/2026 duas
-tentativas seguidas falharam assim (19:49 e 19:54), inclusive um `gh run rerun` imediato. Meia
-hora depois o mesmo deploy passou sozinho, sem nenhuma mudança de configuração. Foi janela de
-indisponibilidade de rede entre os runners e a VPS.
+**A conexão SSH do deploy falha de vez em quando — o workflow já absorve.** Desde jul/2026 o
+step tenta 3 vezes (10 s e 20 s entre elas) e só repete em `exit 255`, que é erro do próprio
+`ssh`; qualquer outro código vem do `deploy.sh` e falha na hora, porque aí o deploy quebrou de
+verdade. O `flock` em `scripts/deploy.sh` cobre o caso de a conexão cair com o script já
+rodando, que também devolve 255.
 
-O que esse episódio ensinou, para não repetir o desperdício:
+Ver `ssh: Connection timed out` no log com o deploy verde é normal: foi uma tentativa perdida.
+Se as **três** falharem, o que se sabe do episódio de 28/07/2026:
 
 - **Não há firewall na VPS** — `ufw` inativo, `iptables INPUT` com policy ACCEPT e sem regras.
   Não procure bloqueio ali, e não vá mexer no painel do provedor por causa disso.
