@@ -28,16 +28,25 @@ comece por ele, não pelos arquivos soltos dentro.
 
 | Doc | Quando ler |
 |---|---|
-| [meta/](meta/) | Config do app WhatsApp Cloud API no painel da Meta: IDs, números cadastrados, permissões de App Review. |
+| [meta/](meta/) | Config do app WhatsApp Cloud API no painel da Meta: IDs e estado dos ativos, playbook de cadastro de número, histórico da migração SMB, App Review. |
 | [sicoob/](sicoob/) | Contrato Node↔Python e referência da API bancária Sicoob (boleto, token, webhook). |
 
 ## Histórico (não é documentação viva)
 
 | Doc | Quando ler |
 |---|---|
+| [meta/historico-migracao-smb.md](meta/historico-migracao-smb.md) | Investigação de jul/2026 sobre o número fixo travado em `ON_PREMISE`, e a tabela de diagnósticos falsos da Meta. |
 | [prompts/](prompts/) | Prompts usados para pedir features específicas a um agente de IA — registro do que foi decidido, não guia de uso. |
+
+## Material não versionado
+
+| Doc | Quando ler |
+|---|---|
+| [capturas.md](capturas.md) | Onde ficam os prints e gravações (`docs/capturas/`), por que estão fora do git, e **por que isso significa que não têm backup**. |
 
 ---
 
-`boleto.md`, se existir na sua cópia local, **não é versionado** (`.gitignore`) — tem CPF e
-dados de boleto de teste, fica só na sua máquina.
+Dois conteúdos existem só na sua máquina, por conterem dados sensíveis (`.gitignore`):
+
+- `boleto.md` — CPF e dados de boleto de teste.
+- `capturas/` — prints com IDs de conta, meio de pagamento, PINs e fragmentos de token.

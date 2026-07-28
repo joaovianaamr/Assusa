@@ -37,8 +37,8 @@ docs/boleto.md
 # Claude Code
 .claude/
 
-# Prints de configuração da API Meta (podem conter fragmentos de token)
-docs/meta/image/
-
-# Material bruto de gravação/prints do setup no painel Meta (não versionado — vídeo/imagens genéricas)
-diretrizes/
+# Capturas de tela e gravações (painel Meta, NFS-e, material bruto de tutorial).
+# Pasta única, FORA do git: os prints mostram IDs de conta, meio de pagamento,
+# PINs e fragmentos de ACCESS_TOKEN, e este repositório é público.
+# ATENÇÃO: por não estar no git, esta pasta NÃO tem backup — ver docs/capturas.md.
+docs/capturas/
