@@ -33,25 +33,25 @@ MENSAGEM RECEBIDA
 ├── [status: delivered / read]
 │   ├── messageId NÃO está no cache Redis → ignora
 │   └── messageId ESTÁ no cache Redis
-│       └── ✉ "Posso te ajudar com mais alguma coisa?" + menu (2 botões)
+│       └── ✉ "Posso te ajudar com mais alguma coisa?" + menu (1 botão)
 │
 └── [message]
     │
     ├─── Palavra-chave de saída (qualquer estado, texto livre)
     │    ├── limpa estado e boletos do Redis
     │    ├── grava interação: FLUXO_CANCELADO
-    │    └── ✉ menu principal (2 botões) + instruções de saída
+    │    └── ✉ menu principal (1 botão) + instruções de saída
     │
     ├─── Estado Redis = "aguardando_cpf"
     │    │
-    │    ├── Botão de menu recebido (assusa-segunda-via, assusa-falar-atendente)
+    │    ├── Botão de menu recebido (assusa-segunda-via, assusa-horario-funcionamento)
     │    │   └── limpa estado → continua no dispatch abaixo
     │    │
     │    └── handleCpfRecebido()
     │        │
     │        ├── CPF com dígitos inválidos (< 11, > 11 ou dígitos verificadores errados)
     │        │   ├── grava interação: CPF_INVALIDO
-    │        │   └── ✉ "Não encontrei uma conta ativa com esse CPF..."
+    │        │   └── ✉ "Esse CPF parece incompleto ou incorreto..."
     │        │       [estado permanece aguardando_cpf — usuário pode tentar de novo]
     │        │
     │        └── CPF válido (11 dígitos + dígitos verificadores corretos)
@@ -68,38 +68,70 @@ MENSAGEM RECEBIDA
     │                │   ├── ✉ "Nosso serviço está temporariamente indisponível..."
     │                │   └── limpa estado Redis
     │                │
-    │                ├── 0 boletos encontrados
-    │                │   ├── grava interação: NENHUM_BOLETO
-    │                │   ├── ✉ "Não encontrei boletos em aberto para este CPF..."
+    │                ├── 0 boletos em aberto  → responderSemBoletosEmAberto()
+    │                │   │   [refaz listarBoletos SEM codigoSituacao, para separar
+    │                │   │    "cliente em dia" de "CPF fora do cadastro"]
+    │                │   │
+    │                │   ├── histórico com boletos (cliente existe, está em dia)
+    │                │   │   ├── grava interação: CLIENTE_EM_DIA
+    │                │   │   └── ✉ "Boa notícia: não há contas em aberto no CPF 123.***.**9-00..."
+    │                │   │
+    │                │   ├── histórico vazio (CPF não é de cliente)
+    │                │   │   ├── grava interação: CPF_NAO_ENCONTRADO
+    │                │   │   └── ✉ "Não localizei esse CPF no cadastro da Assusa..."
+    │                │   │
+    │                │   ├── consulta de histórico falhou → texto genérico
+    │                │   │   ├── grava interação: NENHUM_BOLETO
+    │                │   │   └── ✉ "Não encontrei contas em aberto nesse CPF..."
+    │                │   │
     │                │   └── limpa estado Redis
     │                │
-    │                ├── 1 a 3 boletos encontrados
-    │                │   ├── ordena por dataVencimento (mais antigo primeiro)
-    │                │   ├── salva boletos no Redis
-    │                │   ├── setEstado: aguardando_selecao_boleto
-    │                │   ├── grava interação: BOLETOS_LISTADOS
-    │                │   └── ✉ "Encontrei X boleto(s) em aberto no período dos últimos 35 dias..."
-    │                │       + botões com status: "Vence DD/MM" ou "! Vencido DD/MM"
-    │                │
-    │                └── mais de 3 boletos encontrados
-    │                    ├── ✉ "Você possui X boletos em aberto. Exibindo os 3 mais antigos..."
-    │                    ├── ordena, pega os 3 mais antigos, salva no Redis
-    │                    ├── setEstado: aguardando_selecao_boleto
+    │                └── 1 ou mais boletos → apresentarBoletos()
+    │                    ├── ordena por dataVencimento (mais antigo primeiro)
+    │                    ├── corta em 10 (teto de linhas da lista interativa)
+    │                    │   └── se havia mais: ✉ "Você possui X contas em aberto.
+    │                    │       Estou mostrando as 10 mais antigas..."
+    │                    ├── enriquece TODAS com o valor atualizado (2ª via sem PDF)
     │                    ├── grava interação: BOLETOS_LISTADOS
-    │                    └── ✉ "Encontrei X boleto(s)..." + botões (máx. 3)
+    │                    │
+    │                    ├── 1 a 3 contas → ✉ mensagem de BOTÕES (limite da Meta)
+    │                    │   "Encontrei X conta(s) em aberto..." + até 3 botões
+    │                    │
+    │                    ├── 4 ou mais contas → ✉ LISTA INTERATIVA
+    │                    │   "Encontrei X contas... Toque em *Ver minhas contas*"
+    │                    │   + até 10 linhas (título: "N) Conta DD/MM/AAAA",
+    │                    │     descrição: "Valor atualizado: R$ X,XX")
+    │                    │
+    │                    ├── Meta RECUSOU a mensagem interativa → fallback em texto
+    │                    │   ├── grava interação: SELECAO_FALLBACK_TEXTO
+    │                    │   └── ✉ lista enumerada + "Responda com o número da conta"
+    │                    │
+    │                    ├── nem o texto saiu → limpa estado e boletos
+    │                    │   [o cliente não pode ficar preso num estado cuja
+    │                    │    mensagem ele nunca recebeu]
+    │                    │
+    │                    └── enviou → salva boletos + setEstado: aguardando_selecao_boleto
+    │                        [gravado DEPOIS do envio, nunca antes]
     │
     ├─── Estado Redis = "aguardando_selecao_boleto"
     │    │
-    │    ├── Botão de menu recebido (assusa-segunda-via, assusa-falar-atendente)
+    │    ├── Botão de menu recebido (assusa-segunda-via, assusa-horario-funcionamento)
     │    │   └── limpa estado e boletos → continua no dispatch abaixo
     │    │
     │    └── handleSelecaoBoleto()
+    │        │   [view.resolverIndiceSelecao aceita três formas de resposta:
+    │        │    clique de botão, toque em item de lista (ambos "boleto-N")
+    │        │    e o número digitado pelo cliente ("1", "2", ...)]
     │        │
-    │        ├── botão inválido OU sem boletos no cache Redis
-    │        │   ├── ✉ "Nosso serviço está temporariamente indisponível..."
+    │        ├── sem boletos no cache Redis (TTL expirou)
+    │        │   ├── ✉ "Nosso sistema está fora do ar neste momento..."
     │        │   └── limpa estado e boletos do Redis
     │        │
-    │        └── boleto-0 / boleto-1 / boleto-2
+    │        ├── resposta não reconhecida (texto solto, número fora do intervalo)
+    │        │   ├── ✉ "Não entendi sua resposta. Responda com o número..."
+    │        │   └── mantém a sessão e renova o TTL (cliente tenta de novo)
+    │        │
+    │        └── seleção válida (boleto-0 … boleto-9, ou número digitado)
     │            ├── grava interação: BOLETO_SELECIONADO
     │            └── → segundaViaBoleto(linhaDigitavel) [Sicoob API]
     │                │
@@ -127,17 +159,13 @@ MENSAGEM RECEBIDA
              │   ├── setEstado: aguardando_cpf
              │   └── ✉ "Para enviar sua 2ª via, preciso do seu CPF..."
              │
-             ├── "assusa-falar-atendente" (botão clicado)
-             │   ├── grava interação: ATENDENTE_SOLICITADO
-             │   └── ✉ "Nossos atendentes estão disponíveis de segunda a sexta..."
-             │
              ├── "assusa-horario-funcionamento" (botão legado — não exibido no menu)
              │   ├── grava interação: HORARIO_CONSULTADO
              │   └── ✉ "Nosso atendimento funciona de segunda a sexta..."
              │
              └── qualquer outra mensagem (texto livre, áudio, imagem, etc.)
                  ├── grava interação: MENU_EXIBIDO
-                 └── ✉ "Olá! Bem-vindo à Assusa..." + menu (2 botões)
+                 └── ✉ "Olá! Bem-vindo à Assusa..." + menu (1 botão)
                        + instrução "digite menu, sair ou voltar para retornar"
 ```
 
@@ -153,9 +181,8 @@ Botões de menu têm IDs fixos definidos em `constants.js`.
 | `message.type` recebido | Ação |
 |---|---|
 | `assusa-segunda-via` | Inicia fluxo de 2ª via |
-| `assusa-falar-atendente` | Envia contato do atendente |
 | `assusa-horario-funcionamento` | Envia horário (botão legado — não aparece no menu) |
-| qualquer outro valor | Exibe menu principal (2 botões) |
+| qualquer outro valor | Exibe menu principal (1 botão) |
 
 ---
 
@@ -177,38 +204,60 @@ Ativado após o usuário clicar em "2ª via de conta". O bot aguarda CPF.
 
 ### Estado: `aguardando_selecao_boleto`
 
-Ativado após listar boletos com sucesso. O bot aguarda clicar em um botão.
+Ativado após listar boletos com sucesso. O bot aguarda a escolha de uma conta —
+clique em botão (até 3 contas) ou toque em item da lista (4 ou mais). Os dois
+chegam com o mesmo `message.type` (`boleto-N`), resolvido em `services/message.js`.
 
 | Condição | Resultado |
 |---|---|
 | Texto com palavra-chave de saída | Volta ao menu — estado e boletos limpos |
 | Botão de menu (`assusa-segunda-via` etc.) | Estado e boletos limpos → dispatch normal |
 | `boleto-N` válido com boletos no cache | Solicita segunda via ao Sicoob |
-| `boleto-N` mas sem cache no Redis | Erro de serviço — estado limpo |
+| Número digitado dentro do intervalo (`"2"`) | Idem — mesma conta que o botão 2 |
+| Texto solto ou número fora do intervalo | Pede de novo — **sessão mantida** |
+| Sem cache no Redis (TTL expirou) | Erro de serviço — estado limpo |
 
-> O estado **sempre** é limpo ao final desta etapa, seja por sucesso ou erro.
+> Após entregar um boleto o estado é **mantido** e o TTL renovado, para o cliente
+> escolher outra conta sem redigitar o CPF (`refrescarSessaoBoletos`).
 
 ---
 
-## Formatação de data e valor
+## Formatação e limites de apresentação
 
-Os valores são formatados no padrão brasileiro antes de enviar ao usuário:
+Os valores são formatados no padrão brasileiro antes de enviar ao usuário
+(`services/boletoView.js`):
 
 | Campo | Formato | Exemplo |
 |---|---|---|
 | Data completa (`dataVencimento`) | `DD/MM/YYYY` | `20/05/2026` |
 | Data curta (título do botão) | `DD/MM` | `20/05` |
 | Valor monetário | `R$ X.XXX,XX` | `R$ 1.234,56` |
+| CPF ecoado ao cliente | `NNN.***.**N-NN` | `123.***.**9-00` |
 
-Os títulos dos botões de boleto indicam o status de vencimento:
+A escolha entre botões e lista vem dos limites da Meta para mensagens interativas:
 
-| Situação | Título do botão | Exemplo |
+| Formato | Quando | Limite |
 |---|---|---|
-| Ainda não venceu | `Vence DD/MM` | `Vence 30/06` |
-| Já venceu | `! Vencido DD/MM` | `! Vencido 20/05` |
+| Botões (`messageWithInteractiveReply`) | 1 a 3 contas | 3 botões, título ≤ 20 chars |
+| Lista (`messageWithInteractiveList`) | 4 ou mais contas | 10 linhas, título ≤ 24, descrição ≤ 72 |
 
-> O prefixo `!` substitui `⚠` para evitar problemas de contagem de caracteres
-> na Meta API (limite de 20 caracteres por título de botão).
+### Redes de segurança no envio
+
+A Meta recusa a mensagem interativa **inteira** (HTTP 400) por detalhes de formato.
+Três defesas evitam que o cliente fique sem resposta:
+
+1. **Fallback em texto** — se o envio interativo falhar, a mesma lista sai como
+   texto simples pedindo o número da conta (`enviarSelecaoBoletos`).
+2. **Estado gravado só após o envio** — uma recusa nunca deixa o cliente preso em
+   `aguardando_selecao_boleto` sem ter visto as opções.
+3. **Aviso de falha inesperada** — o `.catch` do webhook em `app.js` chama
+   `Conversation.avisarFalhaInesperada`, então um erro não previsto vira uma
+   mensagem de desculpa em vez de silêncio.
+
+O teto de 10 linhas é o que limita quantas contas o bot exibe
+(`boletoView.MAX_BOLETOS_EXIBIDOS`); acima disso o cliente recebe o aviso com o
+telefone. Os títulos são truncados defensivamente para nunca estourar o limite —
+`test/boletoView.test.js` cobre esses cortes.
 
 ---
 
@@ -219,7 +268,7 @@ handleSelecaoBoleto()
     │
     ├── busca boleto[idx] do Redis
     ├── chama sicoobClient.segundaViaBoleto({
-    │     numeroCliente: SICOOB_NUMERO_CLIENTE,   ← env: 1964895
+    │     numeroCliente: SICOOB_NUMERO_CLIENTE,   ← vem do .env
     │     codigoModalidade: 1,
     │     linhaDigitavel: boleto.linhaDigitavel   ← vem do listar
     │   })
@@ -249,7 +298,7 @@ STATUS RECEBIDO (delivered / read)
     └── Cache.remove(messageId)
         ├── messageId NÃO estava no cache → ignora
         └── messageId ESTAVA no cache
-            └── ✉ "Posso te ajudar com mais alguma coisa?" + menu (2 botões)
+            └── ✉ "Posso te ajudar com mais alguma coisa?" + menu (1 botão)
 ```
 
 > O follow-up só é enviado para mensagens marcadas com `markMessageForFollowUp()`.
@@ -267,11 +316,13 @@ Toda ação significativa grava uma linha na tabela de interações via
 SEGUNDA_VIA_INICIADA   → usuário clicou em 2ª via
 CPF_INVALIDO           → CPF com dígitos inválidos (formato ou verificadores)
 ERRO_SERVICO           → falha em listar_boletos ou segunda_via
-NENHUM_BOLETO          → Sicoob retornou lista vazia
+NENHUM_BOLETO          → sem contas em aberto e o histórico não pôde ser consultado
+CLIENTE_EM_DIA         → sem contas em aberto, mas há histórico (cliente em dia)
+CPF_NAO_ENCONTRADO     → nenhum registro para o CPF (não é cliente)
 BOLETOS_LISTADOS       → boletos exibidos com sucesso { total, exibidos }
+SELECAO_FALLBACK_TEXTO → a Meta recusou a mensagem interativa; lista enviada como texto
 BOLETO_SELECIONADO     → usuário escolheu um boleto { idx, dataVencimento }
 PDF_ENTREGUE           → PDF enviado com sucesso { dataVencimento, valor }
-ATENDENTE_SOLICITADO   → usuário clicou em falar com atendente
 HORARIO_CONSULTADO     → usuário clicou em horário (botão legado)
 MENU_EXIBIDO           → mensagem desconhecida → menu enviado
 FLUXO_CANCELADO        → usuário digitou palavra-chave de saída (menu/sair/voltar/...)
@@ -281,15 +332,18 @@ FLUXO_CANCELADO        → usuário digitou palavra-chave de saída (menu/sair/v
 
 ## Menu principal
 
-O menu exibe **2 botões** (terceiro slot livre):
+O menu exibe **1 botão** (dois slots livres):
 
 | ID | Texto exibido |
 |---|---|
 | `assusa-segunda-via` | 2ª via de conta |
-| `assusa-falar-atendente` | Falar com atendente |
 
-O botão `assusa-horario-funcionamento` foi removido do menu mas seu handler
-permanece no código para compatibilidade com mensagens antigas em trânsito.
+O botão "Falar com atendente" foi removido do fluxo — junto com seu handler, suas
+constantes e a notificação por e-mail (o antigo `services/mailer.js`). O telefone
+(31) 3624-8550 continua nas mensagens de erro como canal humano.
+
+O botão `assusa-horario-funcionamento` nunca foi exibido no menu, mas seu handler
+permanece no código.
 
 ---
 
@@ -297,18 +351,31 @@ permanece no código para compatibilidade com mensagens antigas em trânsito.
 
 | Constante | Texto |
 |---|---|
-| `APP_DEFAULT_MESSAGE` | "Olá! Bem-vindo à Assusa Distribuidora de Água. Como podemos te ajudar hoje?\n\nA qualquer momento, digite **menu**, **sair** ou **voltar** para retornar ao início." |
+| `APP_DEFAULT_MESSAGE` | "Olá! Bem-vindo à Assusa Distribuidora de Água. Como podemos te ajudar hoje?\n\nA qualquer momento, digite *menu*, *sair* ou *voltar* para retornar ao início." |
 | `APP_TRY_ANOTHER_MESSAGE` | "Posso te ajudar com mais alguma coisa?" |
-| `MSG_SOLICITAR_CPF` | "Para enviar sua 2ª via, preciso do seu CPF.\n\nDigite os 11 números do CPF. Pode enviar com ou sem pontos.\n\nExemplos válidos: **123.456.789-00** / **12345678900**" |
-| `MSG_CONSULTANDO_BOLETOS` | "Aguarde, estou consultando seus boletos..." |
-| `MSG_SELECIONAR_BOLETO` | "Encontrei {TOTAL} boleto(s) em aberto no período dos últimos 35 dias.\n\nSelecione o que deseja pagar:" |
-| `MSG_AVISO_MUITOS_BOLETOS` | "Você possui {TOTAL} boletos em aberto. Exibindo os 3 mais antigos — para os demais, fale com nosso atendente: (31) 3624-8550." |
-| `MSG_SEGUNDA_VIA_ERRO` | "Não encontrei uma conta ativa com esse CPF. Verifique os dados e tente novamente, ou fale com nosso atendente." |
-| `MSG_SEGUNDA_VIA_ERRO_SERVICO` | "Nosso serviço está temporariamente indisponível. Tente novamente em alguns instantes ou ligue: (31) 3624-8550." |
-| `MSG_NENHUM_BOLETO` | "Não encontrei boletos em aberto para este CPF. Se achar que é um engano, fale com nosso atendente." |
-| `MSG_BOLETO_DETALHES` | "Vencimento: DD/MM/YYYY \| Valor: R$ X,XX\n\nLinha digitável:\n...\n\nPIX copia e cola:\n..." |
-| `MSG_REDIRECIONAMENTO_ATENDENTE` | "Nossos atendentes estão disponíveis de segunda a sexta, das 8h às 18h. Para falar com um atendente agora, ligue: (31)3624-8550." |
 | `MSG_HORARIO_FUNCIONAMENTO` | "Nosso atendimento funciona de segunda a sexta, das 8h às 18h, e aos sábados das 8h às 12h." |
+| `MSG_SOLICITAR_CPF_1` | "Digite o CPF do titular da conta:" |
+| `MSG_SOLICITAR_CPF_2` | "Exemplo: 12345678900 \| 123.456.789-10" |
+| `MSG_CPF_INVALIDO` | "Esse CPF parece incompleto ou incorreto.\n\nConfira os 11 números e envie de novo." |
+| `MSG_CLIENTE_EM_DIA` | "Boa notícia: não há contas em aberto no CPF {CPF}.\n\nVocê está em dia com a Assusa. 😊" |
+| `MSG_CPF_NAO_ENCONTRADO` | "Não localizei esse CPF no cadastro da Assusa.\n\nConfira se digitou o CPF do *titular* da conta de água. Se estiver certo, ligue para (31) 3624-8550." |
+| `MSG_NENHUM_BOLETO` | "Não encontrei contas em aberto nesse CPF.\n\nIsso pode ser porque está tudo pago, ou porque o CPF não é o do titular da conta. Em caso de dúvida, ligue para (31) 3624-8550." |
+| `MSG_SELECIONAR_BOLETO` | "Encontrei {TOTAL} conta(s) em aberto. O valor já está atualizado para pagamento hoje.\n\n{LISTA}\n\nToque no botão da conta que deseja pagar:" |
+| `MSG_SELECIONAR_BOLETO_TEXTO` | "Encontrei {TOTAL} conta(s) em aberto. O valor já está atualizado para pagamento hoje.\n\n{LISTA}\n\nResponda com o *número* da conta que deseja pagar (1, 2, 3...)." |
+| `MSG_SELECIONAR_BOLETO_LISTA` | "Encontrei {TOTAL} contas em aberto. O valor já está atualizado para pagamento hoje.\n\n{LISTA}\n\nToque em *Ver minhas contas* aqui embaixo e escolha a que deseja pagar:" |
+| `MSG_SELECIONAR_BOLETO_ITEM` | "{N}) Conta de {DATA} — R$ {VALOR}" |
+| `MSG_CONSULTANDO_BOLETOS` | "Aguarde, estou consultando seus boletos..." |
+| `MSG_AVISO_MUITOS_BOLETOS` | "Você possui {TOTAL} contas em aberto. Estou mostrando as {EXIBIDOS} mais antigas — para as demais, ligue para (31) 3624-8550." |
+| `MSG_LISTA_BOTAO` | "Ver minhas contas" |
+| `MSG_LISTA_SECAO` | "Contas em aberto" |
+| `MSG_LISTA_ITEM_DESCRICAO` | "Valor atualizado: R$ {VALOR}" |
+| `MSG_BOLETO_CAPTION` | "✅ Sua 2ª via\n\nPague até {DATA}\nValor: R$ {VALOR}" |
+| `MSG_LABEL_LINHA_DIGITAVEL` | "Linha digitável do boleto:" |
+| `MSG_LABEL_PIX` | "PIX copia e cola:" |
+| `MSG_PIX_INDISPONIVEL` | "PIX não disponível para este boleto." |
+| `MSG_SELECAO_NAO_ENTENDIDA` | "Não entendi sua resposta.\n\nResponda com o *número* da conta que deseja pagar, de 1 a {TOTAL}.\n\nOu digite *menu* para recomeçar." |
+| `MSG_ERRO_INESPERADO` | "Tive um problema aqui e não consegui concluir seu atendimento.\n\nDigite *menu* para recomeçar ou ligue para (31) 3624-8550." |
+| `MSG_SEGUNDA_VIA_ERRO_SERVICO` | "Nosso sistema está fora do ar neste momento.\n\nTente de novo em alguns minutos ou ligue para (31) 3624-8550." |
 
 ---
 
@@ -335,7 +402,7 @@ permanece no código para compatibilidade com mensagens antigas em trânsito.
   [listar API]                                        │          │
        │                                              │          │
   ┌────┴──────────────────────┐                       │          │
-  │ erro / 0 boletos  │ 1–3 boletos                   │          │
+  │ erro / 0 boletos  │ 1+ boletos                    │          │
   │      (fim)        │    │                           │          │
   └───────────────────┘    ▼                           │          │
                  ┌──────────────────────┐              │          │

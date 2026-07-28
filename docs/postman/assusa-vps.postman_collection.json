@@ -81,7 +81,7 @@
           "host": ["{{BASE_URL}}"],
           "path": ["webhook"]
         },
-        "description": "Resposta esperada: 2 botões (2ª via de conta + Falar com atendente).\nO texto inclui instruções de saída em negrito (*menu*, *sair*, *voltar*).\n\nNOTA: o botão Horário de atendimento foi removido do menu."
+        "description": "Resposta esperada: 1 botão (2ª via de conta).\nO texto inclui instruções de saída em negrito (*menu*, *sair*, *voltar*).\n\nNOTA: os botões Horário de atendimento e Falar com atendente não aparecem no menu. O handler do horário ainda existe (item 3); o de atendente foi removido do código (item 4)."
       },
       "response": []
     },
@@ -107,7 +107,7 @@
       "response": []
     },
     {
-      "name": "4. Falar com atendente",
+      "name": "4. Falar com atendente (REMOVIDO - deve cair no menu)",
       "request": {
         "method": "POST",
         "header": [
@@ -123,7 +123,7 @@
           "host": ["{{BASE_URL}}"],
           "path": ["webhook"]
         },
-        "description": "Resposta no WhatsApp: mensagem de redirecionamento ao atendente.\n\nAlém disso, o bot dispara um e-mail para ATENDENTE_EMAIL_TO (via SMTP) com o número do cliente, CPF (se informado) e data/hora. Envio fire-and-forget: se o SMTP não estiver configurado ou falhar, o cliente ainda recebe a resposta. Continua gravando ATENDENTE_SOLICITADO no Postgres."
+        "description": "FLUXO REMOVIDO. O botão, o handler, as constantes e a notificação por e-mail (services/mailer.js, SMTP_*, ATENDENTE_EMAIL_TO) não existem mais.\n\nEste request permanece como teste de regressão: enviar assusa-falar-atendente hoje cai no caso padrão do switch e deve responder com o MENU PRINCIPAL (1 botão), não com a antiga mensagem de redirecionamento.\n\nInteração gravada: MENU_EXIBIDO (não mais ATENDENTE_SOLICITADO)."
       },
       "response": []
     },
@@ -157,7 +157,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [{\n    \"id\": \"ACCOUNT_ID\",\n    \"changes\": [{\n      \"field\": \"messages\",\n      \"value\": {\n        \"messaging_product\": \"whatsapp\",\n        \"metadata\": {\n          \"display_phone_number\": \"3131111111\",\n          \"phone_number_id\": \"{{PHONE_NUMBER_ID}}\"\n        },\n        \"contacts\": [{\n          \"profile\": { \"name\": \"Usuário Teste\" },\n          \"wa_id\": \"{{SENDER_PHONE}}\"\n        }],\n        \"messages\": [{\n          \"from\": \"{{SENDER_PHONE}}\",\n          \"id\": \"wamid.test.011\",\n          \"timestamp\": \"1748000011\",\n          \"type\": \"text\",\n          \"text\": { \"body\": \"{{CPF-TESTE-MAURI}}\" }\n        }]\n      }\n    }]\n  }]\n}",
+          "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [{\n    \"id\": \"ACCOUNT_ID\",\n    \"changes\": [{\n      \"field\": \"messages\",\n      \"value\": {\n        \"messaging_product\": \"whatsapp\",\n        \"metadata\": {\n          \"display_phone_number\": \"3131111111\",\n          \"phone_number_id\": \"{{PHONE_NUMBER_ID}}\"\n        },\n        \"contacts\": [{\n          \"profile\": { \"name\": \"Usuário Teste\" },\n          \"wa_id\": \"{{SENDER_PHONE}}\"\n        }],\n        \"messages\": [{\n          \"from\": \"{{SENDER_PHONE}}\",\n          \"id\": \"wamid.test.011\",\n          \"timestamp\": \"1748000011\",\n          \"type\": \"text\",\n          \"text\": { \"body\": \"{{CPF_TESTE}}\" }\n        }]\n      }\n    }]\n  }]\n}",
           "options": { "raw": { "language": "json" } }
         },
         "url": {
@@ -207,7 +207,7 @@
           "host": ["{{BASE_URL}}"],
           "path": ["webhook"]
         },
-        "description": "O title não é processado pelo bot — apenas o id importa.\n\nResposta esperada (mensagens SEPARADAS, para facilitar a cópia):\n1. PDF boleto.pdf com caption: \"✅ Sua 2ª via | Pague até DD/MM/AAAA | Valor: R$ X,XX\"\n2. \"Linha digitável do boleto:\"\n3. <linha digitável> (sozinha)\n4. \"PIX copia e cola:\"\n5. <pix> (sozinho)\n\nSe não houver PIX, no lugar dos itens 4-5: \"PIX não disponível para este boleto.\"\n\nEstado Redis após: MANTIDO em aguardando_selecao_boleto (TTL renovado). Pode-se selecionar outro boleto sem redigitar o CPF até o TTL de 30 min expirar."
+        "description": "O title não é processado pelo bot — apenas o id importa.\n\nSELEÇÃO: o bot aceita três formas, todas resolvidas para o mesmo id boleto-N:\n- button_reply.id = boleto-0 (até 3 contas)\n- list_reply.id = boleto-0 (4+ contas, lista interativa)\n- texto \"1\" (número digitado, a partir de 1)\nResposta não reconhecida recebe \"Não entendi sua resposta...\" e MANTÉM a sessão.\n\nResposta esperada (mensagens SEPARADAS, para facilitar a cópia):\n1. PDF boleto.pdf com caption: \"✅ Sua 2ª via | Pague até DD/MM/AAAA | Valor: R$ X,XX\"\n2. \"Linha digitável do boleto:\"\n3. <linha digitável> (sozinha)\n4. \"PIX copia e cola:\"\n5. <pix> (sozinho)\n\nSe não houver PIX, no lugar dos itens 4-5: \"PIX não disponível para este boleto.\"\n\nEstado Redis após: MANTIDO em aguardando_selecao_boleto (TTL renovado). Pode-se selecionar outro boleto sem redigitar o CPF até o TTL de 30 min expirar."
       },
       "response": []
     },
@@ -275,7 +275,7 @@
       "response": []
     },
     {
-      "name": "6.2 - CPF sem boletos",
+      "name": "6.2 - CPF sem contas em aberto",
       "request": {
         "method": "POST",
         "header": [
@@ -291,7 +291,7 @@
           "host": ["{{BASE_URL}}"],
           "path": ["webhook"]
         },
-        "description": "Rode o 5.1 antes, para ativar o redis.\n\nResposta: \"Não encontrei boletos em aberto para este CPF...\"\nEstado: limpo."
+        "description": "Rode o 5.1 antes, para ativar o redis.\n\nA busca filtrada volta vazia tanto para quem está em dia quanto para quem não é cliente, então o bot refaz a consulta SEM codigoSituacao e escolhe a resposta:\n- tem histórico -> \"Boa notícia: não há contas em aberto no CPF ...\" (CLIENTE_EM_DIA)\n- sem registro -> \"Não localizei esse CPF no cadastro da Assusa...\" (CPF_NAO_ENCONTRADO)\n- consulta falhou -> texto genérico (NENHUM_BOLETO)\n\nEstado: limpo nos três casos."
       },
       "response": []
     },
@@ -367,7 +367,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [{\n    \"id\": \"ACCOUNT_ID\",\n    \"changes\": [{\n      \"field\": \"messages\",\n      \"value\": {\n        \"messaging_product\": \"whatsapp\",\n        \"metadata\": {\n          \"display_phone_number\": \"3131111111\",\n          \"phone_number_id\": \"{{PHONE_NUMBER_ID}}\"\n        },\n        \"contacts\": [{\n          \"profile\": { \"name\": \"Usuário Teste\" },\n          \"wa_id\": \"{{SENDER_PHONE}}\"\n        }],\n        \"messages\": [{\n          \"from\": \"{{SENDER_PHONE}}\",\n          \"id\": \"wamid.test.026\",\n          \"timestamp\": \"1748000026\",\n          \"type\": \"interactive\",\n          \"interactive\": {\n            \"type\": \"button_reply\",\n            \"button_reply\": {\n              \"id\": \"assusa-falar-atendente\",\n              \"title\": \"Falar com atendente\"\n            }\n          }\n        }]\n      }\n    }]\n  }]\n}",
+          "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [{\n    \"id\": \"ACCOUNT_ID\",\n    \"changes\": [{\n      \"field\": \"messages\",\n      \"value\": {\n        \"messaging_product\": \"whatsapp\",\n        \"metadata\": {\n          \"display_phone_number\": \"3131111111\",\n          \"phone_number_id\": \"{{PHONE_NUMBER_ID}}\"\n        },\n        \"contacts\": [{\n          \"profile\": { \"name\": \"Usuário Teste\" },\n          \"wa_id\": \"{{SENDER_PHONE}}\"\n        }],\n        \"messages\": [{\n          \"from\": \"{{SENDER_PHONE}}\",\n          \"id\": \"wamid.test.026\",\n          \"timestamp\": \"1748000026\",\n          \"type\": \"interactive\",\n          \"interactive\": {\n            \"type\": \"button_reply\",\n            \"button_reply\": {\n              \"id\": \"assusa-horario-funcionamento\",\n              \"title\": \"Horário atendimento\"\n            }\n          }\n        }]\n      }\n    }]\n  }]\n}",
           "options": { "raw": { "language": "json" } }
         },
         "url": {
@@ -375,7 +375,7 @@
           "host": ["{{BASE_URL}}"],
           "path": ["webhook"]
         },
-        "description": "PRÉ-REQUISITO: executar 5.1 → 5.2 (estado aguardando_selecao_boleto).\n\nEnvia assusa-falar-atendente enquanto aguardando_selecao_boleto está ativo.\nO código detecta que é um MENU_BUTTON, limpa estado E boletos do Redis,\ncai no switch → resposta normal do atendente.\n\nResposta esperada: \"Nossos atendentes estão disponíveis...\"\nEstado Redis: nil, boletos Redis: nil"
+        "description": "PRÉ-REQUISITO: executar 5.1 → 5.2 (estado aguardando_selecao_boleto).\n\nEnvia um botão de MENU enquanto aguardando_selecao_boleto está ativo.\nO código detecta que é um MENU_BUTTON, limpa estado E boletos do Redis,\ncai no switch → resposta normal do horário.\n\nResposta esperada: \"Nosso atendimento funciona de segunda a sexta...\"\nEstado Redis: nil, boletos Redis: nil"
       },
       "response": []
     },
@@ -439,7 +439,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"numeroCliente\": 1964895,\n  \"numeroCpfCnpj\": \"{{CPF-TESTE-MAURI}}\",\n  \"dataInicio\": \"{{DATA_INICIO}}\",\n  \"dataFim\": \"{{DATA_FIM}}\"\n}",
+          "raw": "{\n  \"numeroCliente\": \"{{SICOOB_NUMERO_CLIENTE}}\",\n  \"numeroCpfCnpj\": \"{{CPF_TESTE}}\",\n  \"dataInicio\": \"{{DATA_INICIO}}\",\n  \"dataFim\": \"{{DATA_FIM}}\"\n}",
           "options": { "raw": { "language": "json" } }
         },
         "url": {
@@ -447,7 +447,7 @@
           "host": ["{{PYTHON_URL}}"],
           "path": ["internal", "boleto", "listar"]
         },
-        "description": "Datas calculadas automaticamente pelo pre-request script (hoje - 30 dias → hoje).\nLimite da API Sicoob: máx. 35 dias por chamada.\n\nO bot dispara 6 chamadas paralelas de 30 dias (SICOOB_NUM_JANELAS=6),\ncada uma atendida por este endpoint."
+        "description": "Datas calculadas automaticamente pelo pre-request script.\nLimite da API Sicoob: máx. 35 dias por chamada (erro 5002 acima disso).\n\ndataInicio/dataFim filtram por DATA DE VENCIMENTO; codigoSituacao=1 (Em Aberto) é o STATUS do boleto — filtros independentes. Um boleto registrado hoje que vence em duas semanas já está em aberto, e só aparece se a janela alcançar o futuro.\n\nO bot dispara 6 chamadas paralelas de 35 dias (montarJanelas em services/sicoobClient.js), cobrindo de 180 dias atrás até 35 à frente. Configurável por SICOOB_NUM_JANELAS, SICOOB_DIAS_POR_JANELA e SICOOB_DIAS_FUTURO."
       },
       "response": []
     },
@@ -461,7 +461,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"numeroCliente\": 1964895,\n  \"numeroCpfCnpj\": \"{{CPF-TESTE-MAURI}}\",\n  \"dataInicio\": \"2024-05-27\",\n  \"dataFim\": \"2026-05-27\"\n}",
+          "raw": "{\n  \"numeroCliente\": \"{{SICOOB_NUMERO_CLIENTE}}\",\n  \"numeroCpfCnpj\": \"{{CPF_TESTE}}\",\n  \"dataInicio\": \"2024-05-27\",\n  \"dataFim\": \"2026-05-27\"\n}",
           "options": { "raw": { "language": "json" } }
         },
         "url": {
@@ -469,7 +469,7 @@
           "host": ["{{PYTHON_URL}}"],
           "path": ["internal", "boleto", "listar"]
         },
-        "description": "Período de 2 anos → deve retornar erro 5002 do Sicoob:\n\"O período informado não pode ser maior que 35 dias.\"\n\nConfirma que o limite da API está ativo em produção (não apenas no sandbox)."
+        "description": "Período de 2 anos.\n\nEm PRODUÇÃO deve retornar erro 5002 do Sicoob: \"O período informado não pode ser maior que 35 dias.\"\n\nEm SANDBOX NÃO retorna erro — verificado em jul/2026: a sandbox ignora o filtro de período e devolve o mesmo boleto mock para qualquer intervalo."
       },
       "response": []
     },
@@ -483,7 +483,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"numeroCliente\": 1964895,\n  \"codigoModalidade\": 1,\n  \"nossoNumero\": \"3861\"\n}",
+          "raw": "{\n  \"numeroCliente\": \"{{SICOOB_NUMERO_CLIENTE}}\",\n  \"codigoModalidade\": 1,\n  \"nossoNumero\": \"3861\"\n}",
           "options": { "raw": { "language": "json" } }
         },
         "url": {
@@ -504,7 +504,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"numeroCliente\": 1964895,\n  \"codigoModalidade\": 1,\n  \"linhaDigitavel\": \"75691311750119648950200038610044714520000036907\"\n}",
+          "raw": "{\n  \"numeroCliente\": \"{{SICOOB_NUMERO_CLIENTE}}\",\n  \"codigoModalidade\": 1,\n  \"linhaDigitavel\": \"{{LINHA_DIGITAVEL_TESTE}}\"\n}",
           "options": { "raw": { "language": "json" } }
         },
         "url": {
@@ -526,15 +526,15 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"numeroCliente\": 1964895,\n  \"codigoModalidade\": 1,\n  \"linhaDigitavel\": \"75691311750119648950200038610044714520000036907\"\n}",
+          "raw": "{\n  \"numeroCliente\": \"{{SICOOB_NUMERO_CLIENTE}}\",\n  \"codigoModalidade\": 1,\n  \"linhaDigitavel\": \"{{LINHA_DIGITAVEL_TESTE}}\"\n}",
           "options": { "raw": { "language": "json" } }
         },
         "url": {
-          "raw": "{{PYTHON_URL}}/internal/boleto/faixas-nosso-numero?numeroCliente=1964895&codigoModalidade=1&quantidade=10",
+          "raw": "{{PYTHON_URL}}/internal/boleto/faixas-nosso-numero?numeroCliente={{SICOOB_NUMERO_CLIENTE}}&codigoModalidade=1&quantidade=10",
           "host": ["{{PYTHON_URL}}"],
           "path": ["internal", "boleto", "faixas-nosso-numero"],
           "query": [
-            { "key": "numeroCliente", "value": "1964895" },
+            { "key": "numeroCliente", "value": "{{SICOOB_NUMERO_CLIENTE}}" },
             { "key": "codigoModalidade", "value": "1" },
             { "key": "quantidade", "value": "10" }
           ]

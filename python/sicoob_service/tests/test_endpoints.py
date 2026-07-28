@@ -107,7 +107,7 @@ class TestBoletoConsultar:
 class TestBoletoSegundaVia:
     def test_chama_metodo_correto(self, client: TestClient, banking: MagicMock) -> None:
         banking.segunda_via_boleto.return_value = {"status": 200, "response": {"resultado": {}}}
-        body = {"numeroCliente": 1964895, "codigoModalidade": 1, "linhaDigitavel": "123456"}
+        body = {"numeroCliente": 1234567, "codigoModalidade": 1, "linhaDigitavel": "123456"}
         r = client.post("/internal/boleto/segunda-via", json=body, headers=HEADERS)
         assert r.status_code == 200
         assert r.json()["ok"] is True

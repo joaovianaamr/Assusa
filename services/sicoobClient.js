@@ -52,8 +52,46 @@ async function checkPythonHealth() {
   }
 }
 
+// O Sicoob rejeita ("5002 período maior que 35 dias") qualquer janela cujo
+// intervalo entre dataInicio e dataFim passe de 35 dias.
+const LIMITE_SICOOB_DIAS = 35;
+
 const NUM_JANELAS = Number(process.env.SICOOB_NUM_JANELAS || 6);
-const DIAS_POR_JANELA = 30;
+const DIAS_POR_JANELA = Math.min(
+  Number(process.env.SICOOB_DIAS_POR_JANELA || LIMITE_SICOOB_DIAS),
+  LIMITE_SICOOB_DIAS
+);
+// Quanto olhar para FRENTE. `dataInicio`/`dataFim` filtram por data de
+// VENCIMENTO, e um boleto já registrado que vence daqui a duas semanas está
+// "em aberto" agora — sem isto ele ficaria fora do recorte e invisível ao
+// cliente que quer pagar a conta do mês antes de vencer.
+const DIAS_FUTURO = Number(process.env.SICOOB_DIAS_FUTURO ?? LIMITE_SICOOB_DIAS);
+
+/**
+ * Fatia o período de busca em janelas contíguas que respeitam o teto do Sicoob.
+ *
+ * A janela 0 termina em `hoje + DIAS_FUTURO`; as seguintes recuam de
+ * `DIAS_POR_JANELA + 1` em `DIAS_POR_JANELA + 1`, de modo que o fim de uma cai
+ * exatamente um dia antes do início da anterior — sem buraco e sem sobreposição.
+ *
+ * Função pura (recebe a data de referência) para poder ser testada.
+ *
+ * @param {Date} [referencia] data de "hoje"
+ * @returns {{dataInicio:string, dataFim:string}[]} datas em yyyy-MM-dd
+ */
+function montarJanelas(referencia = new Date()) {
+  const fmt = d => d.toISOString().slice(0, 10);
+  const base = new Date(referencia);
+  base.setDate(base.getDate() + DIAS_FUTURO);
+
+  return Array.from({ length: NUM_JANELAS }, (_, i) => {
+    const fim = new Date(base);
+    fim.setDate(fim.getDate() - i * (DIAS_POR_JANELA + 1));
+    const inicio = new Date(fim);
+    inicio.setDate(inicio.getDate() - DIAS_POR_JANELA);
+    return { dataInicio: fmt(inicio), dataFim: fmt(fim) };
+  });
+}
 
 async function chamarListarUmaJanela(payload) {
   const b = baseUrl();
@@ -88,34 +126,32 @@ function extrairBoletos(resposta) {
 /**
  * POST /internal/boleto/listar — busca em janelas paralelas.
  *
- * O Sicoob limita cada requisição a 35 dias. Para cobrir 6 meses
- * (inadimplência típica antes do corte de fornecimento da Assusa),
- * dispara NUM_JANELAS chamadas de 30 dias em paralelo com gap de 1 dia
- * entre elas. Janelas individuais que falharem são ignoradas; retorna
- * 503 apenas se TODAS falharem.
+ * O Sicoob limita cada requisição a 35 dias de vencimento. Para cobrir as contas
+ * a vencer e a inadimplência típica antes do corte de fornecimento da Assusa,
+ * dispara NUM_JANELAS chamadas em paralelo (ver `montarJanelas`). Com o padrão
+ * de 6 janelas de 35 dias, a cobertura vai de 180 dias atrás a 35 à frente.
+ * Janelas individuais que falharem são ignoradas; retorna 503 só se TODAS falharem.
+ *
+ * @param {object} params
+ * @param {string} params.numeroCpfCnpj CPF do pagador (somente dígitos).
+ * @param {number|null} [params.codigoSituacao] 1 = em aberto (padrão). Passe
+ *   `null` para omitir o filtro e trazer também os boletos já baixados/pagos —
+ *   é assim que distinguimos "cliente em dia" de "CPF fora do cadastro".
  */
-async function listarBoletos({ numeroCpfCnpj }) {
+async function listarBoletos({ numeroCpfCnpj, codigoSituacao = 1 }) {
   const b = baseUrl();
   if (!b) {
     throw new Error("SICOOB_SERVICE_URL não configurado");
   }
 
-  const fmt = d => d.toISOString().slice(0, 10);
-  const hoje = new Date();
-
-  const janelas = Array.from({ length: NUM_JANELAS }, (_, i) => {
-    const fim = new Date(hoje);
-    fim.setDate(fim.getDate() - i * (DIAS_POR_JANELA + 1));
-    const inicio = new Date(fim);
-    inicio.setDate(inicio.getDate() - DIAS_POR_JANELA);
-    return {
-      numeroCpfCnpj,
-      numeroCliente: Number(config.sicoobNumeroCliente),
-      dataInicio: fmt(inicio),
-      dataFim: fmt(fim),
-      codigoSituacao: 1,
-    };
-  });
+  const janelas = montarJanelas().map(({ dataInicio, dataFim }) => ({
+    numeroCpfCnpj,
+    numeroCliente: Number(config.sicoobNumeroCliente),
+    dataInicio,
+    dataFim,
+    // O Python omite o filtro quando a chave não vem no payload.
+    ...(codigoSituacao == null ? {} : { codigoSituacao }),
+  }));
 
   const respostas = await Promise.allSettled(janelas.map(j => chamarListarUmaJanela(j)));
 
@@ -200,4 +236,10 @@ module.exports = {
   checkPythonHealth,
   listarBoletos,
   segundaViaBoleto,
+  // expostos para teste
+  montarJanelas,
+  LIMITE_SICOOB_DIAS,
+  NUM_JANELAS,
+  DIAS_POR_JANELA,
+  DIAS_FUTURO,
 };

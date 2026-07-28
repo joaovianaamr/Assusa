@@ -16,7 +16,8 @@ Crie um **Environment** chamado `assusa-vps` com as variáveis abaixo:
 | `PHONE_NUMBER_ID` | `<phone-number-id>` | Valor no `.env` (`PHONE_NUMBER_ID`) — ver [docs/meta/referencia.md](../meta/referencia.md) |
 | `SENDER_PHONE` | `5531999999999` | Número do "usuário" simulado (E.164 sem `+`). Use sempre o mesmo dentro de um fluxo |
 | `INTERNAL_API_KEY` | `<chave-definida-no-env-da-vps>` | Chave interna Node → Python — **nunca commite o valor real** |
-| `SICOOB_NUMERO_CLIENTE` | `<numero-cliente>` | Valor no `.env` (`SICOOB_NUMERO_CLIENTE`) |
+| `SICOOB_NUMERO_CLIENTE` | `<numero-cliente>` | Valor no `.env` (`SICOOB_NUMERO_CLIENTE`) — **identificador do contrato: nunca commite o valor real** |
+| `LINHA_DIGITAVEL_TESTE` | `<linha-digitavel-de-um-boleto>` | Usada nos fluxos de 2ª via e consulta. **Dado de boleto — nunca commite o valor real** |
 | `CPF_TESTE` | `<cpf-de-cooperado>` | CPF só com dígitos, usado nos fluxos de 2ª via. **Dado pessoal — nunca commite o valor real** |
 | `CPF_TESTE_FORMATADO` | `<mesmo-cpf-com-pontos>` | O mesmo CPF de `CPF_TESTE`, com pontos e traço, para testar a normalização |
 
@@ -147,15 +148,15 @@ Qualquer mensagem de texto sem estado ativo no Redis exibe o menu.
 }]
 ```
 
-**Resposta no WhatsApp:** boas-vindas com **2 botões**:
+**Resposta no WhatsApp:** boas-vindas com **1 botão**:
 - `2ª via de conta`
-- `Falar com atendente`
 
 O texto da mensagem inclui instrução de saída em negrito:
 > "A qualquer momento, digite **menu**, **sair** ou **voltar** para retornar ao início."
 
-> O botão "Horário atendimento" foi removido do menu. O handler ainda existe no
-> código para compatibilidade com mensagens em trânsito — ver seção 3.
+> Os botões "Horário atendimento" e "Falar com atendente" não aparecem no menu.
+> O handler do horário ainda existe no código — ver seção 3. O de atendente foi
+> removido por completo — ver seção 4.
 
 ---
 
@@ -187,34 +188,15 @@ Use para verificar compatibilidade com mensagens antigas.
 
 ---
 
-## 4. Falar com atendente
+## 4. Falar com atendente — **removido**
 
-`POST {{BASE_URL}}/webhook`
+Este fluxo não existe mais. Foram removidos o botão do menu, o handler
+`assusa-falar-atendente`, as constantes de texto e a notificação por e-mail
+(`services/mailer.js`, junto com as variáveis `SMTP_*` e `ATENDENTE_EMAIL_TO`).
 
-```json
-"messages": [{
-  "from": "{{SENDER_PHONE}}",
-  "id": "wamid.test.003",
-  "timestamp": "1748000002",
-  "type": "interactive",
-  "interactive": {
-    "type": "button_reply",
-    "button_reply": {
-      "id": "assusa-falar-atendente",
-      "title": "Falar com atendente"
-    }
-  }
-}]
-```
-
-**Resposta no WhatsApp:**
-> "Nossos atendentes estão disponíveis de segunda a sexta, das 8h às 18h. Para falar com um atendente agora, ligue: (31)3624-8550."
-
-> **Notificação por e-mail:** ao clicar neste botão, o bot dispara um e-mail para
-> `ATENDENTE_EMAIL_TO` (via SMTP) com o número do cliente, CPF (se já informado) e
-> data/hora. O envio é *fire-and-forget*: se o SMTP não estiver configurado ou falhar,
-> o cliente ainda recebe a resposta normalmente. Continua gravando `ATENDENTE_SOLICITADO`
-> no Postgres.
+Um payload com `"id": "assusa-falar-atendente"` hoje cai no caso padrão e recebe
+o menu principal. O canal humano continua sendo o telefone (31) 3624-8550, citado
+nas mensagens de erro.
 
 ---
 
@@ -277,9 +259,9 @@ recomeçar (ver seção [Redis](#redis)).
 1. Mensagem de loading:
    > "Aguarde, estou consultando seus boletos..."
 
-2. Se total > 3: aviso com total e instrução para ligar para os demais
+2. Se total > 10: aviso com o total e instrução para ligar sobre as demais
 
-3. Mensagem com botões (até 3, ordenados do mais antigo), com o corpo enumerando
+3. Mensagem de escolha, ordenada do vencimento mais antigo, com o corpo enumerando
    cada conta pelo **vencimento original** e o **valor já atualizado para hoje**:
    > "Encontrei X conta(s) em aberto. O valor já está atualizado para pagamento hoje.
    >
@@ -289,8 +271,16 @@ recomeçar (ver seção [Redis](#redis)).
    >
    > Toque no botão da conta que deseja pagar:"
 
-   Botões (título limitado a 20 caracteres):
-   - `1 - Conta DD/MM`, `2 - Conta DD/MM`, ...
+   O **formato depende da quantidade** (limites da Meta):
+
+   | Contas | Formato | Detalhe |
+   |---|---|---|
+   | 1 a 3 | Botões | `1 - Conta DD/MM` (título ≤ 20 chars) |
+   | 4 a 10 | Lista interativa | Botão "Ver minhas contas" abre até 10 linhas: título `N) Conta DD/MM/AAAA`, descrição `Valor atualizado: R$ X,XX` |
+
+   Se a Meta recusar a mensagem interativa, o bot cai para **texto simples** com a
+   lista enumerada e a instrução "Responda com o número da conta" (evento
+   `SELECAO_FALLBACK_TEXTO`). O estado só é gravado **depois** que o envio dá certo.
 
 > **Por que o vencimento original?** A listagem (`/listar`) traz o vencimento e o valor
 > **originais** de cada boleto; a 2ª via (`/segunda-via`) **recalcula** para pagamento hoje
@@ -345,13 +335,25 @@ renovado a cada interação)
 ```
 
 > O `title` não é processado pelo bot — apenas o `id` importa.
-> Use `boleto-0`, `boleto-1` ou `boleto-2` conforme o botão exibido.
+> Use `boleto-0` … `boleto-9` conforme a conta exibida.
 
 | `id` | Boleto |
 |---|---|
 | `boleto-0` | 1º da lista (mais antigo) |
 | `boleto-1` | 2º da lista |
-| `boleto-2` | 3º da lista |
+| `boleto-N` | (N+1)º da lista, até `boleto-9` |
+
+**Três formas de resposta chegam no mesmo `boleto-N`:**
+
+| Origem | Payload |
+|---|---|
+| Clique em botão | `"interactive": { "type": "button_reply", "button_reply": { "id": "boleto-0" } }` |
+| Toque em item de lista | `"interactive": { "type": "list_reply", "list_reply": { "id": "boleto-0" } }` |
+| Número digitado | `"type": "text", "text": { "body": "1" }` — o cliente conta a partir de 1 |
+
+> Uma resposta que não seja nenhuma das três (texto solto, número fora do
+> intervalo) recebe "Não entendi sua resposta..." e **mantém a sessão viva**,
+> em vez de alegar falha de sistema.
 
 **Resposta no WhatsApp — agora em mensagens separadas** (facilita copiar no celular):
 1. Documento `boleto.pdf` com caption:
@@ -431,14 +433,15 @@ Execute a etapa 5.1 primeiro (estado `aguardando_cpf`), depois:
 ```
 
 **Resposta no WhatsApp (ambos os casos):**
-> "Não encontrei uma conta ativa com esse CPF. Verifique os dados e tente
-> novamente, ou fale com nosso atendente."
+> "Esse CPF parece incompleto ou incorreto.
+>
+> Confira os 11 números e envie de novo."
 
 **Estado:** permanece `aguardando_cpf` (usuário pode tentar de novo).
 
 ---
 
-### 6.2 CPF sem boletos
+### 6.2 CPF sem contas em aberto
 
 Execute a etapa 5.1 primeiro, depois envie um CPF válido sem boletos na Assusa:
 
@@ -452,11 +455,19 @@ Execute a etapa 5.1 primeiro, depois envie um CPF válido sem boletos na Assusa:
 }]
 ```
 
-**Resposta no WhatsApp:**
-> "Não encontrei boletos em aberto para este CPF. Se achar que é um engano,
-> fale com nosso atendente."
+A busca por contas **em aberto** volta vazia tanto para quem está em dia quanto
+para quem não é cliente. Por isso o bot refaz a consulta **sem** o filtro de
+situação (`codigoSituacao: null`) e escolhe entre três respostas:
 
-**Estado:** limpo.
+| Resultado da 2ª consulta | Resposta no WhatsApp | Evento |
+|---|---|---|
+| Tem histórico (é cliente, está em dia) | "Boa notícia: não há contas em aberto no CPF 123.\*\*\*.\*\*9-00..." | `CLIENTE_EM_DIA` |
+| Sem nenhum registro | "Não localizei esse CPF no cadastro da Assusa..." | `CPF_NAO_ENCONTRADO` |
+| A consulta falhou | "Não encontrei contas em aberto nesse CPF..." (texto genérico) | `NENHUM_BOLETO` |
+
+> O bot **nunca** afirma que o CPF não existe com base numa consulta que caiu.
+
+**Estado:** limpo nos três casos.
 
 ---
 
@@ -476,7 +487,7 @@ Execute a etapa 5.1 (estado `aguardando_cpf`), depois envie qualquer palavra-cha
 
 Palavras aceitas (case-insensitive, com ou sem acento): `menu` · `sair` · `voltar` · `cancelar` · `inicio` / `início`
 
-**Resposta no WhatsApp:** menu principal com 2 botões.
+**Resposta no WhatsApp:** menu principal com 1 botão.
 
 **Estado no Redis:** limpo (`nil`).
 
@@ -558,8 +569,8 @@ O bot detecta que é um botão de menu (`MENU_BUTTON`), limpa o estado e reinici
   "interactive": {
     "type": "button_reply",
     "button_reply": {
-      "id": "assusa-falar-atendente",
-      "title": "Falar com atendente"
+      "id": "assusa-horario-funcionamento",
+      "title": "Horário atendimento"
     }
   }
 }]
@@ -567,7 +578,7 @@ O bot detecta que é um botão de menu (`MENU_BUTTON`), limpa o estado e reinici
 
 O bot detecta o botão de menu, limpa estado e boletos do Redis, e processa normalmente.
 
-**Resposta no WhatsApp:** `"Nossos atendentes estão disponíveis..."`
+**Resposta no WhatsApp:** `"Nosso atendimento funciona de segunda a sexta..."`
 
 **Estado no Redis:** `nil`. Boletos no Redis: `nil`.
 
@@ -589,7 +600,7 @@ O bot detecta o botão de menu, limpa estado e boletos do Redis, e processa norm
 
 Qualquer `type` diferente de `text` e `interactive` é tratado como desconhecido. Sem estado ativo → menu principal.
 
-**Resposta no WhatsApp:** menu principal com 2 botões.
+**Resposta no WhatsApp:** menu principal com 1 botão.
 
 > **Atenção:** se o usuário estiver em `aguardando_cpf` e mandar áudio, o bot trata como CPF inválido (`text = undefined` → `cpfDigits = ""`).
 
@@ -642,8 +653,8 @@ O pre-request script do Postman calcula as datas automaticamente (hoje − 30 di
 
 ```json
 {
-  "numeroCliente": 1964895,
-  "numeroCpfCnpj": "{{CPF-TESTE-MAURI}}",
+  "numeroCliente": "{{SICOOB_NUMERO_CLIENTE}}",
+  "numeroCpfCnpj": "{{CPF_TESTE}}",
   "dataInicio": "{{DATA_INICIO}}",
   "dataFim": "{{DATA_FIM}}"
 }
@@ -653,9 +664,16 @@ O pre-request script do Postman calcula as datas automaticamente (hoje − 30 di
 > Períodos maiores retornam erro `5002 — "O período informado não pode ser maior que 35 dias"`.
 >
 > Este endpoint Python atende **1 janela por vez**. Quem orquestra a busca em múltiplas
-> janelas é o Node (`services/sicoobClient.js`): ele dispara **6 chamadas paralelas de
-> 30 dias cada** (configurável via `SICOOB_NUM_JANELAS`), cobrindo 6 meses de histórico.
+> janelas é o Node (`services/sicoobClient.js` → `montarJanelas`): ele dispara **6 chamadas
+> paralelas de 35 dias cada**, cobrindo de **180 dias atrás até 35 dias à frente**.
+> Configurável por `SICOOB_NUM_JANELAS`, `SICOOB_DIAS_POR_JANELA` e `SICOOB_DIAS_FUTURO`.
 > Use datas dentro de 35 dias ao chamar esta rota diretamente.
+>
+> **Por que olhar para o futuro:** `dataInicio`/`dataFim` filtram por **data de
+> vencimento**, e `codigoSituacao=1` ("Em Aberto") é o *status* do boleto — os dois
+> filtros são independentes. Um boleto registrado hoje que vence daqui a duas semanas
+> já está em aberto; sem a janela futura ele ficaria fora do recorte de datas e o
+> cliente ouviria que não tem contas em aberto.
 
 ---
 
@@ -665,8 +683,8 @@ O pre-request script do Postman calcula as datas automaticamente (hoje − 30 di
 
 ```json
 {
-  "numeroCliente": 1964895,
-  "numeroCpfCnpj": "{{CPF-TESTE-MAURI}}",
+  "numeroCliente": "{{SICOOB_NUMERO_CLIENTE}}",
+  "numeroCpfCnpj": "{{CPF_TESTE}}",
   "dataInicio": "2024-05-27",
   "dataFim": "2026-05-27"
 }
@@ -684,7 +702,7 @@ Confirma que o limite está ativo em produção (o sandbox não aplica esse limi
 
 ```json
 {
-  "numeroCliente": 1964895,
+  "numeroCliente": "{{SICOOB_NUMERO_CLIENTE}}",
   "codigoModalidade": 1,
   "nossoNumero": "3861"
 }
@@ -701,9 +719,9 @@ Também aceita `linhaDigitavel` ou `codigoBarras` no lugar de `nossoNumero`
 
 ```json
 {
-  "numeroCliente": 1964895,
+  "numeroCliente": "{{SICOOB_NUMERO_CLIENTE}}",
   "codigoModalidade": 1,
-  "linhaDigitavel": "75691311750119648950200038610044714520000036907"
+  "linhaDigitavel": "{{LINHA_DIGITAVEL_TESTE}}"
 }
 ```
 
@@ -718,7 +736,7 @@ Também aceita `linhaDigitavel` ou `codigoBarras` no lugar de `nossoNumero`
 
 | Query param | Valor |
 |---|---|
-| `numeroCliente` | `1964895` |
+| `numeroCliente` | `{{SICOOB_NUMERO_CLIENTE}}` |
 | `codigoModalidade` | `1` |
 | `quantidade` | `10` |
 
@@ -774,12 +792,14 @@ Query params (todos opcionais):
 |---|---|
 | `MENU_EXIBIDO` | Mensagem desconhecida → menu enviado |
 | `SEGUNDA_VIA_INICIADA` | Usuário clicou em 2ª via |
-| `ATENDENTE_SOLICITADO` | Usuário clicou em falar com atendente |
 | `HORARIO_CONSULTADO` | Usuário clicou em horário (botão legado) |
 | `CPF_INVALIDO` | CPF com formato ou dígitos verificadores inválidos |
-| `NENHUM_BOLETO` | Sicoob retornou lista vazia |
-| `BOLETOS_LISTADOS` | Boletos exibidos como botões |
-| `BOLETO_SELECIONADO` | Usuário clicou em um boleto |
+| `NENHUM_BOLETO` | Sem contas em aberto e o histórico não pôde ser consultado |
+| `CLIENTE_EM_DIA` | Sem contas em aberto, mas há histórico — o cliente está em dia |
+| `CPF_NAO_ENCONTRADO` | Nenhum registro para o CPF — não é cliente |
+| `BOLETOS_LISTADOS` | Contas exibidas (botões ou lista interativa) |
+| `SELECAO_FALLBACK_TEXTO` | A Meta recusou a mensagem interativa; lista enviada como texto |
+| `BOLETO_SELECIONADO` | Usuário escolheu uma conta (botão, lista ou número digitado) |
 | `PDF_ENTREGUE` | PDF enviado com sucesso |
 | `ERRO_SERVICO` | Falha na chamada ao Python/Sicoob |
 | `FLUXO_CANCELADO` | Usuário digitou palavra-chave de saída |
@@ -832,7 +852,7 @@ sicoob-1 | INFO: 172.x.x.x - "POST /internal/boleto/listar HTTP/1.1" 200 OK
 | `401` no Python | `INTERNAL_API_KEY` diverge entre `.env` e o header do Postman |
 | `503` no Python | `SICOOB_SANDBOX=false` sem certificado configurado |
 | Erro `5002 "período maior que 35 dias"` | Reduzir o intervalo entre `dataInicio` e `dataFim` |
-| Erro `5002 "número do contrato"` | `numeroCliente` errado — usar `1964895`, não `1106591` |
+| Erro `5002 "número do contrato"` | `numeroCliente` errado — use o valor de `SICOOB_NUMERO_CLIENTE` do `.env`, e não o número da conta corrente |
 | Sandbox retorna sempre o mesmo boleto | Comportamento esperado — o sandbox do Sicoob é mock estático |
 | Estado não persiste entre requests | Redis fora do ar — verificar `docker compose ps` |
 | `GET /interno/interacoes` retorna `[]` | `DATABASE_URL` errado ou PostgreSQL não subiu |

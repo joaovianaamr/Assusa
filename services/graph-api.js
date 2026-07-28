@@ -76,6 +76,51 @@ module.exports = class GraphApi {
     return this.#makeApiCall(messageId, senderPhoneNumberId, requestBody);
   }
 
+  /**
+   * Lista interativa — usada quando há mais contas do que os 3 botões que a
+   * Meta permite. Abre um menu rolável com até 10 linhas.
+   *
+   * @param {string} buttonText rótulo do botão que abre a lista (≤ 20 chars)
+   * @param {string} sectionTitle título da seção dentro da lista (≤ 24 chars)
+   * @param {{id:string,title:string,description?:string}[]} rows ≤ 10 linhas
+   */
+  static async messageWithInteractiveList(
+    messageId,
+    senderPhoneNumberId,
+    recipientPhoneNumber,
+    messageText,
+    buttonText,
+    sectionTitle,
+    rows
+  ) {
+    const requestBody = {
+      messaging_product: "whatsapp",
+      to: recipientPhoneNumber,
+      type: "interactive",
+      interactive: {
+        type: "list",
+        body: {
+          text: messageText
+        },
+        action: {
+          button: buttonText,
+          sections: [
+            {
+              title: sectionTitle,
+              rows: rows.map(row => ({
+                id: row.id,
+                title: row.title,
+                ...(row.description ? { description: row.description } : {})
+              }))
+            }
+          ]
+        }
+      }
+    };
+
+    return this.#makeApiCall(messageId, senderPhoneNumberId, requestBody);
+  }
+
   static async messageWithText(messageId, senderPhoneNumberId, recipientPhoneNumber, text) {
     const requestBody = {
       messaging_product: "whatsapp",

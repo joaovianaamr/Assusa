@@ -15,28 +15,9 @@ const Status = require('./status');
 const Cache = require('./redis');
 const sicoobClient = require('./sicoobClient');
 const interacao = require('./interacaoClient');
-const mailer = require('./mailer');
+const view = require('./boletoView');
 
-
-function formatarData(iso) {
-  if (!iso || typeof iso !== "string") return "—";
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
-}
-
-function formatarDataCurta(iso) {
-  if (!iso || typeof iso !== "string") return "—";
-  const [, m, d] = iso.split("-");
-  return `${d}/${m}`;
-}
-
-function formatarBRL(valor) {
-  if (valor === null || valor === undefined || isNaN(valor)) return "—";
-  return Number(valor).toLocaleString("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-}
+const { formatarData, formatarBRL } = view;
 
 function sendMenuPrincipal(
   messageId,
@@ -53,10 +34,6 @@ function sendMenuPrincipal(
       {
         id: constants.REPLY_SEGUNDA_VIA_ID,
         title: constants.REPLY_SEGUNDA_VIA_CTA,
-      },
-      {
-        id: constants.REPLY_FALAR_ATENDENTE_ID,
-        title: constants.REPLY_FALAR_ATENDENTE_CTA,
       },
     ]
   );
@@ -103,7 +80,7 @@ async function handleCpfRecebido(senderPhoneNumberId, message) {
       message.id,
       senderPhoneNumberId,
       message.senderPhoneNumber,
-      constants.MSG_SEGUNDA_VIA_ERRO
+      constants.MSG_CPF_INVALIDO
     );
     return;
   }
@@ -155,31 +132,81 @@ async function handleCpfRecebido(senderPhoneNumberId, message) {
 
   if (!boletos.length) {
     console.warn('[listarBoletos] resposta vazia da API Sicoob:', JSON.stringify(resultData));
-    interacao.registrar(message.senderPhoneNumber, "NENHUM_BOLETO", cpfDigits);
-    await GraphApi.messageWithText(
-      message.id,
-      senderPhoneNumberId,
-      message.senderPhoneNumber,
-      constants.MSG_NENHUM_BOLETO
-    );
+    await responderSemBoletosEmAberto(senderPhoneNumberId, message, cpfDigits);
     await Cache.clearEstado(message.senderPhoneNumber);
     return;
   }
 
-  // Ordena pela data de vencimento original (string ISO ordena cronologicamente)
-  // do mais antigo para o mais recente e limita a 3.
+  await apresentarBoletos(senderPhoneNumberId, message, cpfDigits, boletos);
+}
+
+/**
+ * A busca por contas EM ABERTO voltou vazia. Isso acontece em dois casos muito
+ * diferentes para o cliente — ele está em dia, ou o CPF não é do titular — e a
+ * consulta filtrada não os distingue. Refazemos sem o filtro de situação: se
+ * houver qualquer boleto no histórico, o CPF é de cliente.
+ *
+ * Se essa segunda consulta falhar, usamos o texto genérico: nunca afirmamos
+ * "esse CPF não existe" com base em uma consulta que caiu.
+ */
+async function responderSemBoletosEmAberto(senderPhoneNumberId, message, cpfDigits) {
+  let mensagem = constants.MSG_NENHUM_BOLETO;
+  let evento = "NENHUM_BOLETO";
+
+  try {
+    const historico = await sicoobClient.listarBoletos({
+      numeroCpfCnpj: cpfDigits,
+      codigoSituacao: null,
+    });
+    const dados = historico.body?.result;
+    const falhou =
+      dados?.error || (dados?.status_code != null && dados.status_code >= 400);
+
+    if (!falhou) {
+      const raw = dados?.response;
+      const lista = Array.isArray(raw) ? raw
+        : Array.isArray(raw?.resultado) ? raw.resultado
+        : [];
+      if (lista.length) {
+        mensagem = constants.MSG_CLIENTE_EM_DIA.replace("{CPF}", view.mascararCpf(cpfDigits));
+        evento = "CLIENTE_EM_DIA";
+      } else {
+        mensagem = constants.MSG_CPF_NAO_ENCONTRADO;
+        evento = "CPF_NAO_ENCONTRADO";
+      }
+    }
+  } catch (e) {
+    console.warn('[historico] consulta sem filtro de situação falhou:', e?.message || e);
+  }
+
+  interacao.registrar(message.senderPhoneNumber, evento, cpfDigits);
+  await GraphApi.messageWithText(
+    message.id,
+    senderPhoneNumberId,
+    message.senderPhoneNumber,
+    mensagem
+  );
+}
+
+/**
+ * Ordena da conta mais antiga para a mais recente, corta no teto exibível,
+ * atualiza os valores e entrega em botões (até 3 contas) ou lista interativa
+ * (4 ou mais) — o limite de 3 é da mensagem de botões da Meta, não do negócio.
+ */
+async function apresentarBoletos(senderPhoneNumberId, message, cpfDigits, boletos) {
   const ordenados = [...boletos].sort(
     (a, b) => String(a.dataVencimento).localeCompare(String(b.dataVencimento))
   );
-  const exibir = ordenados.slice(0, 3);
+  const exibir = ordenados.slice(0, view.MAX_BOLETOS_EXIBIDOS);
 
-  // Avisa se há mais de 3
-  if (boletos.length > 3) {
+  if (boletos.length > exibir.length) {
     await GraphApi.messageWithText(
       message.id,
       senderPhoneNumberId,
       message.senderPhoneNumber,
-      constants.MSG_AVISO_MUITOS_BOLETOS.replace("{TOTAL}", boletos.length)
+      constants.MSG_AVISO_MUITOS_BOLETOS
+        .replace("{TOTAL}", boletos.length)
+        .replace("{EXIBIDOS}", exibir.length)
     );
   }
 
@@ -189,32 +216,78 @@ async function handleCpfRecebido(senderPhoneNumberId, message) {
   const enriquecidos = await enriquecerBoletos(exibir);
 
   interacao.registrar(message.senderPhoneNumber, "BOLETOS_LISTADOS", cpfDigits, { total: boletos.length, exibidos: enriquecidos.length });
-  await Cache.setBoletos(message.senderPhoneNumber, enriquecidos);
-  await Cache.setEstado(message.senderPhoneNumber, "aguardando_selecao_boleto");
 
   // Distinguimos cada conta pelo vencimento ORIGINAL (único diferenciador entre
-  // boletos), mostrando o valor já atualizado para pagamento hoje.
-  const lista = enriquecidos.map((b, i) =>
-    constants.MSG_SELECIONAR_BOLETO_ITEM
-      .replace("{N}", i + 1)
-      .replace("{DATA}", formatarData(b.dataVencimentoOriginal))
-      .replace("{VALOR}", formatarBRL(b.valorPagar))
-  ).join("\n");
+  // boletos), mostrando o valor já atualizado para pagamento hoje. O corpo
+  // enumerado vai em todos os formatos: assim o cliente lê todas as contas sem
+  // precisar abrir o menu da lista.
+  const usarLista = view.deveUsarLista(enriquecidos.length);
 
-  const botoes = enriquecidos.map((b, i) => ({
-    id: `${constants.REPLY_BOLETO_PREFIX}${i}`,
-    title: `${i + 1} - Conta ${formatarDataCurta(b.dataVencimentoOriginal)}`
-  }));
-
-  await GraphApi.messageWithInteractiveReply(
-    message.id,
-    senderPhoneNumberId,
-    message.senderPhoneNumber,
-    constants.MSG_SELECIONAR_BOLETO
-      .replace("{TOTAL}", enriquecidos.length)
-      .replace("{LISTA}", lista),
-    botoes
+  // O estado só é gravado depois que o cliente REALMENTE recebeu a lista — caso
+  // contrário uma recusa da Meta o deixaria preso em aguardando_selecao_boleto
+  // sem nunca ter visto as opções.
+  const enviou = await enviarSelecaoBoletos(
+    senderPhoneNumberId, message, enriquecidos, usarLista
   );
+  if (!enviou) {
+    await Cache.clearEstado(message.senderPhoneNumber);
+    await Cache.clearBoletos(message.senderPhoneNumber);
+    return;
+  }
+
+  await Cache.setBoletos(message.senderPhoneNumber, enriquecidos);
+  await Cache.setEstado(message.senderPhoneNumber, "aguardando_selecao_boleto");
+}
+
+/**
+ * Envia a lista de contas, com queda em cascata: interativo → texto simples.
+ *
+ * A Meta recusa a mensagem inteira (HTTP 400) por detalhes de formato — título
+ * acima do limite, corpo grande, payload malformado. Sem esta rede, o cliente
+ * recebia "Aguarde, estou consultando..." e depois silêncio. No fallback ele
+ * escolhe respondendo o número da conta (ver `view.resolverIndiceSelecao`).
+ *
+ * @returns {Promise<boolean>} true se alguma das formas chegou ao cliente.
+ */
+async function enviarSelecaoBoletos(senderPhoneNumberId, message, boletos, usarLista) {
+  const recipient = message.senderPhoneNumber;
+
+  try {
+    const corpo = view.montarCorpoSelecao(
+      usarLista ? constants.MSG_SELECIONAR_BOLETO_LISTA : constants.MSG_SELECIONAR_BOLETO,
+      boletos
+    );
+
+    if (usarLista) {
+      await GraphApi.messageWithInteractiveList(
+        message.id, senderPhoneNumberId, recipient, corpo,
+        constants.MSG_LISTA_BOTAO, constants.MSG_LISTA_SECAO,
+        view.montarRowsLista(boletos)
+      );
+    } else {
+      await GraphApi.messageWithInteractiveReply(
+        message.id, senderPhoneNumberId, recipient, corpo,
+        view.montarBotoesBoletos(boletos)
+      );
+    }
+    return true;
+  } catch (e) {
+    console.error('[selecao] envio interativo falhou, caindo para texto:', e?.message || e);
+  }
+
+  try {
+    await GraphApi.messageWithText(
+      message.id,
+      senderPhoneNumberId,
+      recipient,
+      view.montarCorpoSelecao(constants.MSG_SELECIONAR_BOLETO_TEXTO, boletos)
+    );
+    interacao.registrar(recipient, "SELECAO_FALLBACK_TEXTO", null, { exibidos: boletos.length });
+    return true;
+  } catch (e) {
+    console.error('[selecao] fallback em texto também falhou:', e?.message || e);
+    return false;
+  }
 }
 
 /**
@@ -257,13 +330,12 @@ async function enriquecerBoletos(boletos) {
 }
 
 async function handleSelecaoBoleto(senderPhoneNumberId, message) {
-  const idx = parseInt(
-    message.type.replace(constants.REPLY_BOLETO_PREFIX, ""),
-    10
-  );
   const boletos = await Cache.getBoletos(message.senderPhoneNumber);
+  // Aceita clique de botão, toque em item de lista e número digitado.
+  const idx = boletos ? view.resolverIndiceSelecao(message, boletos.length) : null;
 
-  if (!boletos || isNaN(idx) || !boletos[idx]) {
+  // Cache expirado ou perdido: não há mais o que escolher, volta ao início.
+  if (!boletos || !boletos.length) {
     await GraphApi.messageWithText(
       message.id,
       senderPhoneNumberId,
@@ -272,6 +344,20 @@ async function handleSelecaoBoleto(senderPhoneNumberId, message) {
     );
     await Cache.clearEstado(message.senderPhoneNumber);
     await Cache.clearBoletos(message.senderPhoneNumber);
+    return;
+  }
+
+  // A lista existe, mas não deu para entender a resposta (texto solto, número
+  // fora do intervalo). Pede de novo em vez de fingir falha de sistema, e
+  // mantém a sessão viva para o cliente tentar outra vez.
+  if (idx === null || !boletos[idx]) {
+    await GraphApi.messageWithText(
+      message.id,
+      senderPhoneNumberId,
+      message.senderPhoneNumber,
+      constants.MSG_SELECAO_NAO_ENTENDIDA.replace("{TOTAL}", boletos.length)
+    );
+    await refrescarSessaoBoletos(message.senderPhoneNumber, boletos);
     return;
   }
 
@@ -363,7 +449,6 @@ module.exports = class Conversation {
 
     const MENU_BUTTONS = [
       constants.REPLY_SEGUNDA_VIA_ID,
-      constants.REPLY_FALAR_ATENDENTE_ID,
       constants.REPLY_HORARIO_ID,
     ];
 
@@ -410,16 +495,6 @@ module.exports = class Conversation {
           message.senderPhoneNumber
         );
         break;
-      case constants.REPLY_FALAR_ATENDENTE_ID:
-        interacao.registrar(message.senderPhoneNumber, "ATENDENTE_SOLICITADO");
-        mailer.notificarAtendente({ telefone: message.senderPhoneNumber });
-        await GraphApi.messageWithText(
-          message.id,
-          senderPhoneNumberId,
-          message.senderPhoneNumber,
-          constants.MSG_REDIRECIONAMENTO_ATENDENTE
-        );
-        break;
       case constants.REPLY_HORARIO_ID:
         interacao.registrar(message.senderPhoneNumber, "HORARIO_CONSULTADO");
         await GraphApi.messageWithText(
@@ -439,6 +514,22 @@ module.exports = class Conversation {
         );
         break;
     }
+  }
+
+  /**
+   * Avisa o cliente quando `handleMessage` estourou de um jeito não previsto.
+   * Chamado pelo `.catch` do webhook em `app.js` — o cliente não pode ficar
+   * esperando uma resposta que nunca vem.
+   */
+  static async avisarFalhaInesperada(senderPhoneNumberId, rawMessage) {
+    const recipient = rawMessage?.from;
+    if (!recipient) return;
+    await GraphApi.messageWithText(
+      undefined,
+      senderPhoneNumberId,
+      recipient,
+      constants.MSG_ERRO_INESPERADO
+    );
   }
 
   static async handleStatus(senderPhoneNumberId, rawStatus) {

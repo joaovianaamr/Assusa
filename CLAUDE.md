@@ -14,7 +14,8 @@ O Node fala com o Python por HTTP interno (`SICOOB_SERVICE_URL` + header `X-Inte
 - `app.js` — rotas: `GET/POST /webhook`, `GET /`, `/privacy`, `/data-deletion`. Exporta `createApp()`
   para os testes; só sobe o servidor quando `require.main === module`.
 - `services/` — toda a lógica: `conversation.js` (máquina de estados), `graph-api.js` (envio),
-  `redis.js` (estado), `sicoobClient.js` (→ Python), `config.js`, `constants.js`, `mailer.js`.
+  `redis.js` (estado), `sicoobClient.js` (→ Python), `boletoView.js` (formatação e montagem
+  das listagens, puro), `message.js` (parse do payload), `config.js`, `constants.js`.
 - `python/sicoob_service/src/sicoob_service/` — `app.py` (rotas `/internal/*`, `/health`),
   `banking_v3.py`, `token_v3.py`, `certificate_tools.py`.
 
@@ -53,7 +54,30 @@ Docker; se passar, `deploy.yml` dispara `scripts/deploy.sh` na VPS (pull, rebuil
 Três defesas dependem disso e devem ser preservadas: `app.js` faz esse `require` *dentro* do
 handler do POST; `test/webhook.test.js` cobre só casos que não disparam a cadeia; e
 `test/cpf.test.js` lê `conversation.js` como **texto-fonte** (`readFileSync`) em vez de dar
-`require`. Resultado: `npm test` passa sem Redis instalado (verificado — 18/18).
+`require`. Resultado: `npm test` passa sem Redis instalado (verificado — 51/51).
+Os testes que exercitam o fluxo mockam `Cache` com `t.mock.method` antes de chamar
+`Conversation.handleMessage`; lógica nova que dê para isolar deve ir para `boletoView.js`,
+que é puro e pode ser testado com `require` direto.
+
+**Mensagem de botões da Meta aceita no máximo 3 botões; lista interativa, 10 linhas.**
+Por isso a listagem de contas bifurca em `apresentarBoletos` (`≤ 3` → botões, `≥ 4` → lista) e
+o teto de contas exibidas é 10. Toda resposta interativa é normalizada em `services/message.js`,
+que lê `button_reply` **e** `list_reply` — clique de botão e toque em item chegam com o mesmo
+id `boleto-N`. Ler só `button_reply` derruba o handler do webhook com `TypeError`.
+
+**A busca de boletos filtra por data de VENCIMENTO, não por "está em aberto hoje".**
+`codigoSituacao=1` (Em Aberto) e `dataInicio`/`dataFim` são filtros independentes: um boleto
+registrado agora com vencimento em duas semanas já está em aberto, mas fica fora do recorte se
+a janela terminar em `hoje`. Por isso `montarJanelas` (`services/sicoobClient.js`) começa em
+`hoje + SICOOB_DIAS_FUTURO`. As janelas precisam ser contíguas e nunca passar de 35 dias — o
+Sicoob recusa com `5002`. `test/janelasBusca.test.js` trava as três coisas.
+
+**A Meta recusa a mensagem interativa inteira (400) por detalhe de formato.** Três defesas
+dependem disso e devem ser preservadas: `enviarSelecaoBoletos` cai para texto simples pedindo o
+número da conta; o estado `aguardando_selecao_boleto` só é gravado **depois** do envio bem-sucedido
+(gravar antes prende o cliente num estado cuja mensagem ele nunca viu); e `view.resolverIndiceSelecao`
+aceita botão, item de lista e número digitado, então o fallback é utilizável. O `.catch` do webhook
+em `app.js` chama `Conversation.avisarFalhaInesperada` — sem isso, erro no fluxo vira silêncio.
 
 **`config.checkEnvVariables()` só emite `console.warn`.** Variável faltando não impede o boot —
 o serviço sobe quebrado silenciosamente. Verifique os logs de arranque.

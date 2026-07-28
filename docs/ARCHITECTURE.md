@@ -3,7 +3,7 @@
 > Índice de toda a documentação: [docs/README.md](README.md). Para o contexto de negócio
 > (o que é a ASSUSA, glossário do domínio) em vez de mapa de arquivos, ver [project-context.md](project-context.md).
 
-Este repositório tem **dois processos** independentes: o **servidor Node (Express + WhatsApp)** na raiz e o **microsserviço FastAPI (Sicoob)** em [`python/sicoob_service/`](../python/sicoob_service/). O Node só **consulta** o Python no arranque (`checkPythonHealth`); a função [`segundaViaBoleto`](../services/sicoobClient.js) está pronta para integração futura mas **não** entra no fluxo atual de mensagens.
+Este repositório tem **dois processos** independentes: o **servidor Node (Express + WhatsApp)** na raiz e o **microsserviço FastAPI (Sicoob)** em [`python/sicoob_service/`](../python/sicoob_service/). O Node consulta o Python no arranque (`checkPythonHealth`) e durante a conversa: [`listarBoletos`](../services/sicoobClient.js) e [`segundaViaBoleto`](../services/sicoobClient.js) integram o fluxo de mensagens.
 
 ---
 
@@ -17,6 +17,7 @@ mindmap
       app.js
       .env.sample
     services
+      boletoView.js
       config.js
       constants.js
       conversation.js
@@ -51,7 +52,8 @@ mindmap
 **Papel de cada pasta**
 
 - **Raiz**: ponto de entrada Node ([`app.js`](../app.js)), dependências ([`package.json`](../package.json)), variáveis de exemplo ([`.env.sample`](../.env.sample)).
-- **[`services/`](../services/)**: toda a lógica do webhook WhatsApp (conversa, Graph API, Redis, config) e cliente HTTP para o Python.
+- **[`services/`](../services/)**: toda a lógica do webhook WhatsApp (conversa, Graph API, Redis, config), a camada de
+  apresentação das listagens ([`boletoView.js`](../services/boletoView.js), pura e testável) e o cliente HTTP para o Python.
 - **[`python/sicoob_service/`](../python/sicoob_service/)**: API interna Sicoob (uvicorn/FastAPI), certificados, testes.
 - **[`docs/`](.)**: contexto e contratos (não faz parte do runtime do servidor).
 - **[`.github/workflows/`](../.github/workflows/) + [`scripts/deploy.sh`](../scripts/deploy.sh)**: CI/CD — testa e deploya sozinho todo push em `main`. Fluxo completo em [deploy.md](deploy.md).
@@ -137,16 +139,22 @@ flowchart LR
 
 **[`GraphApi`](../services/graph-api.js)** (métodos estáticos; chamada real via `#makeApiCall` privado)
 
-- `messageWithInteractiveReply`, `messageWithUtilityTemplate`, `messageWithLimitedTimeOfferTemplate`, `messageWithMediaCardCarousel`.
+- `messageWithText`, `messageWithInteractiveReply` (até 3 botões), `messageWithInteractiveList` (até 10 linhas),
+  `messageWithDocument`, `uploadMedia`, e os de template herdados do sample: `messageWithUtilityTemplate`,
+  `messageWithLimitedTimeOfferTemplate`, `messageWithMediaCardCarousel`.
 
 **Modelos**
 
-- [`Message` constructor](../services/message.js) — extrai `id`, `type` (de `interactive.button_reply.id` ou `'unknown'`), `from`.
+- [`Message` constructor](../services/message.js) — extrai `id`, `type` (de `interactive.button_reply.id` **ou** `interactive.list_reply.id`, senão `'unknown'`), `text`, `from`.
 - [`Status` constructor](../services/status.js) — `id`, `status`, `recipient_id`.
 
 **Cliente Sicoob (Node)**
 
-- [`baseUrl`](../services/sicoobClient.js), [`internalHeaders`](../services/sicoobClient.js), [`checkPythonHealth`](../services/sicoobClient.js), [`segundaViaBoleto`](../services/sicoobClient.js) — esta última alinha com `POST /internal/boleto/segunda-via` no Python.
+- [`baseUrl`](../services/sicoobClient.js), [`internalHeaders`](../services/sicoobClient.js), [`checkPythonHealth`](../services/sicoobClient.js).
+- [`listarBoletos`](../services/sicoobClient.js) → `POST /internal/boleto/listar`, disparado em janelas paralelas por
+  [`montarJanelas`](../services/sicoobClient.js) (a API filtra por data de **vencimento** e recusa intervalos > 35 dias).
+- [`segundaViaBoleto`](../services/sicoobClient.js) → `POST /internal/boleto/segunda-via`, usado tanto para atualizar o
+  valor de cada conta listada quanto para gerar o PDF entregue.
 
 ---
 

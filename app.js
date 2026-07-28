@@ -119,9 +119,14 @@ function createApp() {
 
             if (value.messages) {
               value.messages.forEach(rawMessage => {
-                Conversation.handleMessage(senderPhoneNumberId, rawMessage).catch(err =>
-                  console.error('handleMessage error:', err?.message)
-                );
+                Conversation.handleMessage(senderPhoneNumberId, rawMessage).catch(err => {
+                  console.error('handleMessage error:', err?.message);
+                  // Última rede: sem isto o cliente fica no silêncio absoluto.
+                  // O envio pode falhar junto (se o problema for a própria Graph
+                  // API) — nesse caso só resta o log.
+                  Conversation.avisarFalhaInesperada(senderPhoneNumberId, rawMessage)
+                    .catch(e => console.error('aviso de falha não enviado:', e?.message));
+                });
               });
             }
           }
