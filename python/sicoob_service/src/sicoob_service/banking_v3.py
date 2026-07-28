@@ -5,6 +5,7 @@ PIX e movimentação v2 não estão no MVP.
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import ssl
@@ -29,6 +30,49 @@ def _loads_maybe(text: str) -> Any:
         return json.loads(text)
     except json.JSONDecodeError:
         return text
+
+
+def _exigir(params: dict[str, Any], *obrigatorios: str) -> dict[str, str] | None:
+    """Devolve o erro se faltar algum campo, ou None se estiver tudo lá.
+
+    Antes cada método repetia um `if not params.get(x): return {"error": ...}`
+    por campo — 31 no total. Além do volume, isso revelava UM campo faltante por
+    chamada: o cliente corrigia, chamava de novo e descobria o próximo. Aqui
+    todos vêm juntos.
+    """
+    faltando = [c for c in obrigatorios if not params.get(c)]
+    if not faltando:
+        return None
+    return {"error": f"Campo(s) obrigatório(s) ausente(s): {', '.join(faltando)}"}
+
+
+def _chamada_sicoob(operacao: str) -> Any:
+    """Padroniza o tratamento de erro de uma chamada à API do Sicoob.
+
+    Eram 13 blocos try/except copiados, e a cópia escondia um bug: baixa_boleto,
+    listar_boleto e consultar_webhook devolviam "Falha ao consultar Boleto
+    Cobranca" — mensagem herdada de consultar_boleto. Quem falhava ao dar baixa
+    lia que a *consulta* falhou.
+
+    Com a mensagem derivada de `operacao`, herdar o texto de outro método deixa
+    de ser possível.
+    """
+    def decorator(fn: Any) -> Any:
+        @functools.wraps(fn)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            try:
+                return fn(*args, **kwargs)
+            except httpx.HTTPStatusError as exc:
+                logger.warning("Sicoob API error ao %s: %s", operacao, exc)
+                parsed = _loads_maybe(exc.response.text)
+                if not parsed:
+                    return {"status_code": exc.response.status_code, "body": exc.response.text}
+                return parsed
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Falha ao %s: %s", operacao, exc)
+                return {"error": f"Falha ao {operacao}: {exc}"}
+        return wrapper
+    return decorator
 
 
 class BankingSicoobV3:
@@ -94,33 +138,22 @@ class BankingSicoobV3:
             time.sleep(delay)
         raise AssertionError("unreachable")
 
+    @_chamada_sicoob("registrar o boleto")
     def registrar_boleto(self, fields: dict[str, Any]) -> Any:
         path = self._path("/cobranca-bancaria/v3/boletos")
-        try:
-            r = self._execute(
-                self._client.post,
-                path,
-                headers=self._headers_json(),
-                content=json.dumps(fields),
-            )
-            result = _loads_maybe(r.text)
-            return {"status": r.status_code, "response": result}
-        except httpx.HTTPStatusError as exc:
-            logger.warning("Sicoob API error: %s", exc)
-            parsed = _loads_maybe(exc.response.text)
-            if not parsed:
-                return {"status_code": exc.response.status_code, "body": exc.response.text}
-            return parsed
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Sicoob API error: %s", exc)
-            return {"error": str(exc)}
-
+        r = self._execute(
+            self._client.post,
+            path,
+            headers=self._headers_json(),
+            content=json.dumps(fields),
+        )
+        result = _loads_maybe(r.text)
+        return {"status": r.status_code, "response": result}
+    @_chamada_sicoob("emitir a segunda via")
     def segunda_via_boleto(self, params: dict[str, Any] | None = None) -> Any:
         params = params or {}
-        if not params.get("numeroCliente"):
-            return {"error": "numeroCliente é obrigatório"}
-        if not params.get("codigoModalidade"):
-            return {"error": "codigoModalidade é obrigatório"}
+        if erro := _exigir(params, "numeroCliente", "codigoModalidade"):
+            return erro
 
         identificadores = ("nossoNumero", "linhaDigitavel", "codigoBarras")
         if not any(params.get(k) for k in identificadores):
@@ -138,30 +171,18 @@ class BankingSicoobV3:
             query["linhaDigitavel"] = params["linhaDigitavel"]
         if params.get("codigoBarras"):
             query["codigoBarras"] = params["codigoBarras"]
-        try:
-            r = self._execute(
-                self._client.get,
-                path,
-                headers={**self._headers_json(), "Accept": "application/json"},
-                params=query,
-            )
-            response_body = _loads_maybe(r.text)
-            return {"status": r.status_code, "response": response_body}
-        except httpx.HTTPStatusError as exc:
-            logger.warning("Sicoob API error: %s", exc)
-            parsed = _loads_maybe(exc.response.text)
-            if not parsed:
-                return {"status_code": exc.response.status_code, "body": exc.response.text}
-            return parsed
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Sicoob API error: %s", exc)
-            return {"error": str(exc)}
-
+        r = self._execute(
+            self._client.get,
+            path,
+            headers={**self._headers_json(), "Accept": "application/json"},
+            params=query,
+        )
+        response_body = _loads_maybe(r.text)
+        return {"status": r.status_code, "response": response_body}
+    @_chamada_sicoob("consultar o boleto")
     def consultar_boleto(self, params: dict[str, Any]) -> Any:
-        if not params.get("numeroCliente"):
-            return {"error": "numeroCliente é obrigatório"}
-        if not params.get("codigoModalidade"):
-            return {"error": "codigoModalidade é obrigatório"}
+        if erro := _exigir(params, "numeroCliente", "codigoModalidade"):
+            return erro
         identificadores = ("nossoNumero", "linhaDigitavel", "codigoBarras")
         if not any(params.get(k) for k in identificadores):
             return {"error": "Informe pelo menos um: nossoNumero, linhaDigitavel ou codigoBarras"}
@@ -177,61 +198,33 @@ class BankingSicoobV3:
             query["codigoBarras"] = params["codigoBarras"]
         if params.get("numeroContratoCobranca"):
             query["numeroContratoCobranca"] = int(params["numeroContratoCobranca"])
-        try:
-            r = self._execute(
-                self._client.get,
-                self._path("/cobranca-bancaria/v3/boletos"),
-                headers={**self._headers_json(), "Accept": "application/json"},
-                params=query,
-            )
-            result = _loads_maybe(r.text)
-            return {"status": r.status_code, "response": result}
-        except httpx.HTTPStatusError as exc:
-            logger.warning("Sicoob API error: %s", exc)
-            parsed = _loads_maybe(exc.response.text)
-            if not parsed:
-                return {"status_code": exc.response.status_code, "body": exc.response.text}
-            return parsed
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Sicoob API error: %s", exc)
-            return {"error": f"Falha ao consultar Boleto Cobranca: {exc}"}
-
+        r = self._execute(
+            self._client.get,
+            self._path("/cobranca-bancaria/v3/boletos"),
+            headers={**self._headers_json(), "Accept": "application/json"},
+            params=query,
+        )
+        result = _loads_maybe(r.text)
+        return {"status": r.status_code, "response": result}
+    @_chamada_sicoob("dar baixa no boleto")
     def baixa_boleto(self, params: dict[str, Any]) -> Any:
-        if not params.get("nossoNumero"):
-            return {"error": "nossoNumero é obrigatório"}
-        if not params.get("numeroCliente"):
-            return {"error": "numeroCliente é obrigatório"}
+        if erro := _exigir(params, "nossoNumero", "numeroCliente"):
+            return erro
         boleto = int(params["nossoNumero"])
         numero_cliente = int(params["numeroCliente"])
         path = self._path(f"/cobranca-bancaria/v3/boletos/{boleto}/baixar")
-        try:
-            r = self._execute(
-                self._client.post,
-                path,
-                headers={**self._headers_json(), "Accept": "application/json"},
-                content=json.dumps({"numeroCliente": numero_cliente, "codigoModalidade": 1}),
-            )
-            result = _loads_maybe(r.text)
-            return {"status": r.status_code, "response": result}
-        except httpx.HTTPStatusError as exc:
-            logger.warning("Sicoob API error: %s", exc)
-            parsed = _loads_maybe(exc.response.text)
-            if not parsed:
-                return {"status_code": exc.response.status_code, "body": exc.response.text}
-            return parsed
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Sicoob API error: %s", exc)
-            return {"error": f"Falha ao consultar Boleto Cobranca: {exc}"}
-
+        r = self._execute(
+            self._client.post,
+            path,
+            headers={**self._headers_json(), "Accept": "application/json"},
+            content=json.dumps({"numeroCliente": numero_cliente, "codigoModalidade": 1}),
+        )
+        result = _loads_maybe(r.text)
+        return {"status": r.status_code, "response": result}
+    @_chamada_sicoob("listar os boletos do pagador")
     def listar_boleto(self, params: dict[str, Any]) -> Any:
-        if not params.get("numeroCliente"):
-            return {"error": "numeroCliente é obrigatório"}
-        if not params.get("numeroCpfCnpj"):
-            return {"error": "numeroCpfCnpj é obrigatório"}
-        if not params.get("dataInicio"):
-            return {"error": "dataInicio é obrigatório"}
-        if not params.get("dataFim"):
-            return {"error": "dataFim é obrigatório"}
+        if erro := _exigir(params, "numeroCliente", "numeroCpfCnpj", "dataInicio", "dataFim"):
+            return erro
         cpf = str(params["numeroCpfCnpj"])
         path = self._path(f"/cobranca-bancaria/v3/pagadores/{cpf}/boletos")
         query: dict[str, Any] = {
@@ -242,32 +235,18 @@ class BankingSicoobV3:
         }
         if params.get("codigoSituacao") is not None:
             query["codigoSituacao"] = int(params["codigoSituacao"])
-        try:
-            r = self._execute(
-                self._client.get,
-                path,
-                headers={**self._headers_json(), "Accept": "application/json"},
-                params=query,
-            )
-            result = _loads_maybe(r.text)
-            return {"status": r.status_code, "response": result}
-        except httpx.HTTPStatusError as exc:
-            logger.warning("Sicoob API error: %s", exc)
-            parsed = _loads_maybe(exc.response.text)
-            if not parsed:
-                return {"status_code": exc.response.status_code, "body": exc.response.text}
-            return parsed
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Sicoob API error: %s", exc)
-            return {"error": f"Falha ao consultar Boleto Cobranca: {exc}"}
-
+        r = self._execute(
+            self._client.get,
+            path,
+            headers={**self._headers_json(), "Accept": "application/json"},
+            params=query,
+        )
+        result = _loads_maybe(r.text)
+        return {"status": r.status_code, "response": result}
+    @_chamada_sicoob("consultar as faixas de nosso número")
     def consultar_faixas_nosso_numero(self, params: dict[str, Any]) -> Any:
-        if not params.get("numeroCliente"):
-            return {"error": "numeroCliente é obrigatório"}
-        if not params.get("codigoModalidade"):
-            return {"error": "codigoModalidade é obrigatório"}
-        if not params.get("quantidade"):
-            return {"error": "quantidade é obrigatório"}
+        if erro := _exigir(params, "numeroCliente", "codigoModalidade", "quantidade"):
+            return erro
         query: dict[str, Any] = {
             "numeroCliente": int(params["numeroCliente"]),
             "codigoModalidade": int(params["codigoModalidade"]),
@@ -275,119 +254,65 @@ class BankingSicoobV3:
         }
         if params.get("numeroContratoCobranca"):
             query["numeroContratoCobranca"] = int(params["numeroContratoCobranca"])
-        try:
-            r = self._execute(
-                self._client.get,
-                self._path("/cobranca-bancaria/v3/boletos/faixas-nosso-numero-disponiveis"),
-                headers={**self._headers_json(), "Accept": "application/json"},
-                params=query,
-            )
-            result = _loads_maybe(r.text)
-            return {"status": r.status_code, "response": result}
-        except httpx.HTTPStatusError as exc:
-            logger.warning("Sicoob API error: %s", exc)
-            parsed = _loads_maybe(exc.response.text)
-            if not parsed:
-                return {"status_code": exc.response.status_code, "body": exc.response.text}
-            return parsed
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Sicoob API error: %s", exc)
-            return {"error": str(exc)}
-
+        r = self._execute(
+            self._client.get,
+            self._path("/cobranca-bancaria/v3/boletos/faixas-nosso-numero-disponiveis"),
+            headers={**self._headers_json(), "Accept": "application/json"},
+            params=query,
+        )
+        result = _loads_maybe(r.text)
+        return {"status": r.status_code, "response": result}
+    @_chamada_sicoob("alterar os dados do boleto")
     def alterar_dados_boleto(self, fields: dict[str, Any], nosso_numero: str | int) -> Any:
         path = self._path(f"/cobranca-bancaria/v3/boletos/{nosso_numero}")
-        try:
-            r = self._execute(
-                self._client.patch,
-                path,
-                headers=self._headers_json(),
-                content=json.dumps(fields),
-            )
-            result = _loads_maybe(r.text)
-            return {"status": r.status_code, "response": result}
-        except httpx.HTTPStatusError as exc:
-            logger.warning("Sicoob API error: %s", exc)
-            parsed = _loads_maybe(exc.response.text)
-            if not parsed:
-                return {"status_code": exc.response.status_code, "body": exc.response.text}
-            return parsed
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Sicoob API error: %s", exc)
-            return {"error": str(exc)}
-
+        r = self._execute(
+            self._client.patch,
+            path,
+            headers=self._headers_json(),
+            content=json.dumps(fields),
+        )
+        result = _loads_maybe(r.text)
+        return {"status": r.status_code, "response": result}
+    @_chamada_sicoob("cadastrar o webhook")
     def cadastrar_webhook(self, fields: dict[str, Any]) -> Any:
-        if not fields.get("url"):
-            return {"error": "url é obrigatório"}
-        if not fields.get("codigoTipoMovimento"):
-            return {"error": "codigoTipoMovimento é obrigatório"}
-        if not fields.get("codigoPeriodoMovimento"):
-            return {"error": "codigoPeriodoMovimento é obrigatório"}
+        if erro := _exigir(fields, "url", "codigoTipoMovimento", "codigoPeriodoMovimento"):
+            return erro
         path = self._path("/cobranca-bancaria/v3/webhooks")
-        try:
-            r = self._execute(
-                self._client.post,
-                path,
-                headers={**self._headers_json(), "Accept": "application/json"},
-                content=json.dumps(fields),
-            )
-            result = _loads_maybe(r.text)
-            return {"status": r.status_code, "response": result}
-        except httpx.HTTPStatusError as exc:
-            logger.warning("Sicoob API error: %s", exc)
-            parsed = _loads_maybe(exc.response.text)
-            if not parsed:
-                return {"status_code": exc.response.status_code, "body": exc.response.text}
-            return parsed
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Sicoob API error: %s", exc)
-            return {"error": str(exc)}
-
+        r = self._execute(
+            self._client.post,
+            path,
+            headers={**self._headers_json(), "Accept": "application/json"},
+            content=json.dumps(fields),
+        )
+        result = _loads_maybe(r.text)
+        return {"status": r.status_code, "response": result}
+    @_chamada_sicoob("consultar o webhook")
     def consultar_webhook(self, params: dict[str, Any] | None = None) -> Any:
         params = params or {}
         query: dict[str, Any] = {"codigoTipoMovimento": 7}
         if params.get("idWebhook"):
             query["idWebhook"] = params["idWebhook"]
         path = self._path("/cobranca-bancaria/v3/webhooks")
-        try:
-            r = self._execute(
-                self._client.get,
-                path,
-                headers={**self._headers_json(), "Accept": "application/json"},
-                params=query,
-            )
-            result = _loads_maybe(r.text)
-            return {"status": r.status_code, "response": result}
-        except httpx.HTTPStatusError as exc:
-            logger.warning("Sicoob API error: %s", exc)
-            parsed = _loads_maybe(exc.response.text)
-            if not parsed:
-                return {"status_code": exc.response.status_code, "body": exc.response.text}
-            return parsed
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Sicoob API error: %s", exc)
-            return {"error": f"Falha ao consultar Boleto Cobranca: {exc}"}
-
+        r = self._execute(
+            self._client.get,
+            path,
+            headers={**self._headers_json(), "Accept": "application/json"},
+            params=query,
+        )
+        result = _loads_maybe(r.text)
+        return {"status": r.status_code, "response": result}
+    @_chamada_sicoob("alterar o webhook")
     def alterar_webhook(self, fields: dict[str, Any], id_webhook: str | int) -> Any:
         path = self._path(f"/cobranca-bancaria/v3/webhooks/{id_webhook}")
-        try:
-            r = self._execute(
-                self._client.patch,
-                path,
-                headers={**self._headers_json(), "Accept": "application/json"},
-                content=json.dumps(fields),
-            )
-            result = _loads_maybe(r.text)
-            return {"status": r.status_code, "response": result}
-        except httpx.HTTPStatusError as exc:
-            logger.warning("Sicoob API error: %s", exc)
-            parsed = _loads_maybe(exc.response.text)
-            if not parsed:
-                return {"status_code": exc.response.status_code, "body": exc.response.text}
-            return parsed
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Sicoob API error: %s", exc)
-            return {"error": str(exc)}
-
+        r = self._execute(
+            self._client.patch,
+            path,
+            headers={**self._headers_json(), "Accept": "application/json"},
+            content=json.dumps(fields),
+        )
+        result = _loads_maybe(r.text)
+        return {"status": r.status_code, "response": result}
+    @_chamada_sicoob("consultar as solicitações do webhook")
     def consultar_solicitacoes_webhook(self, id_webhook: str | int, params: dict[str, Any] | None = None) -> Any:
         params = params or {}
         query: dict[str, Any] = {}
@@ -398,61 +323,31 @@ class BankingSicoobV3:
         if params.get("codigoSolicitacaoSituacao"):
             query["codigoSolicitacaoSituacao"] = int(params["codigoSolicitacaoSituacao"])
         path = self._path(f"/cobranca-bancaria/v3/webhooks/{id_webhook}/solicitacoes")
-        try:
-            r = self._execute(
-                self._client.get,
-                path,
-                headers={**self._headers_json(), "Accept": "application/json"},
-                params=query,
-            )
-            result = _loads_maybe(r.text)
-            return {"status": r.status_code, "response": result}
-        except httpx.HTTPStatusError as exc:
-            logger.warning("Sicoob API error: %s", exc)
-            parsed = _loads_maybe(exc.response.text)
-            if not parsed:
-                return {"status_code": exc.response.status_code, "body": exc.response.text}
-            return parsed
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Sicoob API error: %s", exc)
-            return {"error": str(exc)}
-
+        r = self._execute(
+            self._client.get,
+            path,
+            headers={**self._headers_json(), "Accept": "application/json"},
+            params=query,
+        )
+        result = _loads_maybe(r.text)
+        return {"status": r.status_code, "response": result}
+    @_chamada_sicoob("reativar o webhook")
     def reativar_webhook(self, id_webhook: str | int) -> Any:
         path = self._path(f"/cobranca-bancaria/v3/webhooks/{id_webhook}/reativar")
-        try:
-            r = self._execute(
-                self._client.patch,
-                path,
-                headers={**self._headers_json(), "Accept": "application/json"},
-            )
-            result = _loads_maybe(r.text)
-            return {"status": r.status_code, "response": result}
-        except httpx.HTTPStatusError as exc:
-            logger.warning("Sicoob API error: %s", exc)
-            parsed = _loads_maybe(exc.response.text)
-            if not parsed:
-                return {"status_code": exc.response.status_code, "body": exc.response.text}
-            return parsed
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Sicoob API error: %s", exc)
-            return {"error": str(exc)}
-
+        r = self._execute(
+            self._client.patch,
+            path,
+            headers={**self._headers_json(), "Accept": "application/json"},
+        )
+        result = _loads_maybe(r.text)
+        return {"status": r.status_code, "response": result}
+    @_chamada_sicoob("deletar o webhook")
     def deletar_webhook(self, id_webhook: str | int) -> Any:
         path = self._path(f"/cobranca-bancaria/v3/webhooks/{id_webhook}")
-        try:
-            r = self._execute(
-                self._client.delete,
-                path,
-                headers={**self._headers_json(), "Accept": "application/json"},
-            )
-            result = _loads_maybe(r.text)
-            return {"status": r.status_code, "response": result}
-        except httpx.HTTPStatusError as exc:
-            logger.warning("Sicoob API error: %s", exc)
-            parsed = _loads_maybe(exc.response.text)
-            if not parsed:
-                return {"status_code": exc.response.status_code, "body": exc.response.text}
-            return parsed
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Sicoob API error: %s", exc)
-            return {"error": str(exc)}
+        r = self._execute(
+            self._client.delete,
+            path,
+            headers={**self._headers_json(), "Accept": "application/json"},
+        )
+        result = _loads_maybe(r.text)
+        return {"status": r.status_code, "response": result}

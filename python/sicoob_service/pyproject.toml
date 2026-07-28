@@ -29,6 +29,11 @@ dev = [
 [project.scripts]
 sicoob-service = "sicoob_service.__main__:main"
 
+[tool.setuptools.package-data]
+# marcador PEP 561: sem ele, as anotações de tipo do pacote são ignoradas
+# por qualquer ferramenta externa.
+sicoob_service = ["py.typed"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

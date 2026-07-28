@@ -291,15 +291,15 @@ class TestWebhookCadastrar:
 
     def test_valida_sem_url(self, bv3: BankingSicoobV3) -> None:
         r = bv3.cadastrar_webhook({"codigoTipoMovimento": 7, "codigoPeriodoMovimento": 1})
-        assert r == {"error": "url é obrigatório"}
+        assert r == {"error": "Campo(s) obrigatório(s) ausente(s): url"}
 
     def test_valida_sem_tipo_movimento(self, bv3: BankingSicoobV3) -> None:
         r = bv3.cadastrar_webhook({"url": "https://ex.com", "codigoPeriodoMovimento": 1})
-        assert r == {"error": "codigoTipoMovimento é obrigatório"}
+        assert r == {"error": "Campo(s) obrigatório(s) ausente(s): codigoTipoMovimento"}
 
     def test_valida_sem_periodo_movimento(self, bv3: BankingSicoobV3) -> None:
         r = bv3.cadastrar_webhook({"url": "https://ex.com", "codigoTipoMovimento": 7})
-        assert r == {"error": "codigoPeriodoMovimento é obrigatório"}
+        assert r == {"error": "Campo(s) obrigatório(s) ausente(s): codigoPeriodoMovimento"}
 
 
 # ── webhook/consultar ─────────────────────────────────────────────────────────
@@ -427,3 +427,57 @@ class TestInteracao:
             client.get("/interno/interacoes", params={"limite": 500}, headers=HEADERS)
         _, _, _, _, _, limite = mock_consultar.call_args[0]
         assert limite == 200
+
+
+# ── helpers de banking_v3 ────────────────────────────────────────────────────
+
+class TestValidacaoDeObrigatorios:
+    """O helper _exigir substituiu 31 checagens manuais espalhadas.
+
+    O ganho não é só de linhas: antes cada chamada revelava UM campo faltante,
+    então o cliente corrigia, chamava de novo e descobria o próximo.
+    """
+
+    def test_lista_todos_os_campos_faltantes_de_uma_vez(self, bv3: BankingSicoobV3) -> None:
+        r = bv3.consultar_boleto({})
+        assert "numeroCliente" in r["error"]
+        assert "codigoModalidade" in r["error"]
+
+    def test_nao_reclama_do_que_foi_informado(self, bv3: BankingSicoobV3) -> None:
+        r = bv3.consultar_boleto({"numeroCliente": 1})
+        assert "codigoModalidade" in r["error"]
+        assert "numeroCliente" not in r["error"]
+
+
+class TestMensagemDeErroPorOperacao:
+    """As mensagens vêm do decorator, derivadas do nome da operação.
+
+    Antes eram 13 blocos try/except copiados, e três traziam a mensagem de outro
+    método: baixa_boleto, listar_boleto e consultar_webhook diziam "Falha ao
+    consultar Boleto Cobranca". Quem falhava ao dar baixa lia que a consulta
+    falhou.
+    """
+
+    def _forcar_falha(self, bv3: BankingSicoobV3, metodo: str, params: dict) -> str:
+        def explode(*_a, **_kw):
+            raise RuntimeError("boom")
+        bv3._client.get = explode
+        bv3._client.post = explode
+        return getattr(bv3, metodo)(params)["error"]
+
+    def test_baixa_nao_diz_consultar(self, bv3: BankingSicoobV3) -> None:
+        erro = self._forcar_falha(bv3, "baixa_boleto", {"nossoNumero": 1, "numeroCliente": 1})
+        assert "baixa" in erro
+        assert "consultar" not in erro
+
+    def test_listar_fala_de_listagem(self, bv3: BankingSicoobV3) -> None:
+        erro = self._forcar_falha(bv3, "listar_boleto", {
+            "numeroCliente": 1, "numeroCpfCnpj": "1", "dataInicio": "2026-01-01", "dataFim": "2026-01-10",
+        })
+        assert "listar" in erro
+
+    def test_consultar_continua_dizendo_consultar(self, bv3: BankingSicoobV3) -> None:
+        erro = self._forcar_falha(bv3, "consultar_boleto", {
+            "numeroCliente": 1, "codigoModalidade": 1, "nossoNumero": 1,
+        })
+        assert "consultar" in erro
