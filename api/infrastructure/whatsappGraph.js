@@ -10,9 +10,28 @@
 const { FacebookAdsApi } = require('facebook-nodejs-business-sdk');
 const config = require("../config");
 
-const api = new FacebookAdsApi(config.accessToken);
+/**
+ * O cliente do SDK nasce na PRIMEIRA chamada, não ao importar o módulo.
+ *
+ * `new FacebookAdsApi(token)` LANÇA "Access token required" quando o token é
+ * indefinido — e no CI, ou em qualquer ambiente sem `.env`, ele é. Enquanto o
+ * `require` deste arquivo só acontecia dentro do handler do webhook, o processo
+ * subia mesmo assim; ao mover o require para o topo, o container passou a morrer
+ * no arranque. Mesma correção do sessaoRedis: adapter não faz nada ao importar.
+ */
+let api = null;
 
-module.exports = class GraphApi {
+function cliente() {
+  if (!api) api = new FacebookAdsApi(config.accessToken);
+  return api;
+}
+
+/** Exposto para teste: revela se o cliente do SDK já foi construído. */
+function _instanciado() {
+  return api !== null;
+}
+
+class GraphApi {
   static async #makeApiCall(messageId, senderPhoneNumberId, requestBody) {
     try {
       // Mark as read and send typing indicator
@@ -27,7 +46,7 @@ module.exports = class GraphApi {
         };
 
         try {
-          await api.call(
+          await cliente().call(
             'POST',
             [`${senderPhoneNumberId}`, 'messages'],
             typingBody
@@ -38,7 +57,7 @@ module.exports = class GraphApi {
       }
 
 
-      const response = await api.call(
+      const response = await cliente().call(
         'POST',
         [`${senderPhoneNumberId}`, 'messages'],
         requestBody
@@ -297,4 +316,7 @@ module.exports = class GraphApi {
     return this.#makeApiCall(messageId, senderPhoneNumberId, requestBody);
   }
 
-};
+}
+
+module.exports = GraphApi;
+module.exports._instanciado = _instanciado;

@@ -78,6 +78,14 @@ apontam só para dentro e `scripts/boundary_lint.py` roda no CI com `.arch.json`
 quando uma seta aponta para fora. As portas em `api/domain/portas/` são verificadas por
 `test/portas.test.js`: renomear um método de adapter quebra o teste, não a produção.
 
+**Adapter não faz trabalho ao ser importado — nem conexão, nem construção de cliente.**
+`sessaoRedis` conecta na primeira operação e `whatsappGraph` só constrói o cliente do SDK na
+primeira chamada. `new FacebookAdsApi(token)` **lança** com token indefinido, e no CI não há
+`.env`: com a construção no topo, o container morria no arranque e o smoke test reprovava.
+`test/arranqueSemEnv.test.js` sobe um processo limpo, sem herdar variável nenhuma, e falha se
+algum adapter voltar a trabalhar no import — é o único teste que enxerga essa classe de erro,
+porque os demais definem ACCESS_TOKEN e no desenvolvimento local o `.env` existe.
+
 **Nenhum caso de uso importa adapter.** Eles recebem `bancoBoletos`, `sessao`, `notificador` e
 `telemetria` por parâmetro; quem liga porta a adapter é só o composition root. Ao criar um caso
 de uso novo, siga o padrão: `module.exports = function criar({ ... }) { ... }`.
