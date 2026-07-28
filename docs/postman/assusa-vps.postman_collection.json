@@ -144,7 +144,7 @@
           "host": ["{{BASE_URL}}"],
           "path": ["webhook"]
         },
-        "description": "Resposta esperada (DUAS mensagens, em sequência):\n1. \"Digite o CPF do titular da conta:\"\n2. \"Exemplo: 12345678900 | 123.456.789-10\"\n\nEstado Redis após: aguardando_cpf"
+        "description": "Resposta esperada (DUAS mensagens, em sequência):\n1. \"Digite o CPF cadastrado na ASSUSA (titular da conta)\"\n2. \"Pode digitar do jeito que for mais fácil. Exemplos:\" + lista com 12345678900, 123.456.789-00 e 123 456 789 00\n\nQualquer pontuação é aceita: o código faz replace(/\\D/g, \"\") antes de validar.\n\nEstado Redis após: aguardando_cpf"
       },
       "response": []
     },

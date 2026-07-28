@@ -229,8 +229,8 @@ recomeçar (ver seção [Redis](#redis)).
 ```
 
 **Resposta no WhatsApp (duas mensagens, em sequência):**
-> 1. "Digite o CPF do titular da conta:"
-> 2. "Pode enviar dos dois jeitos:" + os dois formatos em negrito (`*12345678900*` e `*123.456.789-00*`)
+> 1. "Digite o CPF cadastrado na ASSUSA (titular da conta)"
+> 2. "Pode digitar do jeito que for mais fácil. Exemplos:" + lista com `- 12345678900`, `- 123.456.789-00` e `- 123 456 789 00` (renderizada em tópicos pelo WhatsApp)
 
 **Estado no Redis após:** `aguardando_cpf`
 
@@ -309,6 +309,8 @@ renovado a cada interação)
 
 > O código faz `replace(/\D/g, "")` antes de validar — o CPF formatado vira só dígitos,
 > então `CPF_TESTE_FORMATADO` e `CPF_TESTE` devem ser o mesmo CPF em grafias diferentes.
+> Pela mesma razão, **qualquer** pontuação passa (espaço, hífen, ponto ou nenhuma), e até
+> uma frase com o número dentro. Os exemplos na mensagem não são uma lista fechada.
 
 **Resposta no WhatsApp:** igual ao 5.2 (loading + botões com boletos).
 

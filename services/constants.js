@@ -17,11 +17,18 @@ module.exports = Object.freeze({
   MSG_HORARIO_FUNCIONAMENTO:
     "Nosso atendimento funciona de segunda a sexta, das 8h às 18h, e aos sábados das 8h às 12h.",
   MSG_SOLICITAR_CPF_1:
-    "Digite o CPF do titular da conta:",
-  // Um exemplo por linha e em negrito (* do WhatsApp): o mesmo CPF nas duas
-  // grafias, para deixar claro que tanto faz enviar com ou sem pontos.
+    "Digite o CPF cadastrado na ASSUSA (titular da conta)",
+  // `handleCpfRecebido` faz replace(/\D/g, ""), então qualquer pontuação serve —
+  // ponto, hífen, espaço ou nenhuma. Os itens abaixo são EXEMPLOS, não os únicos
+  // formatos aceitos; o texto precisa deixar isso claro para o cliente não achar
+  // que digitou errado. Lista com "- ": o WhatsApp renderiza em tópicos e, onde
+  // não renderizar, o traço já serve de marcador. Nada de `*`, que ali vira
+  // negrito em vez de tópico.
+  // Sempre o MESMO CPF nas três grafias — números diferentes fariam parecer que
+  // cada linha é um caso distinto. De propósito não há exemplo com frase solta
+  // ("meu cpf e ..."), embora funcione: confundiria mais do que ajudaria.
   MSG_SOLICITAR_CPF_2:
-    "Pode enviar dos dois jeitos:\n\n*12345678900*\n*123.456.789-00*",
+    "Pode digitar do jeito que for mais fácil. Exemplos:\n- 12345678900\n- 123.456.789-00\n- 123 456 789 00",
 
   // ── Quatro desfechos distintos da consulta por CPF ────────────────────────
   // 1) o número digitado não é um CPF válido
