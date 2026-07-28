@@ -178,7 +178,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [{\n    \"id\": \"ACCOUNT_ID\",\n    \"changes\": [{\n      \"field\": \"messages\",\n      \"value\": {\n        \"messaging_product\": \"whatsapp\",\n        \"metadata\": {\n          \"display_phone_number\": \"3131111111\",\n          \"phone_number_id\": \"{{PHONE_NUMBER_ID}}\"\n        },\n        \"contacts\": [{\n          \"profile\": { \"name\": \"Usuário Teste\" },\n          \"wa_id\": \"{{SENDER_PHONE}}\"\n        }],\n        \"messages\": [{\n          \"from\": \"{{SENDER_PHONE}}\",\n          \"id\": \"wamid.test.011b\",\n          \"timestamp\": \"1748000015\",\n          \"type\": \"text\",\n          \"text\": { \"body\": \"111.444.777-35\" }\n        }]\n      }\n    }]\n  }]\n}",
+          "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [{\n    \"id\": \"ACCOUNT_ID\",\n    \"changes\": [{\n      \"field\": \"messages\",\n      \"value\": {\n        \"messaging_product\": \"whatsapp\",\n        \"metadata\": {\n          \"display_phone_number\": \"3131111111\",\n          \"phone_number_id\": \"{{PHONE_NUMBER_ID}}\"\n        },\n        \"contacts\": [{\n          \"profile\": { \"name\": \"Usuário Teste\" },\n          \"wa_id\": \"{{SENDER_PHONE}}\"\n        }],\n        \"messages\": [{\n          \"from\": \"{{SENDER_PHONE}}\",\n          \"id\": \"wamid.test.011b\",\n          \"timestamp\": \"1748000015\",\n          \"type\": \"text\",\n          \"text\": { \"body\": \"{{CPF_TESTE_FORMATADO}}\" }\n        }]\n      }\n    }]\n  }]\n}",
           "options": { "raw": { "language": "json" } }
         },
         "url": {
@@ -186,7 +186,7 @@
           "host": ["{{BASE_URL}}"],
           "path": ["webhook"]
         },
-        "description": "PRÉ-REQUISITO: executar 5.1 antes (estado aguardando_cpf).\n\nVerifica que o bot aceita CPF formatado com pontos e traço.\nO código faz replace(/\\D/g, \"\") antes de validar → \"111.444.777-35\" vira \"11144477735\".\n\nResposta esperada: igual ao 5.2 (loading + botões com boletos)."
+        "description": "PRÉ-REQUISITO: executar 5.1 antes (estado aguardando_cpf).\n\nVerifica que o bot aceita CPF formatado com pontos e traço.\nO código faz replace(/\\D/g, \"\") antes de validar → o CPF formatado vira só dígitos.\n\nResposta esperada: igual ao 5.2 (loading + botões com boletos)."
       },
       "response": []
     },

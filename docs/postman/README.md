@@ -12,11 +12,13 @@ Crie um **Environment** chamado `assusa-vps` com as variáveis abaixo:
 | Variável | Valor | Descrição |
 |---|---|---|
 | `BASE_URL` | `https://assusa.tech` | Domínio da VPS (nginx + SSL, proxy → porta 8080) |
-| `PYTHON_URL` | `http://<VPS_HOST>:8090` | Microsserviço Sicoob (porta exposta diretamente na VPS) |
-| `PHONE_NUMBER_ID` | `1170317646154505` | Meta Business → WhatsApp → Números de telefone |
+| `PYTHON_URL` | `http://<VPS_HOST>:8090` | Microsserviço Sicoob (porta exposta diretamente na VPS). `VPS_HOST` está no `.env` e nos secrets do CI |
+| `PHONE_NUMBER_ID` | `<phone-number-id>` | Valor no `.env` (`PHONE_NUMBER_ID`) — ver [docs/meta/referencia.md](../meta/referencia.md) |
 | `SENDER_PHONE` | `5531999999999` | Número do "usuário" simulado (E.164 sem `+`). Use sempre o mesmo dentro de um fluxo |
 | `INTERNAL_API_KEY` | `<chave-definida-no-env-da-vps>` | Chave interna Node → Python — **nunca commite o valor real** |
-| `SICOOB_NUMERO_CLIENTE` | `1964895` | Número de cliente da Assusa no Sicoob (cedente) |
+| `SICOOB_NUMERO_CLIENTE` | `<numero-cliente>` | Valor no `.env` (`SICOOB_NUMERO_CLIENTE`) |
+| `CPF_TESTE` | `<cpf-de-cooperado>` | CPF só com dígitos, usado nos fluxos de 2ª via. **Dado pessoal — nunca commite o valor real** |
+| `CPF_TESTE_FORMATADO` | `<mesmo-cpf-com-pontos>` | O mesmo CPF de `CPF_TESTE`, com pontos e traço, para testar a normalização |
 
 > **Assinatura HMAC:** o app valida `x-hub-signature-256` apenas se o header
 > estiver presente. Para testes, **omita o header** e a requisição passa
@@ -262,7 +264,7 @@ recomeçar (ver seção [Redis](#redis)).
   "id": "wamid.test.011",
   "timestamp": "1748000011",
   "type": "text",
-  "text": { "body": "11144477735" }
+  "text": { "body": "{{CPF_TESTE}}" }
 }]
 ```
 
@@ -311,11 +313,12 @@ renovado a cada interação)
   "id": "wamid.test.011b",
   "timestamp": "1748000015",
   "type": "text",
-  "text": { "body": "111.444.777-35" }
+  "text": { "body": "{{CPF_TESTE_FORMATADO}}" }
 }]
 ```
 
-> O código faz `replace(/\D/g, "")` antes de validar — `"111.444.777-35"` vira `"11144477735"`.
+> O código faz `replace(/\D/g, "")` antes de validar — o CPF formatado vira só dígitos,
+> então `CPF_TESTE_FORMATADO` e `CPF_TESTE` devem ser o mesmo CPF em grafias diferentes.
 
 **Resposta no WhatsApp:** igual ao 5.2 (loading + botões com boletos).
 
@@ -759,7 +762,7 @@ Query params (todos opcionais):
 | Param | Exemplo | Descrição |
 |---|---|---|
 | `telefone` | `5531999999999` | Filtrar por número |
-| `cpf` | `11144477735` | Filtrar por CPF |
+| `cpf` | `{{CPF_TESTE}}` | Filtrar por CPF |
 | `evento` | `PDF_ENTREGUE` | Filtrar por tipo |
 | `data_inicio` | `2026-01-01` | A partir de |
 | `data_fim` | `2026-12-31` | Até |

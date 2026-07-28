@@ -13,7 +13,7 @@ const cpfValido = new Function(`return (${fnBody})`)();
 
 // ── válidos ───────────────────────────────────────────────────────────────────
 
-test("CPF válido — apenas dígitos", () => {
+test("CPF válido — apenas dígitos (111.444.777-35, sintético)", () => {
   assert.ok(cpfValido("11144477735"));
 });
 
