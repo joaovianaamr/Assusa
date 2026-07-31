@@ -135,8 +135,11 @@ dispatch. Ao acrescentar uma nova mensagem de erro, use `enviarComBotaoMenu`, n�
 **Depois do PDF vem UMA lista de facilidades, não uma chuva de mensagens.** Até jul/2026 a
 entrega disparava seis mensagens (PDF, rótulo + linha digitável, rótulo + PIX, fechamento);
 no celular as primeiras subiam para fora da tela e, com o teclado aberto, sobrava meia tela —
-o público é majoritariamente idoso. Hoje são duas: o PDF e a lista `Formas de pagar`
-(`oferecerFacilidades`), cujas linhas entregam o código **sob demanda**. Cada código continua
+o público é majoritariamente idoso. Hoje são três: o PDF, a lista `Formas de pagar`
+(`oferecerFacilidades`) — cujas linhas entregam o código **sob demanda** — e o botão
+[Voltar ao menu] em mensagem própria. A saída fica **fora** da lista de propósito: o WhatsApp
+não permite lista e botão na mesma mensagem, e dentro dela a saída ficava escondida atrás de um
+toque, no meio das formas de pagamento. Cada código continua
 chegando sozinho na mensagem — o WhatsApp copia a mensagem inteira, então rótulo junto do
 código iria para a área de transferência. Os códigos ficam em `codigos:<telefone>` no Redis
 com o mesmo TTL deslizante; sem isso cada toque custaria uma consulta nova ao Sicoob.

@@ -185,23 +185,31 @@ test("resolverIndiceSelecao recusa texto que não é número", () => {
 
 // ── lista de facilidades exibida depois de entregar o PDF ────────────────────
 
-test("montarRowsFacilidades põe o código antes da saída", () => {
+test("montarRowsFacilidades traz só o que diz respeito a pagar", () => {
   const rows = view.montarRowsFacilidades({ temPix: true, restantes: 2 });
   assert.deepEqual(rows.map(r => r.id), [
     constants.REPLY_LINHA_ID,
     constants.REPLY_PIX_ID,
     constants.REPLY_VER_OUTRAS_ID,
-    constants.REPLY_MENU_ID,
   ]);
   assert.match(rows[2].description, /2 conta\(s\)/);
 });
 
+test("a saída NÃO entra na lista — vai em mensagem própria, como botão", () => {
+  // Dentro da lista, "Voltar ao menu" ficava escondido atrás de um toque e no
+  // meio das formas de pagamento.
+  for (const opcoes of [
+    { temPix: true, restantes: 3 },
+    { temPix: false, restantes: 0 },
+  ]) {
+    const ids = view.montarRowsFacilidades(opcoes).map(r => r.id);
+    assert.ok(!ids.includes(constants.REPLY_MENU_ID), `menu apareceu em ${JSON.stringify(opcoes)}`);
+  }
+});
+
 test("montarRowsFacilidades esconde PIX e 'ver outras' quando não se aplicam", () => {
   const rows = view.montarRowsFacilidades({ temPix: false, restantes: 0 });
-  assert.deepEqual(rows.map(r => r.id), [
-    constants.REPLY_LINHA_ID,
-    constants.REPLY_MENU_ID,
-  ]);
+  assert.deepEqual(rows.map(r => r.id), [constants.REPLY_LINHA_ID]);
 });
 
 test("as linhas de facilidades cabem nos limites da lista da Meta", () => {

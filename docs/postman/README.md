@@ -362,7 +362,7 @@ renovado a cada interação)
 > intervalo) recebe "Não entendi sua resposta..." e **mantém a sessão viva**,
 > em vez de alegar falha de sistema.
 
-**Resposta no WhatsApp — duas mensagens** (antes eram seis; no celular as primeiras
+**Resposta no WhatsApp — três mensagens** (antes eram seis; no celular as primeiras
 subiam para fora da tela):
 1. Documento `boleto.pdf` com caption:
    ```
@@ -372,7 +372,10 @@ subiam para fora da tela):
    Valor: R$ X.XXX,XX
    ```
 2. Lista interativa **[Formas de pagar]** com as linhas:
-   `Linha digitável` · `PIX copia e cola` · `Ver outras contas` · `Voltar ao menu`
+   `Linha digitável` · `PIX copia e cola` · `Ver outras contas`
+3. Mensagem curta "Terminou?" com o botão **[Voltar ao menu]** — à parte, porque o
+   WhatsApp não permite lista e botão na mesma mensagem, e dentro da lista a saída
+   ficava escondida atrás de um toque
 
 > A data e o valor da caption vêm da 2ª via (vencimento = hoje, valor atualizado).
 > Se não houver PIX, a linha correspondente não é oferecida.

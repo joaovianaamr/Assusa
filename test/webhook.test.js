@@ -192,6 +192,7 @@ test("selecionar boleto entrega PDF + lista de facilidades e mantém a lista cli
   const mockDoc = t.mock.method(GraphApi, "messageWithDocument", async () => {});
   const mockText = t.mock.method(GraphApi, "messageWithText", async () => {});
   const mockLista = t.mock.method(GraphApi, "messageWithInteractiveList", async () => {});
+  const mockBotoes = t.mock.method(GraphApi, "messageWithInteractiveReply", async () => {});
 
   await Conversation.handleMessage("phone-id-123", {
     from: "5531999999999",
@@ -201,8 +202,8 @@ test("selecionar boleto entrega PDF + lista de facilidades e mantém a lista cli
     interactive: { type: "button_reply", button_reply: { id: "boleto-0", title: "1 - Conta 16/05" } },
   });
 
-  // A entrega inteira cabe em DUAS mensagens: o PDF e a lista de facilidades.
-  // Antes eram seis, e no celular as primeiras subiam para fora da tela.
+  // A entrega cabe em TRÊS mensagens: PDF, lista de facilidades e o botão de
+  // saída. Antes eram seis, e no celular as primeiras subiam para fora da tela.
   assert.equal(mockDoc.mock.calls.length, 1, "deve enviar o PDF uma vez");
   assert.equal(mockText.mock.calls.length, 0, "os códigos não saem mais de imediato");
   assert.equal(mockLista.mock.calls.length, 1, "deve oferecer as facilidades numa lista");
@@ -214,9 +215,16 @@ test("selecionar boleto entrega PDF + lista de facilidades e mantém a lista cli
   assert.match(corpo, /1 conta\(s\) em aberto/, "havia 2 no cache, resta 1");
   assert.deepEqual(
     rows.map(r => r.id),
-    [constants.REPLY_LINHA_ID, constants.REPLY_PIX_ID, constants.REPLY_VER_OUTRAS_ID, constants.REPLY_MENU_ID],
-    "código primeiro, saída por último"
+    [constants.REPLY_LINHA_ID, constants.REPLY_PIX_ID, constants.REPLY_VER_OUTRAS_ID],
+    "a lista traz só o que diz respeito a pagar"
   );
+
+  // A saída vem depois, em mensagem própria: como botão verde ela fica visível
+  // sem o cliente precisar abrir a lista.
+  assert.equal(mockBotoes.mock.calls.length, 1, "deve enviar o botão de saída à parte");
+  const [, , , textoSaida, botoesSaida] = mockBotoes.mock.calls[0].arguments;
+  assert.equal(textoSaida, constants.MSG_FACILIDADES_SAIDA);
+  assert.deepEqual(botoesSaida.map(b => b.id), [constants.REPLY_MENU_ID]);
 
   // Os códigos ficam guardados para serem entregues quando o cliente tocar.
   assert.equal(setCodigos.mock.calls.length, 1, "deve guardar os códigos na sessão");
@@ -756,7 +764,12 @@ test("com uma única conta, a lista de facilidades não oferece 'ver outras'", a
   const rows = m.lista.mock.calls[0].arguments[6];
   assert.deepEqual(
     rows.map(r => r.id),
-    [constantsRef.REPLY_LINHA_ID, constantsRef.REPLY_PIX_ID, constantsRef.REPLY_MENU_ID]
+    [constantsRef.REPLY_LINHA_ID, constantsRef.REPLY_PIX_ID]
+  );
+  // a saída continua chegando, fora da lista
+  assert.deepEqual(
+    m.botoes.mock.calls[0].arguments[4].map(b => b.id),
+    [constantsRef.REPLY_MENU_ID]
   );
 });
 
@@ -774,7 +787,7 @@ test("boleto sem PIX não oferece a linha de PIX na lista", async (t) => {
   const rows = m.lista.mock.calls[0].arguments[6];
   assert.deepEqual(
     rows.map(r => r.id),
-    [constantsRef.REPLY_LINHA_ID, constantsRef.REPLY_MENU_ID],
+    [constantsRef.REPLY_LINHA_ID],
     "oferecer PIX e depois dizer 'indisponível' seria pior do que não oferecer"
   );
 });
@@ -802,6 +815,9 @@ test("tocar em 'PIX copia e cola' entrega só o código e reexibe a lista", asyn
 
   assert.equal(m.lista.mock.calls.length, 2, "a lista volta abaixo do código");
   assert.match(m.lista.mock.calls[1].arguments[3], /PIX copia e cola/);
+  // A saída acompanha cada reexibição: o botão precisa ficar no PÉ da conversa,
+  // senão o cliente teria de rolar de volta para achá-lo.
+  assert.equal(m.botoes.mock.calls.length, 2, "o botão de saída volta junto");
 });
 
 test("tocar em 'Linha digitável' entrega a linha, não o PIX", async (t) => {

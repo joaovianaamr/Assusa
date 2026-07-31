@@ -123,8 +123,9 @@ module.exports = function criar({ notificador, sessao, bancoBoletos, telemetria,
    * INTEIRA, então cada código precisa continuar chegando sozinho para a cópia
    * funcionar; o que mudou é que agora só chega o código pedido.
    *
-   * "Ver outras contas" e "Voltar ao menu" viram linhas da mesma lista, então a
-   * entrega inteira cabe em duas mensagens: PDF + lista.
+   * A lista guarda só o que diz respeito a pagar; "Voltar ao menu" vai logo
+   * depois, em mensagem própria, como botão verde — dentro da lista a saída
+   * ficava escondida atrás de um toque, no meio das formas de pagamento.
    *
    * @returns {Promise<boolean>} false se a Meta recusou a lista.
    */
@@ -138,11 +139,21 @@ module.exports = function criar({ notificador, sessao, bancoBoletos, telemetria,
           restantes: codigos.restantes,
         })
       );
-      return true;
     } catch (e) {
       console.error('[facilidades] lista recusada pela Meta:', e?.message || e);
       return false;
     }
+
+    // A lista já chegou: uma falha aqui custa o botão de saída, não a entrega.
+    // As palavras-chave ("menu", "sair", "voltar") seguem valendo de qualquer forma.
+    try {
+      await mensageria.enviarComBotaoMenu(
+        undefined, senderPhoneNumberId, recipient, mensagens.MSG_FACILIDADES_SAIDA
+      );
+    } catch (e) {
+      console.error('[facilidades] botão de saída não pôde ser enviado:', e?.message || e);
+    }
+    return true;
   }
 
   /**

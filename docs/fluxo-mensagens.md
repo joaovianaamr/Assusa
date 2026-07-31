@@ -68,7 +68,9 @@ MENSAGEM RECEBIDA
     │    ├── códigos no Redis → ✉ SÓ o código pedido, sozinho na mensagem
     │    │   ├── grava interação: FACILIDADE_ENVIADA (tipo: linha_digitavel | pix)
     │    │   ├── renova o TTL dos códigos e da lista de contas
-    │    │   └── ✉ reexibe a lista de facilidades logo abaixo
+    │    │   └── ✉ reexibe a lista + o botão [Voltar ao menu] logo abaixo
+    │    │       [a saída acompanha cada reexibição para ficar sempre no PÉ
+    │    │        da conversa — senão o cliente rolaria de volta para achá-la]
     │    │
     │    └── cache vazio (TTL expirou)
     │        ├── grava interação: SESSAO_EXPIRADA (etapa: facilidades)
@@ -191,7 +193,10 @@ MENSAGEM RECEBIDA
     │                            │      • Linha digitável
     │                            │      • PIX copia e cola   (só se houver qrCode)
     │                            │      • Ver outras contas  (só se restarem contas)
-    │                            │      • Voltar ao menu
+    │                            ├── ✉ "Terminou?" + botão [Voltar ao menu]
+    │                            │      [mensagem à parte — dentro da lista a saída
+    │                            │       ficava atrás de um toque; falha aqui custa
+    │                            │       o botão, não a entrega]
     │                            └── Meta recusou a lista (HTTP 400)
     │                                ├── grava interação: FACILIDADES_FALLBACK_TEXTO
     │                                └── ✉ rótulo + código das duas formas, como antes,
@@ -353,18 +358,25 @@ handleSelecaoBoleto()
         │                  \n\nPague até DD/MM/YYYY\nValor: R$ X,XX"
         │
         ├── Cache.setCodigos({ linhaDigitavel, qrCode, restantes })
-        └── GraphApi.messageWithInteractiveList("Formas de pagar", rows)
+        ├── GraphApi.messageWithInteractiveList("Formas de pagar", rows)
+        └── mensageria.enviarComBotaoMenu("Terminou?") → [Voltar ao menu]
 ```
 
 **Por que os códigos não saem junto com o PDF.** Até jul/2026 a entrega disparava
 seis mensagens de uma vez (PDF, rótulo + linha digitável, rótulo + PIX,
 fechamento). No celular as primeiras subiam para fora da tela, e com o teclado
 aberto sobrava meia tela de conversa — o público é majoritariamente idoso e se
-perdia. Agora são duas mensagens: o PDF e a lista de facilidades.
+perdia. Agora são três: o PDF, a lista de facilidades e o botão de saída.
 
 Cada código continua chegando **sozinho** na mensagem, porque o WhatsApp copia a
 mensagem inteira: rótulo junto do código iria para a área de transferência. O que
 mudou é que só chega o código que o cliente pediu.
+
+**Por que a saída é uma mensagem à parte.** O WhatsApp não permite lista
+interativa e botão de resposta na mesma mensagem. "Voltar ao menu" chegou a ser
+uma linha da lista, mas ali ficava escondido atrás de um toque e no meio das
+formas de pagamento — sair da conversa não pode depender de o cliente abrir um
+menu para achar a saída. A mensagem extra é o preço do botão verde visível.
 
 Os códigos ficam na chave `codigos:<telefone>` do Redis, com o mesmo TTL
 deslizante do resto da sessão, para que o toque — que chega minutos depois — não
@@ -476,7 +488,7 @@ permanece no código.
 | `MSG_FACILIDADE_LINHA_DESC` | "Pague no banco, na lotérica ou pelo aplicativo" |
 | `MSG_FACILIDADE_PIX_DESC` | "Pague pelo aplicativo do seu banco" |
 | `MSG_FACILIDADE_OUTRAS_DESC` | "Você ainda tem {RESTANTES} conta(s) em aberto" |
-| `MSG_FACILIDADE_MENU_DESC` | "Encerrar e voltar ao início" |
+| `MSG_FACILIDADES_SAIDA` | "Terminou? Toque no botão abaixo para voltar ao início." (mensagem separada, com o botão [Voltar ao menu]) |
 | `MSG_FACILIDADE_EXPIRADA` | "Já faz um tempo desde a sua consulta e não tenho mais os códigos dessa conta.\n\nToque no botão abaixo para consultar de novo." |
 | `MSG_LABEL_LINHA_DIGITAVEL` | "Linha digitável do boleto:" (só no fallback em texto) |
 | `MSG_LABEL_PIX` | "PIX copia e cola:" (só no fallback em texto) |

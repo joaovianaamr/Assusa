@@ -104,7 +104,11 @@ module.exports = Object.freeze({
   MSG_FACILIDADE_LINHA_DESC: "Pague no banco, na lotérica ou pelo aplicativo",
   MSG_FACILIDADE_PIX_DESC: "Pague pelo aplicativo do seu banco",
   MSG_FACILIDADE_OUTRAS_DESC: "Você ainda tem {RESTANTES} conta(s) em aberto",
-  MSG_FACILIDADE_MENU_DESC: "Encerrar e voltar ao início",
+  // Acompanha a lista, em mensagem separada. O "Voltar ao menu" ficava dentro da
+  // lista, escondido atrás de um toque e no meio das formas de pagamento; sair da
+  // conversa não pode depender de o cliente abrir um menu para achar a saída.
+  MSG_FACILIDADES_SAIDA:
+    "Terminou? Toque no botão abaixo para voltar ao início.",
   // Fallback: a Meta recusou a lista interativa. Cai para o formato antigo —
   // rótulo e código em mensagens separadas, tudo de uma vez.
   MSG_LABEL_LINHA_DIGITAVEL:

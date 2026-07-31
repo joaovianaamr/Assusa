@@ -107,10 +107,13 @@ function montarRowsLista(boletos) {
 /**
  * Linhas da lista de facilidades exibida depois de entregar o PDF.
  *
- * A ordem importa: o que o cliente veio buscar (o código para pagar) vem
- * primeiro; sair da conversa é a última linha. A linha do PIX some quando o
- * boleto não tem QR Code — oferecer e depois dizer "indisponível" seria pior
- * do que não oferecer.
+ * Só o que diz respeito a PAGAR. "Voltar ao menu" sai numa mensagem à parte,
+ * como botão verde: dentro da lista ele ficava escondido atrás de um toque, no
+ * meio das formas de pagamento, e sair é justamente o que não pode depender de
+ * o cliente abrir um menu.
+ *
+ * A linha do PIX some quando o boleto não tem QR Code — oferecer e depois dizer
+ * "indisponível" seria pior do que não oferecer.
  *
  * @param {{temPix:boolean, restantes:number}} opcoes
  */
@@ -141,12 +144,6 @@ function montarRowsFacilidades({ temPix, restantes }) {
       ),
     });
   }
-
-  rows.push({
-    id: mensagens.REPLY_MENU_ID,
-    title: truncar(mensagens.REPLY_MENU_CTA, LIMITE_TITULO_ROW),
-    description: truncar(mensagens.MSG_FACILIDADE_MENU_DESC, LIMITE_DESCRICAO_ROW),
-  });
 
   return rows;
 }
