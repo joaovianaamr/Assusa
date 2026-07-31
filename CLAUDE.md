@@ -132,12 +132,22 @@ presa. O id `assusa-menu` está em `MENU_BUTTONS`, então limpa estado e boletos
 dispatch. Ao acrescentar uma nova mensagem de erro, use `enviarComBotaoMenu`, não
 `GraphApi.messageWithText`.
 
-**`assusa-ver-outras` NÃO pode entrar em `MENU_BUTTONS`.** Depois de entregar um boleto o bot
-mantém estado e lista no Redis por 30 min, para o cliente pedir outra conta sem redigitar o CPF
-(`refrescarSessaoBoletos`). Os ids de `MENU_BUTTONS` limpam estado **e** boletos — se o botão
-"Ver outras contas" estivesse lá, ele destruiria a sessão que existe justamente para ele. Por
-isso é interceptado no topo de `handleMessage`, antes da máquina de estados: dentro de
-`aguardando_selecao_boleto` ele cairia em `handleSelecaoBoleto` e viraria "não entendi".
+**Depois do PDF vem UMA lista de facilidades, não uma chuva de mensagens.** Até jul/2026 a
+entrega disparava seis mensagens (PDF, rótulo + linha digitável, rótulo + PIX, fechamento);
+no celular as primeiras subiam para fora da tela e, com o teclado aberto, sobrava meia tela —
+o público é majoritariamente idoso. Hoje são duas: o PDF e a lista `Formas de pagar`
+(`oferecerFacilidades`), cujas linhas entregam o código **sob demanda**. Cada código continua
+chegando sozinho na mensagem — o WhatsApp copia a mensagem inteira, então rótulo junto do
+código iria para a área de transferência. Os códigos ficam em `codigos:<telefone>` no Redis
+com o mesmo TTL deslizante; sem isso cada toque custaria uma consulta nova ao Sicoob.
+
+**`assusa-ver-outras`, `assusa-linha-digitavel` e `assusa-pix-copia-cola` NÃO podem entrar em
+`MENU_BUTTONS`.** Depois de entregar um boleto o bot mantém estado, lista e códigos no Redis
+por 30 min, para o cliente pedir outra conta ou o outro código sem redigitar o CPF
+(`refrescarSessaoBoletos`). Os ids de `MENU_BUTTONS` limpam estado, boletos **e** códigos — se
+esses três estivessem lá, destruiriam a sessão que existe justamente para eles. Por isso são
+interceptados no topo de `handleMessage`, antes da máquina de estados: dentro de
+`aguardando_selecao_boleto` cairiam em `handleSelecaoBoleto` e virariam "não entendi".
 
 **A Meta recusa a mensagem interativa inteira (400) por detalhe de formato.** Três defesas
 dependem disso e devem ser preservadas: `enviarSelecaoBoletos` cai para texto simples pedindo o
@@ -193,7 +203,8 @@ passo de endurecimento — exige trocar `VPS_USER`/`VPS_SSH_KEY` nos secrets e t
 
 ## Estado no Redis
 
-Chave por número de telefone, TTL deslizante de `ESTADO_TTL_SECONDS` (padrão 1800 s).
+Três chaves por número de telefone (`estado:`, `boletos:`, `codigos:`), TTL deslizante de
+`ESTADO_TTL_SECONDS` (padrão 1800 s).
 Estados: *(sem estado)* · `aguardando_cpf` · `aguardando_selecao_boleto`.
 Palavras-chave de saída válidas em qualquer estado, sem acento e case-insensitive:
 `menu` · `sair` · `voltar` · `cancelar` · `inicio`. Só valem para texto livre, não para cliques.

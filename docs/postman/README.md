@@ -278,6 +278,11 @@ recomeçar (ver seção [Redis](#redis)).
    | 1 a 3 | Botões | `1 - Conta DD/MM` (título ≤ 20 chars) |
    | 4 a 10 | Lista interativa | Botão "Ver minhas contas" abre até 10 linhas: título `N) Conta DD/MM/AAAA`, descrição `Valor atualizado: R$ X,XX` |
 
+   Na lista interativa o corpo é **só o cabeçalho** ("Encontrei N contas em aberto…"):
+   as linhas já trazem data e valor, e o rótulo do botão já diz "Ver minhas contas".
+   Nos formatos de **botão** e de **texto** o corpo continua enumerando as contas —
+   o botão comporta apenas `1 - Conta 16/05`, sem valor.
+
    Se a Meta recusar a mensagem interativa, o bot cai para **texto simples** com a
    lista enumerada e a instrução "Responda com o número da conta" (evento
    `SELECAO_FALLBACK_TEXTO`). O estado só é gravado **depois** que o envio dá certo.
@@ -357,7 +362,8 @@ renovado a cada interação)
 > intervalo) recebe "Não entendi sua resposta..." e **mantém a sessão viva**,
 > em vez de alegar falha de sistema.
 
-**Resposta no WhatsApp — agora em mensagens separadas** (facilita copiar no celular):
+**Resposta no WhatsApp — duas mensagens** (antes eram seis; no celular as primeiras
+subiam para fora da tela):
 1. Documento `boleto.pdf` com caption:
    ```
    ✅ Sua 2ª via
@@ -365,23 +371,21 @@ renovado a cada interação)
    Pague até DD/MM/YYYY
    Valor: R$ X.XXX,XX
    ```
-2. Texto: `Linha digitável do boleto:`
-3. Texto: `<linha digitável>` (sozinha, fácil de copiar)
-4. Texto: `PIX copia e cola:`
-5. Texto: `<pix copia e cola>` (sozinho, fácil de copiar)
+2. Lista interativa **[Formas de pagar]** com as linhas:
+   `Linha digitável` · `PIX copia e cola` · `Ver outras contas` · `Voltar ao menu`
 
 > A data e o valor da caption vêm da 2ª via (vencimento = hoje, valor atualizado).
-> Se não houver PIX, no lugar dos passos 4-5 é enviado "PIX não disponível para este boleto."
-> Se o upload do PDF falhar, a caption é enviada como texto e os blocos 2-5 seguem normalmente.
+> Se não houver PIX, a linha correspondente não é oferecida.
+> Se o upload do PDF falhar, a caption é enviada como texto e a lista segue normalmente.
+> Se a **Meta recusar a lista** (HTTP 400), cai para o formato antigo: rótulo e código em
+> mensagens separadas, mais os botões [Ver outras contas] [Voltar ao menu].
 
-Depois da entrega vem o **fechamento** (`fecharEntrega`):
+**Os códigos são entregues sob demanda.** Tocar em `assusa-linha-digitavel` ou
+`assusa-pix-copia-cola` envia **só** o código pedido, sozinho na mensagem (o WhatsApp copia a
+mensagem inteira), e reexibe a lista logo abaixo. Os dois vêm da chave `codigos:<telefone>`
+do Redis — nenhuma chamada nova ao Sicoob.
 
-> "Pronto! Sua conta de DD/MM/AAAA foi enviada. ✅
->
-> Você ainda tem N conta(s) em aberto. O que deseja agora?"
-
-com os botões **[Ver outras contas]** e **[Voltar ao menu]** — ou só o segundo, quando havia
-uma conta só. "Ver outras contas" (`assusa-ver-outras`) reexibe a lista **do cache**, sem
+"Ver outras contas" (`assusa-ver-outras`) reexibe a lista de contas **do cache**, sem
 consultar o Sicoob e sem descartar a sessão; "Voltar ao menu" limpa tudo.
 
 **Estado no Redis após:** **mantido** em `aguardando_selecao_boleto` com os boletos em cache

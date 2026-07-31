@@ -40,8 +40,9 @@ module.exports = function criar({ notificador, sessao, bancoBoletos, telemetria,
 
     // Distinguimos cada conta pelo vencimento ORIGINAL (único diferenciador entre
     // boletos), mostrando o valor já atualizado para pagamento hoje. O corpo
-    // enumerado vai em todos os formatos: assim o cliente lê todas as contas sem
-    // precisar abrir o menu da lista.
+    // enumerado só vai nos formatos em que a opção não carrega os dados: botão
+    // (cabe "1 - Conta 16/05", sem valor) e fallback em texto. Na lista
+    // interativa as linhas já trazem data e valor — repetir vira paredão.
     const usarLista = view.deveUsarLista(enriquecidos.length);
 
     // O estado só é gravado depois que o cliente REALMENTE recebeu a lista — caso

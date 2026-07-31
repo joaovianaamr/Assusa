@@ -16,6 +16,11 @@ Estados possíveis no Redis:
   (sem estado)               → usuário inativo / novo
   aguardando_cpf             → bot aguarda o CPF do usuário
   aguardando_selecao_boleto  → bot aguarda o usuário escolher um boleto
+
+Chaves por telefone (mesmo TTL deslizante):
+  estado:<telefone>          → o estado acima
+  boletos:<telefone>         → a lista de contas já enriquecida com valor atualizado
+  codigos:<telefone>         → linha digitável + PIX da última conta entregue
 ```
 
 > Palavras-chave de saída — válidas em **qualquer** estado e a qualquer momento:
@@ -54,6 +59,20 @@ MENSAGEM RECEBIDA
     │    └── cache vazio (TTL expirou)
     │        ├── grava interação: SESSAO_EXPIRADA
     │        └── ✉ "não tenho mais sua lista..." + botão [Voltar ao menu]
+    │
+    ├─── Linha da lista de facilidades — QUALQUER estado
+    │    │   (assusa-linha-digitavel | assusa-pix-copia-cola)
+    │    │   [mesmo motivo do "Ver outras contas": dentro de
+    │    │    aguardando_selecao_boleto cairia em handleSelecaoBoleto]
+    │    │
+    │    ├── códigos no Redis → ✉ SÓ o código pedido, sozinho na mensagem
+    │    │   ├── grava interação: FACILIDADE_ENVIADA (tipo: linha_digitavel | pix)
+    │    │   ├── renova o TTL dos códigos e da lista de contas
+    │    │   └── ✉ reexibe a lista de facilidades logo abaixo
+    │    │
+    │    └── cache vazio (TTL expirou)
+    │        ├── grava interação: SESSAO_EXPIRADA (etapa: facilidades)
+    │        └── ✉ "não tenho mais os códigos dessa conta..." + [Voltar ao menu]
     │
     ├─── Estado Redis = "aguardando_cpf"
     │    │
@@ -159,21 +178,24 @@ MENSAGEM RECEBIDA
     │                        │
     │                        ├── upload com SUCESSO
     │                        │   ├── grava interação: PDF_ENTREGUE
-    │                        │   ├── ✉ documento PDF "boleto.pdf"
+    │                        │   └── ✉ documento PDF "boleto.pdf"
     │                        │       caption: vencimento DD/MM/YYYY | valor R$ X,XX
-    │                        │               linha digitável | PIX copia e cola
     │                        │
     │                        ├── upload FALHOU (erro na Meta API)
     │                        │   └── ✉ caption como texto simples (fallback sem PDF)
     │                        │
-    │                        └── FECHAMENTO (fecharEntrega) — sempre, após entregar
+    │                        └── FACILIDADES (oferecerFacilidades) — sempre, após entregar
+    │                            ├── guarda linha digitável + PIX no Redis (chave codigos:)
     │                            ├── mantém estado + boletos e renova o TTL
-    │                            ├── 2+ contas na sessão:
-    │                            │   ✉ "Pronto! Sua conta de DD/MM/AAAA foi enviada."
-    │                            │   + [Ver outras contas] [Voltar ao menu]
-    │                            └── 1 conta só:
-    │                                ✉ "Pronto! ... Posso ajudar com mais alguma coisa?"
-    │                                + [Voltar ao menu]
+    │                            ├── ✉ UMA lista interativa "Formas de pagar":
+    │                            │      • Linha digitável
+    │                            │      • PIX copia e cola   (só se houver qrCode)
+    │                            │      • Ver outras contas  (só se restarem contas)
+    │                            │      • Voltar ao menu
+    │                            └── Meta recusou a lista (HTTP 400)
+    │                                ├── grava interação: FACILIDADES_FALLBACK_TEXTO
+    │                                └── ✉ rótulo + código das duas formas, como antes,
+    │                                    + [Ver outras contas] [Voltar ao menu]
     │
     └─── Sem estado / estado desconhecido
          └── dispatch por message.type
@@ -281,6 +303,15 @@ A escolha entre botões e lista vem dos limites da Meta para mensagens interativ
 | Botões (`messageWithInteractiveReply`) | 1 a 3 contas | 3 botões, título ≤ 20 chars |
 | Lista (`messageWithInteractiveList`) | 4 ou mais contas | 10 linhas, título ≤ 24, descrição ≤ 72 |
 
+**O corpo da lista interativa é só o cabeçalho.** Nos outros dois formatos ele
+carrega a enumeração das contas, porque o botão comporta apenas `1 - Conta 16/05`
+(sem valor) e o fallback em texto não tem nada além do corpo. Na lista, cada linha
+já traz data **e** valor atualizado, e o rótulo do próprio botão já diz "Ver minhas
+contas" — enumerar as contas e ainda mandar "toque em *Ver minhas contas*" repetia
+duas vezes o que estava logo abaixo, virando um paredão de texto que perde o
+público idoso. Por isso `MSG_SELECIONAR_BOLETO_LISTA` não tem `{LISTA}` nem
+instrução de toque.
+
 ### Redes de segurança no envio
 
 A Meta recusa a mensagem interativa **inteira** (HTTP 400) por detalhes de formato.
@@ -316,12 +347,28 @@ handleSelecaoBoleto()
     └── recebe resultado.pdfBoleto (base64 ~86KB)
         │
         ├── Buffer.from(pdfBoleto, "base64")
-        └── GraphApi.uploadMedia(phoneNumberId, pdfBuffer)
-            └── GraphApi.messageWithDocument(mediaId, "boleto.pdf", caption)
-                caption = "Vencimento: DD/MM/YYYY | Valor: R$ X,XX
-                           \n\nLinha digitável:\n...
-                           \n\nPIX copia e cola:\n..."
+        ├── GraphApi.uploadMedia(phoneNumberId, pdfBuffer)
+        │   └── GraphApi.messageWithDocument(mediaId, "boleto.pdf", caption)
+        │       caption = "✅ Sua 2ª via
+        │                  \n\nPague até DD/MM/YYYY\nValor: R$ X,XX"
+        │
+        ├── Cache.setCodigos({ linhaDigitavel, qrCode, restantes })
+        └── GraphApi.messageWithInteractiveList("Formas de pagar", rows)
 ```
+
+**Por que os códigos não saem junto com o PDF.** Até jul/2026 a entrega disparava
+seis mensagens de uma vez (PDF, rótulo + linha digitável, rótulo + PIX,
+fechamento). No celular as primeiras subiam para fora da tela, e com o teclado
+aberto sobrava meia tela de conversa — o público é majoritariamente idoso e se
+perdia. Agora são duas mensagens: o PDF e a lista de facilidades.
+
+Cada código continua chegando **sozinho** na mensagem, porque o WhatsApp copia a
+mensagem inteira: rótulo junto do código iria para a área de transferência. O que
+mudou é que só chega o código que o cliente pediu.
+
+Os códigos ficam na chave `codigos:<telefone>` do Redis, com o mesmo TTL
+deslizante do resto da sessão, para que o toque — que chega minutos depois — não
+custe uma nova consulta ao Sicoob.
 
 > O `nossoNumero` **não é usado** no fluxo do WhatsApp. O identificador
 > transitado entre etapas é sempre a `linhaDigitavel`.
@@ -412,7 +459,7 @@ permanece no código.
 | `MSG_NENHUM_BOLETO` | "Não encontrei contas em aberto nesse CPF.\n\nIsso pode ser porque está tudo pago, ou porque o CPF não é o do titular da conta. Em caso de dúvida, ligue para (31) 3624-8550." |
 | `MSG_SELECIONAR_BOLETO` | "Encontrei {TOTAL} conta(s) em aberto. O valor já está atualizado para pagamento hoje.\n\n{LISTA}\n\nToque no botão da conta que deseja pagar:" |
 | `MSG_SELECIONAR_BOLETO_TEXTO` | "Encontrei {TOTAL} conta(s) em aberto. O valor já está atualizado para pagamento hoje.\n\n{LISTA}\n\nResponda com o *número* da conta que deseja pagar (1, 2, 3...)." |
-| `MSG_SELECIONAR_BOLETO_LISTA` | "Encontrei {TOTAL} contas em aberto. O valor já está atualizado para pagamento hoje.\n\n{LISTA}\n\nToque em *Ver minhas contas* aqui embaixo e escolha a que deseja pagar:" |
+| `MSG_SELECIONAR_BOLETO_LISTA` | "Encontrei {TOTAL} contas em aberto. O valor já está atualizado para pagamento hoje." (sem `{LISTA}` e sem instrução — ver abaixo) |
 | `MSG_SELECIONAR_BOLETO_ITEM` | "{N}) Conta de {DATA} — R$ {VALOR}" |
 | `MSG_CONSULTANDO_BOLETOS` | "Aguarde, estou consultando seus boletos..." |
 | `MSG_AVISO_MUITOS_BOLETOS` | "Você possui {TOTAL} contas em aberto. Estou mostrando as {EXIBIDOS} mais antigas — para as demais, ligue para (31) 3624-8550." |
@@ -420,11 +467,20 @@ permanece no código.
 | `MSG_LISTA_SECAO` | "Contas em aberto" |
 | `MSG_LISTA_ITEM_DESCRICAO` | "Valor atualizado: R$ {VALOR}" |
 | `MSG_BOLETO_CAPTION` | "✅ Sua 2ª via\n\nPague até {DATA}\nValor: R$ {VALOR}" |
-| `MSG_LABEL_LINHA_DIGITAVEL` | "Linha digitável do boleto:" |
-| `MSG_LABEL_PIX` | "PIX copia e cola:" |
+| `MSG_FACILIDADES_OUTRAS` | "Como você prefere pagar?\n\nToque em *Formas de pagar* aqui embaixo e escolha o código que deseja copiar.\n\nVocê ainda tem {RESTANTES} conta(s) em aberto." |
+| `MSG_FACILIDADES_UNICA` | "Como você prefere pagar?\n\nToque em *Formas de pagar* aqui embaixo e escolha o código que deseja copiar." |
+| `MSG_FACILIDADES_APOS_LINHA` | "☝️ Essa é a *linha digitável*. Toque no número acima para copiar e pague no banco, na lotérica ou pelo aplicativo. (…)" |
+| `MSG_FACILIDADES_APOS_PIX` | "☝️ Esse é o *PIX copia e cola*. Toque no código acima para copiar e cole no aplicativo do seu banco, na opção PIX. (…)" |
+| `MSG_FACILIDADES_BOTAO` | "Formas de pagar" |
+| `MSG_FACILIDADES_SECAO` | "Como deseja pagar" |
+| `MSG_FACILIDADE_LINHA_DESC` | "Pague no banco, na lotérica ou pelo aplicativo" |
+| `MSG_FACILIDADE_PIX_DESC` | "Pague pelo aplicativo do seu banco" |
+| `MSG_FACILIDADE_OUTRAS_DESC` | "Você ainda tem {RESTANTES} conta(s) em aberto" |
+| `MSG_FACILIDADE_MENU_DESC` | "Encerrar e voltar ao início" |
+| `MSG_FACILIDADE_EXPIRADA` | "Já faz um tempo desde a sua consulta e não tenho mais os códigos dessa conta.\n\nToque no botão abaixo para consultar de novo." |
+| `MSG_LABEL_LINHA_DIGITAVEL` | "Linha digitável do boleto:" (só no fallback em texto) |
+| `MSG_LABEL_PIX` | "PIX copia e cola:" (só no fallback em texto) |
 | `MSG_PIX_INDISPONIVEL` | "PIX não disponível para este boleto." |
-| `MSG_POS_ENTREGA_OUTRAS` | "Pronto! Sua conta de {DATA} foi enviada. ✅\n\nVocê ainda tem {RESTANTES} conta(s) em aberto. O que deseja agora?" |
-| `MSG_POS_ENTREGA_UNICA` | "Pronto! Sua conta de {DATA} foi enviada. ✅\n\nPosso ajudar com mais alguma coisa?" |
 | `MSG_SESSAO_EXPIRADA` | "Já faz um tempo desde a sua consulta e não tenho mais sua lista de contas.\n\nToque no botão abaixo para consultar de novo." |
 | `MSG_SELECAO_NAO_ENTENDIDA` | "Não entendi sua resposta.\n\nResponda com o *número* da conta que deseja pagar, de 1 a {TOTAL}." |
 | `MSG_ERRO_INESPERADO` | "Tive um problema aqui e não consegui concluir seu atendimento.\n\nToque no botão abaixo para recomeçar, ou ligue para (31) 3624-8550." |

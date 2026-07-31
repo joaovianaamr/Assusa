@@ -153,7 +153,7 @@ test("aguardando_cpf + button assusa-segunda-via reinicia o fluxo pedindo o CPF 
   );
 });
 
-test("selecionar boleto entrega em partes e mantém a lista clicável (não limpa estado)", async (t) => {
+test("selecionar boleto entrega PDF + lista de facilidades e mantém a lista clicável", async (t) => {
   const Cache = require("../api/infrastructure/sessaoRedis");
   const GraphApi = require("../api/infrastructure/whatsappGraph");
   const interacao = require("../api/infrastructure/telemetriaHttp");
@@ -170,6 +170,7 @@ test("selecionar boleto entrega em partes e mantém a lista clicável (não limp
   const setBoletos = t.mock.method(Cache, "setBoletos", async () => {});
   const clearEstado = t.mock.method(Cache, "clearEstado", async () => {});
   const clearBoletos = t.mock.method(Cache, "clearBoletos", async () => {});
+  const setCodigos = t.mock.method(Cache, "setCodigos", async () => {});
   t.mock.method(interacao, "registrar", () => {});
   t.mock.method(sicoobClient, "segundaViaBoleto", async () => ({
     body: {
@@ -190,7 +191,7 @@ test("selecionar boleto entrega em partes e mantém a lista clicável (não limp
   t.mock.method(GraphApi, "uploadMedia", async () => ({ id: "media-1" }));
   const mockDoc = t.mock.method(GraphApi, "messageWithDocument", async () => {});
   const mockText = t.mock.method(GraphApi, "messageWithText", async () => {});
-  const mockBotoes = t.mock.method(GraphApi, "messageWithInteractiveReply", async () => {});
+  const mockLista = t.mock.method(GraphApi, "messageWithInteractiveList", async () => {});
 
   await Conversation.handleMessage("phone-id-123", {
     from: "5531999999999",
@@ -200,31 +201,33 @@ test("selecionar boleto entrega em partes e mantém a lista clicável (não limp
     interactive: { type: "button_reply", button_reply: { id: "boleto-0", title: "1 - Conta 16/05" } },
   });
 
+  // A entrega inteira cabe em DUAS mensagens: o PDF e a lista de facilidades.
+  // Antes eram seis, e no celular as primeiras subiam para fora da tela.
   assert.equal(mockDoc.mock.calls.length, 1, "deve enviar o PDF uma vez");
-  // linha digitável (rótulo + número) + PIX (rótulo + código) = 4 mensagens
-  assert.equal(mockText.mock.calls.length, 4, "deve enviar linha digitável e PIX em partes");
-  const textos = mockText.mock.calls.map(c => c.arguments[3]);
-  assert.ok(textos.includes(constants.MSG_LABEL_LINHA_DIGITAVEL));
-  assert.ok(textos.includes("L0"));
-  assert.ok(textos.includes(constants.MSG_LABEL_PIX));
-  assert.ok(textos.includes("PIX-COPIA-COLA"));
+  assert.equal(mockText.mock.calls.length, 0, "os códigos não saem mais de imediato");
+  assert.equal(mockLista.mock.calls.length, 1, "deve oferecer as facilidades numa lista");
+
+  const [, , , corpo, botao, secao, rows] = mockLista.mock.calls[0].arguments;
+  assert.equal(botao, constants.MSG_FACILIDADES_BOTAO);
+  assert.equal(secao, constants.MSG_FACILIDADES_SECAO);
+  assert.ok(!/Pronto!/.test(corpo), "a mensagem de 'conta enviada' foi removida");
+  assert.match(corpo, /1 conta\(s\) em aberto/, "havia 2 no cache, resta 1");
+  assert.deepEqual(
+    rows.map(r => r.id),
+    [constants.REPLY_LINHA_ID, constants.REPLY_PIX_ID, constants.REPLY_VER_OUTRAS_ID, constants.REPLY_MENU_ID],
+    "código primeiro, saída por último"
+  );
+
+  // Os códigos ficam guardados para serem entregues quando o cliente tocar.
+  assert.equal(setCodigos.mock.calls.length, 1, "deve guardar os códigos na sessão");
+  assert.deepEqual(setCodigos.mock.calls[0].arguments[1], {
+    linhaDigitavel: "L0", qrCode: "PIX-COPIA-COLA", restantes: 1,
+  });
 
   assert.equal(clearEstado.mock.calls.length, 0, "não deve limpar o estado após entregar");
   assert.equal(clearBoletos.mock.calls.length, 0, "não deve limpar os boletos após entregar");
   assert.ok(setEstado.mock.calls.length >= 1, "deve renovar o TTL do estado");
   assert.ok(setBoletos.mock.calls.length >= 1, "deve renovar o TTL dos boletos");
-
-  // fechamento: o cliente precisa saber que ainda pode pedir as outras contas
-  assert.equal(mockBotoes.mock.calls.length, 1, "deve fechar com uma mensagem de botões");
-  const [, , , textoFinal, botoesFinal] = mockBotoes.mock.calls[0].arguments;
-  assert.match(textoFinal, /Pronto!/);
-  assert.match(textoFinal, /16\/05\/2026/, "deve citar a conta entregue");
-  assert.match(textoFinal, /1 conta\(s\) em aberto/, "havia 2 no cache, resta 1");
-  assert.deepEqual(
-    botoesFinal.map(b => b.id),
-    ["assusa-ver-outras", "assusa-menu"],
-    "com outras contas, oferece reexibir a lista antes de sair"
-  );
 });
 
 // ── caminhos novos: botões vs. lista, e os desfechos da consulta por CPF ──────
@@ -244,6 +247,7 @@ function cenarioCpf(t, { emAberto = [], historico = [], historicoFalha = false }
   t.mock.method(Cache, "setBoletos", async () => {});
   t.mock.method(Cache, "clearEstado", async () => {});
   t.mock.method(Cache, "clearBoletos", async () => {});
+  t.mock.method(Cache, "clearCodigos", async () => {});
   t.mock.method(interacao, "registrar", () => {});
 
   const envelope = lista => ({
@@ -489,6 +493,7 @@ test("cliente escolhe a conta digitando o número", async (t) => {
   ]);
   t.mock.method(Cache, "setEstado", async () => {});
   t.mock.method(Cache, "setBoletos", async () => {});
+  t.mock.method(Cache, "setCodigos", async () => {});
   t.mock.method(interacao, "registrar", () => {});
   const segundaVia = t.mock.method(sicoobClient, "segundaViaBoleto", async () => ({
     body: { ok: true, result: { response: { resultado: {
@@ -498,6 +503,7 @@ test("cliente escolhe a conta digitando o número", async (t) => {
   t.mock.method(GraphApi, "uploadMedia", async () => ({ id: "media-1" }));
   const doc = t.mock.method(GraphApi, "messageWithDocument", async () => {});
   t.mock.method(GraphApi, "messageWithText", async () => {});
+  t.mock.method(GraphApi, "messageWithInteractiveList", async () => {});
 
   await require("../api/composicao").router.handleMessage("phone-id-123", {
     from: "5531999999999", id: "wamid.num", timestamp: "1748000050",
@@ -652,6 +658,7 @@ test("tocar no botão volta ao menu inicial e limpa a sessão de seleção", asy
   t.mock.method(Cache, "setBoletos", async () => {});
   const clearEstado = t.mock.method(Cache, "clearEstado", async () => {});
   const clearBoletos = t.mock.method(Cache, "clearBoletos", async () => {});
+  const clearCodigos = t.mock.method(Cache, "clearCodigos", async () => {});
   const registrar = t.mock.method(interacao, "registrar", () => {});
   const botoes = t.mock.method(GraphApi, "messageWithInteractiveReply", async () => {});
 
@@ -670,6 +677,7 @@ test("tocar no botão volta ao menu inicial e limpa a sessão de seleção", asy
   );
   assert.ok(clearEstado.mock.calls.length >= 1, "deve limpar o estado");
   assert.ok(clearBoletos.mock.calls.length >= 1, "deve limpar os boletos");
+  assert.ok(clearCodigos.mock.calls.length >= 1, "deve limpar os códigos guardados");
   assert.ok(registrar.mock.calls.some(c => c.arguments[1] === "MENU_VIA_BOTAO"));
 });
 
@@ -704,16 +712,25 @@ function cenarioEntrega(t, quantidade) {
     valorPagar: 100 + i,
   }));
 
+  // Os códigos ficam num store de verdade (em memória) porque a lista de
+  // facilidades os entrega SOB DEMANDA: o toque em "PIX copia e cola" chega
+  // numa segunda passagem pelo webhook e precisa reler o que a entrega gravou.
+  let codigos = null;
+
   t.mock.method(Cache, "getEstado", async () => "aguardando_selecao_boleto");
   t.mock.method(Cache, "getBoletos", async () => cache);
   t.mock.method(Cache, "setEstado", async () => {});
   t.mock.method(Cache, "setBoletos", async () => {});
   t.mock.method(Cache, "clearEstado", async () => {});
   t.mock.method(Cache, "clearBoletos", async () => {});
+  t.mock.method(Cache, "setCodigos", async (_phone, c) => { codigos = c; });
+  t.mock.method(Cache, "getCodigos", async () => codigos);
+  t.mock.method(Cache, "clearCodigos", async () => { codigos = null; });
   t.mock.method(interacao, "registrar", () => {});
   t.mock.method(sicoobClient, "segundaViaBoleto", async () => ({
     body: { ok: true, result: { response: { resultado: {
-      pdfBoleto: "JVBERi0=", valor: 100, dataVencimento: "2026-06-17", linhaDigitavel: "L0",
+      pdfBoleto: "JVBERi0=", qrCode: "PIX-COPIA-COLA", valor: 100,
+      dataVencimento: "2026-06-17", linhaDigitavel: "L0",
     } } } },
   }));
   t.mock.method(GraphApi, "uploadMedia", async () => ({ id: "media-1" }));
@@ -732,13 +749,110 @@ const escolher = (id) =>
     type: "interactive", interactive: { type: "button_reply", button_reply: { id, title: "x" } },
   });
 
-test("com uma única conta, o fechamento não oferece 'ver outras'", async (t) => {
+test("com uma única conta, a lista de facilidades não oferece 'ver outras'", async (t) => {
   const m = cenarioEntrega(t, 1);
   await escolher("boleto-0");
 
-  const [, , , texto, botoes] = m.botoes.mock.calls[0].arguments;
-  assert.match(texto, /Posso ajudar com mais alguma coisa/);
-  assert.deepEqual(botoes.map(b => b.id), [constantsRef.REPLY_MENU_ID]);
+  const rows = m.lista.mock.calls[0].arguments[6];
+  assert.deepEqual(
+    rows.map(r => r.id),
+    [constantsRef.REPLY_LINHA_ID, constantsRef.REPLY_PIX_ID, constantsRef.REPLY_MENU_ID]
+  );
+});
+
+test("boleto sem PIX não oferece a linha de PIX na lista", async (t) => {
+  const sicoobClient = require("../api/infrastructure/sicoobHttp");
+  const m = cenarioEntrega(t, 1);
+  t.mock.method(sicoobClient, "segundaViaBoleto", async () => ({
+    body: { ok: true, result: { response: { resultado: {
+      pdfBoleto: "JVBERi0=", valor: 100, dataVencimento: "2026-06-17", linhaDigitavel: "L0",
+    } } } },
+  }));
+
+  await escolher("boleto-0");
+
+  const rows = m.lista.mock.calls[0].arguments[6];
+  assert.deepEqual(
+    rows.map(r => r.id),
+    [constantsRef.REPLY_LINHA_ID, constantsRef.REPLY_MENU_ID],
+    "oferecer PIX e depois dizer 'indisponível' seria pior do que não oferecer"
+  );
+});
+
+test("as linhas da lista respeitam os limites da Meta", async (t) => {
+  const m = cenarioEntrega(t, 3);
+  await escolher("boleto-0");
+
+  const rows = m.lista.mock.calls[0].arguments[6];
+  for (const row of rows) {
+    assert.ok(row.title.length <= 24, `título "${row.title}" acima de 24 caracteres`);
+    assert.ok(row.description.length <= 72, `descrição "${row.description}" acima de 72`);
+  }
+});
+
+test("tocar em 'PIX copia e cola' entrega só o código e reexibe a lista", async (t) => {
+  const m = cenarioEntrega(t, 2);
+  await escolher("boleto-0");
+  await escolher(constantsRef.REPLY_PIX_ID);
+
+  // O código chega SOZINHO na mensagem: o WhatsApp copia a mensagem inteira,
+  // então qualquer rótulo junto entraria na área de transferência.
+  const textos = m.text.mock.calls.map(c => c.arguments[3]);
+  assert.deepEqual(textos, ["PIX-COPIA-COLA"]);
+
+  assert.equal(m.lista.mock.calls.length, 2, "a lista volta abaixo do código");
+  assert.match(m.lista.mock.calls[1].arguments[3], /PIX copia e cola/);
+});
+
+test("tocar em 'Linha digitável' entrega a linha, não o PIX", async (t) => {
+  const m = cenarioEntrega(t, 1);
+  await escolher("boleto-0");
+  await escolher(constantsRef.REPLY_LINHA_ID);
+
+  const textos = m.text.mock.calls.map(c => c.arguments[3]);
+  assert.deepEqual(textos, ["L0"]);
+  assert.match(m.lista.mock.calls[1].arguments[3], /linha digitável/);
+});
+
+test("pedir um código não consulta o Sicoob de novo nem descarta a sessão", async (t) => {
+  const Cache = require("../api/infrastructure/sessaoRedis");
+  const sicoobClient = require("../api/infrastructure/sicoobHttp");
+  cenarioEntrega(t, 2);
+  await escolher("boleto-0");
+
+  const segundaVia = t.mock.method(sicoobClient, "segundaViaBoleto", async () => {
+    throw new Error("não deveria consultar o Sicoob");
+  });
+  const clearEstado = t.mock.method(Cache, "clearEstado", async () => {});
+  const clearBoletos = t.mock.method(Cache, "clearBoletos", async () => {});
+  const setBoletos = t.mock.method(Cache, "setBoletos", async () => {});
+
+  await escolher(constantsRef.REPLY_LINHA_ID);
+
+  assert.equal(segundaVia.mock.calls.length, 0, "os códigos vêm do Redis");
+  assert.equal(clearEstado.mock.calls.length, 0, "a sessão deve sobreviver");
+  assert.equal(clearBoletos.mock.calls.length, 0, "a lista deve sobreviver");
+  assert.ok(setBoletos.mock.calls.length >= 1, "deve renovar o TTL");
+});
+
+test("pedir um código com a sessão expirada avisa e oferece recomeçar", async (t) => {
+  const Cache = require("../api/infrastructure/sessaoRedis");
+  const GraphApi = require("../api/infrastructure/whatsappGraph");
+  const interacao = require("../api/infrastructure/telemetriaHttp");
+
+  t.mock.method(Cache, "getEstado", async () => null);
+  t.mock.method(Cache, "getCodigos", async () => null);
+  t.mock.method(Cache, "clearEstado", async () => {});
+  t.mock.method(Cache, "clearBoletos", async () => {});
+  t.mock.method(Cache, "clearCodigos", async () => {});
+  t.mock.method(interacao, "registrar", () => {});
+  const botoes = t.mock.method(GraphApi, "messageWithInteractiveReply", async () => {});
+
+  await escolher(constantsRef.REPLY_PIX_ID);
+
+  const [, , , texto, bts] = botoes.mock.calls[0].arguments;
+  assert.match(texto, /não tenho mais os códigos/);
+  assert.deepEqual(bts.map(b => b.id), [constantsRef.REPLY_MENU_ID]);
 });
 
 test("'Ver outras contas' reexibe a lista sem consultar o Sicoob", async (t) => {
@@ -788,16 +902,24 @@ test("'Ver outras contas' com a sessão expirada avisa e oferece recomeçar", as
   assert.deepEqual(bts.map(b => b.id), [constantsRef.REPLY_MENU_ID]);
 });
 
-test("o fechamento nunca derruba a entrega já feita", async (t) => {
+test("Meta recusando a lista de facilidades cai para os códigos em texto", async (t) => {
   const GraphApi = require("../api/infrastructure/whatsappGraph");
   const m = cenarioEntrega(t, 2);
-  t.mock.method(GraphApi, "messageWithInteractiveReply", async () => {
+  t.mock.method(GraphApi, "messageWithInteractiveList", async () => {
     throw new Error("(#131009) Parameter value is not valid");
   });
 
-  // não pode lançar: o PDF e o PIX já chegaram ao cliente
+  // não pode lançar: o PDF já chegou ao cliente
   await escolher("boleto-0");
 
+  // Sem a lista, o cliente ficaria com o PDF e sem código nenhum — pior do que
+  // a chuva de mensagens que a lista evita.
   const textos = m.text.mock.calls.map(c => c.arguments[3]);
-  assert.ok(textos.some(x => /Pronto!/.test(x)), "o fechamento sai como texto");
+  assert.ok(textos.includes("L0"), "a linha digitável precisa chegar de algum jeito");
+  assert.ok(textos.includes("PIX-COPIA-COLA"), "o PIX também");
+  assert.deepEqual(
+    m.botoes.mock.calls[0].arguments[4].map(b => b.id),
+    [constantsRef.REPLY_VER_OUTRAS_ID, constantsRef.REPLY_MENU_ID],
+    "o fallback também precisa oferecer a saída"
+  );
 });

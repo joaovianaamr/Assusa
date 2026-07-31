@@ -38,6 +38,7 @@ module.exports = function criar({
     if (message.type === "unknown" && PALAVRAS_SAIDA.includes(normalize(message.text || ""))) {
       await sessao.clearEstado(message.senderPhoneNumber);
       await sessao.clearBoletos(message.senderPhoneNumber);
+      await sessao.clearCodigos(message.senderPhoneNumber);
       telemetria.registrar(message.senderPhoneNumber, "FLUXO_CANCELADO");
       await mensageria.sendMenuPrincipal(
         message.id, senderPhoneNumberId, message.senderPhoneNumber, mensagens.APP_DEFAULT_MESSAGE
@@ -45,11 +46,22 @@ module.exports = function criar({
       return;
     }
 
-    // "Ver outras contas" vale em qualquer estado e é tratado antes da máquina
-    // de estados: dentro de aguardando_selecao_boleto ele cairia no caso de uso
-    // de entrega e viraria "não entendi sua resposta".
+    // "Ver outras contas" e as linhas da lista de facilidades valem em qualquer
+    // estado e são tratadas antes da máquina de estados: dentro de
+    // aguardando_selecao_boleto elas cairiam no caso de uso de entrega e
+    // virariam "não entendi sua resposta".
     if (message.type === mensagens.REPLY_VER_OUTRAS_ID) {
       await listagem.reexibirBoletos(senderPhoneNumberId, message);
+      return;
+    }
+
+    if (message.type === mensagens.REPLY_LINHA_ID) {
+      await entrega.enviarFacilidade(senderPhoneNumberId, message, "linha");
+      return;
+    }
+
+    if (message.type === mensagens.REPLY_PIX_ID) {
+      await entrega.enviarFacilidade(senderPhoneNumberId, message, "pix");
       return;
     }
 
@@ -68,6 +80,7 @@ module.exports = function criar({
       }
       await sessao.clearEstado(message.senderPhoneNumber);
       await sessao.clearBoletos(message.senderPhoneNumber);
+      await sessao.clearCodigos(message.senderPhoneNumber);
     }
 
     switch (message.type) {

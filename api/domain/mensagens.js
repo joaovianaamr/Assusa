@@ -57,9 +57,16 @@ module.exports = Object.freeze({
   // lista, o cliente escolhe respondendo o número da conta.
   MSG_SELECIONAR_BOLETO_TEXTO:
     "Encontrei {TOTAL} conta(s) em aberto. O valor já está atualizado para pagamento hoje.\n\n{LISTA}\n\nResponda com o *número* da conta que deseja pagar (1, 2, 3...).",
-  // Versão com lista interativa (4 contas ou mais).
+  // Versão com lista interativa (4 contas ou mais). Só o cabeçalho, de propósito:
+  // as linhas da lista já trazem data E valor de cada conta, então o corpo
+  // enumerado repetia tudo e transformava a escolha num paredão de texto —
+  // justamente o que confunde o público idoso. Nos outros dois formatos a
+  // enumeração continua, porque o botão só cabe "1 - Conta 16/05" (sem valor) e
+  // o fallback em texto não tem nada além do corpo.
+  // A instrução "Toque em *Ver minhas contas*" também saiu: ela repetia, em
+  // palavras, o rótulo do botão logo abaixo (MSG_LISTA_BOTAO).
   MSG_SELECIONAR_BOLETO_LISTA:
-    "Encontrei {TOTAL} contas em aberto. O valor já está atualizado para pagamento hoje.\n\n{LISTA}\n\nToque em *Ver minhas contas* aqui embaixo e escolha a que deseja pagar:",
+    "Encontrei {TOTAL} contas em aberto. O valor já está atualizado para pagamento hoje.",
   // Linha de cada conta na listagem. {N}=número, {DATA}=vencimento original, {VALOR}=valor atualizado.
   MSG_SELECIONAR_BOLETO_ITEM:
     "{N}) Conta de {DATA} — R$ {VALOR}",
@@ -72,22 +79,43 @@ module.exports = Object.freeze({
   MSG_LISTA_BOTAO: "Ver minhas contas",
   MSG_LISTA_SECAO: "Contas em aberto",
   MSG_LISTA_ITEM_DESCRICAO: "Valor atualizado: R$ {VALOR}",
-  // Entrega do boleto (mensagens separadas para facilitar a cópia).
+  // Entrega do boleto: o PDF já traz vencimento e valor na legenda.
   MSG_BOLETO_CAPTION:
     "✅ Sua 2ª via\n\nPague até {DATA}\nValor: R$ {VALOR}",
+  // ── Facilidades de pagamento (lista interativa, sob demanda) ──────────────
+  // Antes a entrega despejava 6 mensagens de uma vez (PDF, rótulo + linha
+  // digitável, rótulo + PIX, fechamento). No celular as primeiras subiam para
+  // fora da tela e, com o teclado aberto, sobrava meia tela de conversa — o
+  // público é majoritariamente idoso e se perdia. Agora o PDF vem seguido de UMA
+  // lista: o cliente toca no código que quer e recebe só ele, sozinho na
+  // mensagem (o WhatsApp copia a mensagem inteira, então cada código precisa
+  // vir isolado para a cópia funcionar).
+  MSG_FACILIDADES_OUTRAS:
+    "Como você prefere pagar?\n\nToque em *Formas de pagar* aqui embaixo e escolha o código que deseja copiar.\n\nVocê ainda tem {RESTANTES} conta(s) em aberto.",
+  MSG_FACILIDADES_UNICA:
+    "Como você prefere pagar?\n\nToque em *Formas de pagar* aqui embaixo e escolha o código que deseja copiar.",
+  // Reexibida depois de entregar um código, para a lista não sumir da tela.
+  MSG_FACILIDADES_APOS_LINHA:
+    "☝️ Essa é a *linha digitável*. Toque no número acima para copiar e pague no banco, na lotérica ou pelo aplicativo.\n\nPrecisa de mais alguma coisa? Toque em *Formas de pagar*.",
+  MSG_FACILIDADES_APOS_PIX:
+    "☝️ Esse é o *PIX copia e cola*. Toque no código acima para copiar e cole no aplicativo do seu banco, na opção PIX.\n\nPrecisa de mais alguma coisa? Toque em *Formas de pagar*.",
+  MSG_FACILIDADES_BOTAO: "Formas de pagar",
+  MSG_FACILIDADES_SECAO: "Como deseja pagar",
+  MSG_FACILIDADE_LINHA_DESC: "Pague no banco, na lotérica ou pelo aplicativo",
+  MSG_FACILIDADE_PIX_DESC: "Pague pelo aplicativo do seu banco",
+  MSG_FACILIDADE_OUTRAS_DESC: "Você ainda tem {RESTANTES} conta(s) em aberto",
+  MSG_FACILIDADE_MENU_DESC: "Encerrar e voltar ao início",
+  // Fallback: a Meta recusou a lista interativa. Cai para o formato antigo —
+  // rótulo e código em mensagens separadas, tudo de uma vez.
   MSG_LABEL_LINHA_DIGITAVEL:
     "Linha digitável do boleto:",
   MSG_LABEL_PIX:
     "PIX copia e cola:",
   MSG_PIX_INDISPONIVEL:
     "PIX não disponível para este boleto.",
-  // ── Fechamento depois de entregar o boleto ────────────────────────────────
-  // Sem isto a conversa morria no PIX e o cliente não sabia que podia pedir as
-  // outras contas sem redigitar o CPF. {DATA} = vencimento da conta entregue.
-  MSG_POS_ENTREGA_OUTRAS:
-    "Pronto! Sua conta de {DATA} foi enviada. ✅\n\nVocê ainda tem {RESTANTES} conta(s) em aberto. O que deseja agora?",
-  MSG_POS_ENTREGA_UNICA:
-    "Pronto! Sua conta de {DATA} foi enviada. ✅\n\nPosso ajudar com mais alguma coisa?",
+  // O código pedido não está mais no Redis (TTL estourado).
+  MSG_FACILIDADE_EXPIRADA:
+    "Já faz um tempo desde a sua consulta e não tenho mais os códigos dessa conta.\n\nToque no botão abaixo para consultar de novo.",
   // A lista guardada no Redis expirou (TTL) e não há o que reexibir.
   MSG_SESSAO_EXPIRADA:
     "Já faz um tempo desde a sua consulta e não tenho mais sua lista de contas.\n\nToque no botão abaixo para consultar de novo.",
@@ -108,11 +136,17 @@ module.exports = Object.freeze({
   REPLY_HORARIO_CTA: "Horário atendimento",
   REPLY_MENU_CTA: "Voltar ao menu",
   REPLY_VER_OUTRAS_CTA: "Ver outras contas",
+  REPLY_LINHA_CTA: "Linha digitável",
+  REPLY_PIX_CTA: "PIX copia e cola",
 
   // Reply Button IDs
   REPLY_SEGUNDA_VIA_ID: "assusa-segunda-via",
   REPLY_HORARIO_ID: "assusa-horario-funcionamento",
   REPLY_MENU_ID: "assusa-menu",
   // NÃO entra em MENU_BUTTONS: reexibe a lista guardada em vez de descartá-la.
-  REPLY_VER_OUTRAS_ID: "assusa-ver-outras"
+  REPLY_VER_OUTRAS_ID: "assusa-ver-outras",
+  // Idem: entregam um código da conta já enviada e reexibem a lista, então
+  // limpar a sessão destruiria justamente o que eles usam.
+  REPLY_LINHA_ID: "assusa-linha-digitavel",
+  REPLY_PIX_ID: "assusa-pix-copia-cola"
 });

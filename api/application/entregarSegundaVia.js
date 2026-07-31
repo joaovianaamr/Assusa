@@ -25,6 +25,7 @@ module.exports = function criar({ notificador, sessao, bancoBoletos, telemetria,
       );
       await sessao.clearEstado(message.senderPhoneNumber);
       await sessao.clearBoletos(message.senderPhoneNumber);
+      await sessao.clearCodigos(message.senderPhoneNumber);
       return;
     }
 
@@ -88,60 +89,145 @@ module.exports = function criar({ notificador, sessao, bancoBoletos, telemetria,
       await notificador.messageWithText(message.id, senderPhoneNumberId, recipient, caption);
     }
 
-    // 2) e 3) linha digitável — rótulo e número em mensagens separadas (cópia fácil)
-    await notificador.messageWithText(undefined, senderPhoneNumberId, recipient, mensagens.MSG_LABEL_LINHA_DIGITAVEL);
-    await notificador.messageWithText(undefined, senderPhoneNumberId, recipient, linhaDigitavel);
-
-    // 4) e 5) PIX copia e cola — rótulo e código em mensagens separadas
-    if (resultado.qrCode) {
-      await notificador.messageWithText(undefined, senderPhoneNumberId, recipient, mensagens.MSG_LABEL_PIX);
-      await notificador.messageWithText(undefined, senderPhoneNumberId, recipient, resultado.qrCode);
-    } else {
-      await notificador.messageWithText(undefined, senderPhoneNumberId, recipient, mensagens.MSG_PIX_INDISPONIVEL);
-    }
-
     telemetria.registrar(recipient, "PDF_ENTREGUE", null, { dataVencimento: resultado.dataVencimento, valor: resultado.valor });
+
+    // 2) os códigos ficam guardados e são entregues SOB DEMANDA, pela lista de
+    // facilidades. Antes saíam todos de uma vez (4 mensagens) e empurravam o PDF
+    // para fora da tela do celular.
+    const codigos = {
+      linhaDigitavel,
+      qrCode: resultado.qrCode || null,
+      restantes: boletos.length - 1,
+    };
+    await sessao.setCodigos(recipient, codigos);
 
     // Mantém estado + boletos para o cliente escolher outra conta sem redigitar o
     // CPF; renova o TTL (janela deslizante).
     await mensageria.refrescarSessaoBoletos(recipient, boletos);
-    await fecharEntrega(senderPhoneNumberId, message, boleto, boletos.length);
+
+    const corpo = codigos.restantes > 0
+      ? mensagens.MSG_FACILIDADES_OUTRAS.replace("{RESTANTES}", codigos.restantes)
+      : mensagens.MSG_FACILIDADES_UNICA;
+
+    const enviou = await oferecerFacilidades(senderPhoneNumberId, recipient, codigos, corpo);
+    if (!enviou) {
+      await entregarCodigosEmTexto(senderPhoneNumberId, recipient, codigos);
+    }
   }
 
   /**
-   * Fecha o atendimento depois de entregar o boleto.
+   * Oferece os códigos de pagamento numa única lista interativa.
    *
-   * Antes a conversa morria no PIX: o cliente não sabia que a lista continuava
-   * viva por 30 min e que podia pedir outra conta sem redigitar o CPF.
+   * Substitui o antigo fechamento em botões e as quatro mensagens de código.
+   * O cliente toca no que quer e recebe só aquilo — o WhatsApp copia a mensagem
+   * INTEIRA, então cada código precisa continuar chegando sozinho para a cópia
+   * funcionar; o que mudou é que agora só chega o código pedido.
    *
-   * "Ver outras contas" reexibe a lista do Redis — de propósito NÃO está em
-   * MENU_BUTTONS, senão limparia a sessão que ele acabou de usar. "Voltar ao
-   * menu" continua sendo a saída que descarta tudo.
+   * "Ver outras contas" e "Voltar ao menu" viram linhas da mesma lista, então a
+   * entrega inteira cabe em duas mensagens: PDF + lista.
+   *
+   * @returns {Promise<boolean>} false se a Meta recusou a lista.
    */
-  async function fecharEntrega(senderPhoneNumberId, message, boletoEntregue, totalNaSessao) {
-    const temOutras = totalNaSessao > 1;
-    const texto = (temOutras ? mensagens.MSG_POS_ENTREGA_OUTRAS : mensagens.MSG_POS_ENTREGA_UNICA)
-      .replace("{DATA}", formatarData(boletoEntregue.dataVencimentoOriginal))
-      .replace("{RESTANTES}", totalNaSessao - 1);
+  async function oferecerFacilidades(senderPhoneNumberId, recipient, codigos, corpo) {
+    try {
+      await notificador.messageWithInteractiveList(
+        undefined, senderPhoneNumberId, recipient, corpo,
+        mensagens.MSG_FACILIDADES_BOTAO, mensagens.MSG_FACILIDADES_SECAO,
+        view.montarRowsFacilidades({
+          temPix: Boolean(codigos.qrCode),
+          restantes: codigos.restantes,
+        })
+      );
+      return true;
+    } catch (e) {
+      console.error('[facilidades] lista recusada pela Meta:', e?.message || e);
+      return false;
+    }
+  }
+
+  /**
+   * Fallback do formato antigo: a Meta recusa a mensagem interativa inteira
+   * (HTTP 400) por detalhe de formato. Sem esta rede o cliente ficaria com o PDF
+   * e sem nenhum código — pior do que a chuva de mensagens que a lista evita.
+   */
+  async function entregarCodigosEmTexto(senderPhoneNumberId, recipient, codigos) {
+    telemetria.registrar(recipient, "FACILIDADES_FALLBACK_TEXTO");
+
+    await notificador.messageWithText(undefined, senderPhoneNumberId, recipient, mensagens.MSG_LABEL_LINHA_DIGITAVEL);
+    await notificador.messageWithText(undefined, senderPhoneNumberId, recipient, codigos.linhaDigitavel);
+
+    if (codigos.qrCode) {
+      await notificador.messageWithText(undefined, senderPhoneNumberId, recipient, mensagens.MSG_LABEL_PIX);
+      await notificador.messageWithText(undefined, senderPhoneNumberId, recipient, codigos.qrCode);
+    } else {
+      await notificador.messageWithText(undefined, senderPhoneNumberId, recipient, mensagens.MSG_PIX_INDISPONIVEL);
+    }
 
     const botoes = [];
-    if (temOutras) {
+    if (codigos.restantes > 0) {
       botoes.push({ id: mensagens.REPLY_VER_OUTRAS_ID, title: mensagens.REPLY_VER_OUTRAS_CTA });
     }
     botoes.push({ id: mensagens.REPLY_MENU_ID, title: mensagens.REPLY_MENU_CTA });
 
-    try {
-      await notificador.messageWithInteractiveReply(
-        undefined, senderPhoneNumberId, message.senderPhoneNumber, texto, botoes
+    await notificador.messageWithInteractiveReply(
+      undefined, senderPhoneNumberId, recipient, mensagens.APP_TRY_ANOTHER_MESSAGE, botoes
+    ).catch(err => console.error('[facilidades] botões do fallback também falharam:', err?.message || err));
+  }
+
+  /**
+   * Entrega o código que o cliente escolheu na lista de facilidades e reexibe a
+   * lista logo abaixo — sem isso ele precisaria rolar a conversa de volta para
+   * pedir o outro código, que é exatamente o problema que a lista resolve.
+   *
+   * @param {"linha"|"pix"} qual
+   */
+  async function enviarFacilidade(senderPhoneNumberId, message, qual) {
+    const recipient = message.senderPhoneNumber;
+    const codigos = await sessao.getCodigos(recipient);
+
+    // TTL estourado: não há código para entregar e consultar o Sicoob de novo
+    // exigiria saber qual conta era — o cliente recomeça pelo menu.
+    if (!codigos) {
+      telemetria.registrar(recipient, "SESSAO_EXPIRADA", null, { etapa: "facilidades" });
+      await mensageria.enviarComBotaoMenu(
+        message.id, senderPhoneNumberId, recipient, mensagens.MSG_FACILIDADE_EXPIRADA
       );
-    } catch (e) {
-      // O boleto já foi entregue; o fechamento não pode derrubar o fluxo.
-      console.error('[pos-entrega] botões não enviados, caindo para texto:', e?.message || e);
-      await notificador.messageWithText(
-        undefined, senderPhoneNumberId, message.senderPhoneNumber, texto
-      ).catch(err => console.error('[pos-entrega] texto também falhou:', err?.message || err));
+      await sessao.clearEstado(recipient);
+      await sessao.clearBoletos(recipient);
+      await sessao.clearCodigos(recipient);
+      return;
+    }
+
+    const ehPix = qual === "pix";
+    const codigo = ehPix ? codigos.qrCode : codigos.linhaDigitavel;
+
+    // Só acontece se o cliente tocar numa lista antiga: a linha do PIX não é
+    // oferecida quando o boleto não tem QR Code.
+    if (!codigo) {
+      await mensageria.enviarComBotaoMenu(
+        message.id, senderPhoneNumberId, recipient, mensagens.MSG_PIX_INDISPONIVEL
+      );
+      return;
+    }
+
+    await notificador.messageWithText(message.id, senderPhoneNumberId, recipient, codigo);
+    telemetria.registrar(recipient, "FACILIDADE_ENVIADA", null, { tipo: ehPix ? "pix" : "linha_digitavel" });
+
+    // Renova o TTL dos códigos e da lista de contas: enquanto o cliente
+    // interage, a sessão não pode expirar debaixo dele.
+    await sessao.setCodigos(recipient, codigos);
+    const boletos = await sessao.getBoletos(recipient);
+    if (boletos && boletos.length) {
+      await mensageria.refrescarSessaoBoletos(recipient, boletos);
+    }
+
+    const corpo = ehPix ? mensagens.MSG_FACILIDADES_APOS_PIX : mensagens.MSG_FACILIDADES_APOS_LINHA;
+    const enviou = await oferecerFacilidades(senderPhoneNumberId, recipient, codigos, corpo);
+    if (!enviou) {
+      // O código já chegou; o que falta é a saída — nunca deixar sem botão.
+      await mensageria.enviarComBotaoMenu(undefined, senderPhoneNumberId, recipient, corpo);
     }
   }
 
-  return { handleSelecaoBoleto, fecharEntrega };
+  return { handleSelecaoBoleto, enviarFacilidade, oferecerFacilidades };
 };

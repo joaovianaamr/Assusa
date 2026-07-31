@@ -104,6 +104,29 @@ class Cache {
         const key = `boletos:${phoneNumber}`;
         await conectar().del(key);
     }
+
+    /**
+     * Códigos da última conta entregue (linha digitável e PIX copia e cola).
+     *
+     * Guardados porque a lista de facilidades entrega o código SOB DEMANDA: o
+     * toque chega minutos depois do PDF, e sem isto seria preciso consultar o
+     * Sicoob de novo a cada toque.
+     */
+    static async setCodigos(phoneNumber, codigos) {
+        const key = `codigos:${phoneNumber}`;
+        await conectar().set(key, JSON.stringify(codigos), { EX: config.estadoTtlSeconds });
+    }
+
+    static async getCodigos(phoneNumber) {
+        const key = `codigos:${phoneNumber}`;
+        const raw = await conectar().get(key);
+        return raw ? JSON.parse(raw) : null;
+    }
+
+    static async clearCodigos(phoneNumber) {
+        const key = `codigos:${phoneNumber}`;
+        await conectar().del(key);
+    }
 }
 
 module.exports = Cache;

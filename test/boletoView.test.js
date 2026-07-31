@@ -130,11 +130,32 @@ test("truncar corta apenas o que passa do limite", () => {
 
 test("corpo da seleção cabe no limite de 1024 caracteres da Meta", () => {
   const corpo = view.montarCorpoSelecao(
-    constants.MSG_SELECIONAR_BOLETO_LISTA,
+    constants.MSG_SELECIONAR_BOLETO_TEXTO,
     listaDe(view.MAX_ROWS)
   );
   assert.ok(corpo.length <= view.LIMITE_CORPO, `corpo com ${corpo.length} chars`);
   assert.match(corpo, /10\)/, "deve enumerar até a décima conta");
+});
+
+test("o corpo da lista interativa NÃO repete as contas", () => {
+  const corpo = view.montarCorpoSelecao(
+    constants.MSG_SELECIONAR_BOLETO_LISTA,
+    listaDe(4)
+  );
+  // As linhas da lista já trazem data e valor de cada conta; enumerar de novo
+  // no corpo vira paredão de texto.
+  assert.ok(!corpo.includes("1)"), "a enumeração é redundante aqui");
+  assert.match(corpo, /Encontrei 4 contas/, "sobra só o cabeçalho");
+  assert.ok(
+    !corpo.includes(constants.MSG_LISTA_BOTAO),
+    "a instrução repetia em palavras o rótulo do próprio botão"
+  );
+});
+
+test("o corpo com botões continua enumerando (o botão não mostra o valor)", () => {
+  const corpo = view.montarCorpoSelecao(constants.MSG_SELECIONAR_BOLETO, listaDe(3));
+  assert.match(corpo, /1\)/);
+  assert.match(corpo, /3\)/);
 });
 
 // ── resolução da escolha (botão, lista ou número digitado) ───────────────────
@@ -160,4 +181,34 @@ test("resolverIndiceSelecao recusa texto que não é número", () => {
   assert.equal(view.resolverIndiceSelecao({ type: "unknown", text: "quero a primeira" }, 3), null);
   assert.equal(view.resolverIndiceSelecao({ type: "unknown", text: "" }, 3), null);
   assert.equal(view.resolverIndiceSelecao({ type: "unknown" }, 3), null);
+});
+
+// ── lista de facilidades exibida depois de entregar o PDF ────────────────────
+
+test("montarRowsFacilidades põe o código antes da saída", () => {
+  const rows = view.montarRowsFacilidades({ temPix: true, restantes: 2 });
+  assert.deepEqual(rows.map(r => r.id), [
+    constants.REPLY_LINHA_ID,
+    constants.REPLY_PIX_ID,
+    constants.REPLY_VER_OUTRAS_ID,
+    constants.REPLY_MENU_ID,
+  ]);
+  assert.match(rows[2].description, /2 conta\(s\)/);
+});
+
+test("montarRowsFacilidades esconde PIX e 'ver outras' quando não se aplicam", () => {
+  const rows = view.montarRowsFacilidades({ temPix: false, restantes: 0 });
+  assert.deepEqual(rows.map(r => r.id), [
+    constants.REPLY_LINHA_ID,
+    constants.REPLY_MENU_ID,
+  ]);
+});
+
+test("as linhas de facilidades cabem nos limites da lista da Meta", () => {
+  const rows = view.montarRowsFacilidades({ temPix: true, restantes: 9 });
+  assert.ok(rows.length <= view.MAX_ROWS);
+  for (const row of rows) {
+    assert.ok(row.title.length <= view.LIMITE_TITULO_ROW, `título: ${row.title}`);
+    assert.ok(row.description.length <= view.LIMITE_DESCRICAO_ROW, `descrição: ${row.description}`);
+  }
 });

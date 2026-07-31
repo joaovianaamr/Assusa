@@ -123,6 +123,7 @@ router.handleMessage                     api/interface/webhookRouter.js
    │
    ├── palavra-chave de saída ─────────► menu principal, sessão descartada
    ├── botão "Ver outras contas" ──────► listagem.reexibirBoletos (cache, 0 chamadas ao Sicoob)
+   ├── linha da lista de facilidades ──► entrega.enviarFacilidade (código do cache + reexibe a lista)
    ├── estado aguardando_cpf ──────────► consulta.handleCpfRecebido
    │        │  cpf.apenasDigitos + cpf.cpfValido       (domain)
    │        │  bancoBoletos.listarBoletos              (porta → sicoobHttp → Python → Sicoob)
@@ -130,8 +131,8 @@ router.handleMessage                     api/interface/webhookRouter.js
    │                 boleto.deveUsarLista / montarRows  (domain, limites da Meta)
    │                 notificador.messageWith…           (porta → whatsappGraph → Meta)
    ├── estado aguardando_selecao ──────► entrega.handleSelecaoBoleto
-   │                 bancoBoletos.segundaViaBoleto → PDF, linha digitável, PIX
-   │                 entrega.fecharEntrega → "Ver outras contas" / "Voltar ao menu"
+   │                 bancoBoletos.segundaViaBoleto → PDF (códigos guardados no Redis)
+   │                 entrega.oferecerFacilidades → lista "Formas de pagar"
    └── qualquer outra coisa ───────────► menu principal
 ```
 
@@ -147,12 +148,14 @@ Chave por telefone, TTL deslizante de `ESTADO_TTL_SECONDS` (padrão 1800 s):
 - `estado:<telefone>` — *(sem estado)* · `aguardando_cpf` · `aguardando_selecao_boleto`
 - `boletos:<telefone>` — a lista já com valores atualizados, para o cliente pedir outra conta
   sem redigitar o CPF
+- `codigos:<telefone>` — linha digitável e PIX da última conta entregue, porque a lista de
+  facilidades entrega o código sob demanda: o toque chega minutos depois do PDF
 
 ---
 
 ## 6. Testes
 
-103 no Node, todos rodando **sem Redis instalado**, e 53 no Python.
+112 no Node, todos rodando **sem Redis instalado**, e 53 no Python.
 
 | Arquivo | Guarda o quê |
 |---|---|

@@ -24,6 +24,7 @@ const SESSAO = {
   operacoes: [
     "getEstado", "setEstado", "clearEstado",
     "getBoletos", "setBoletos", "clearBoletos",
+    "getCodigos", "setCodigos", "clearCodigos",
   ],
 };
 

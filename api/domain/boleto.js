@@ -105,6 +105,53 @@ function montarRowsLista(boletos) {
 }
 
 /**
+ * Linhas da lista de facilidades exibida depois de entregar o PDF.
+ *
+ * A ordem importa: o que o cliente veio buscar (o código para pagar) vem
+ * primeiro; sair da conversa é a última linha. A linha do PIX some quando o
+ * boleto não tem QR Code — oferecer e depois dizer "indisponível" seria pior
+ * do que não oferecer.
+ *
+ * @param {{temPix:boolean, restantes:number}} opcoes
+ */
+function montarRowsFacilidades({ temPix, restantes }) {
+  const rows = [
+    {
+      id: mensagens.REPLY_LINHA_ID,
+      title: truncar(mensagens.REPLY_LINHA_CTA, LIMITE_TITULO_ROW),
+      description: truncar(mensagens.MSG_FACILIDADE_LINHA_DESC, LIMITE_DESCRICAO_ROW),
+    },
+  ];
+
+  if (temPix) {
+    rows.push({
+      id: mensagens.REPLY_PIX_ID,
+      title: truncar(mensagens.REPLY_PIX_CTA, LIMITE_TITULO_ROW),
+      description: truncar(mensagens.MSG_FACILIDADE_PIX_DESC, LIMITE_DESCRICAO_ROW),
+    });
+  }
+
+  if (restantes > 0) {
+    rows.push({
+      id: mensagens.REPLY_VER_OUTRAS_ID,
+      title: truncar(mensagens.REPLY_VER_OUTRAS_CTA, LIMITE_TITULO_ROW),
+      description: truncar(
+        mensagens.MSG_FACILIDADE_OUTRAS_DESC.replace("{RESTANTES}", restantes),
+        LIMITE_DESCRICAO_ROW
+      ),
+    });
+  }
+
+  rows.push({
+    id: mensagens.REPLY_MENU_ID,
+    title: truncar(mensagens.REPLY_MENU_CTA, LIMITE_TITULO_ROW),
+    description: truncar(mensagens.MSG_FACILIDADE_MENU_DESC, LIMITE_DESCRICAO_ROW),
+  });
+
+  return rows;
+}
+
+/**
  * Descobre qual conta o cliente escolheu. Aceita as três formas de resposta:
  * clique de botão e toque em item de lista (ambos chegam como id "boleto-N"),
  * e o número digitado — usado no fallback em texto, mas aceito sempre, porque
@@ -148,4 +195,5 @@ module.exports = {
   montarLinhasBoletos,
   montarBotoesBoletos,
   montarRowsLista,
+  montarRowsFacilidades,
 };
